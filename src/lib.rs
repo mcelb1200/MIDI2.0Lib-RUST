@@ -1,3 +1,4 @@
+#![no_std]
 pub mod utils;
 pub mod ump;
 pub mod messages;
