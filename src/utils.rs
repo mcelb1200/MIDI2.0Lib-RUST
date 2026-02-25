@@ -102,6 +102,11 @@ pub const UMP_MIDI_ENDPOINT: u8 = 0xF;
 ///
 /// The scaled 32-bit value.
 pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
+    // Prevent panic on invalid input
+    if src_bits == 0 || src_bits > 32 || dst_bits > 32 {
+        return 0;
+    }
+
     // Handle value of 0 - skip processing
     if src_val == 0 {
         return 0;
@@ -154,6 +159,15 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
 ///
 /// The scaled down value.
 pub fn scale_down(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
+    // Prevent panic on invalid input
+    if src_bits > 32 || dst_bits > 32 {
+        return 0;
+    }
+
     let scale_bits = src_bits.saturating_sub(dst_bits);
+    // Double check to ensure we don't shift by >= 32
+    if scale_bits >= 32 {
+        return 0;
+    }
     src_val >> scale_bits
 }

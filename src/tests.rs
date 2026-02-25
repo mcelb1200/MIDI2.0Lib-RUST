@@ -79,4 +79,20 @@ mod tests {
          let val = scale_down(0xFFFF, 16, 7);
          assert_eq!(val, 127);
     }
+
+    #[test]
+    fn test_scaling_edge_cases() {
+        // Test scale_up invalid inputs (should return 0, not panic)
+        assert_eq!(scale_up(100, 0, 32), 0); // src_bits = 0
+        assert_eq!(scale_up(100, 33, 32), 0); // src_bits > 32
+        assert_eq!(scale_up(100, 32, 33), 0); // dst_bits > 32
+
+        // Test scale_down invalid inputs
+        assert_eq!(scale_down(100, 33, 32), 0); // src_bits > 32
+        assert_eq!(scale_down(100, 32, 33), 0); // dst_bits > 32
+
+        // Test shift boundary
+        // scale_down where src_bits - dst_bits == 32
+        assert_eq!(scale_down(100, 32, 0), 0);
+    }
 }
