@@ -129,19 +129,20 @@ class umpToBytestream{
 
                             uint8_t sysByte = UMP >> 16 & 0xFF;
                             if (
-                                sysByte== 0xF4 || sysByte == 0xF5 || sysByte == 0xFD || sysByte == 0xF9
-                                || sysByte == 0xF7 || sysByte <= 0xF0
+                                sysByte == SYSTEM_RESERVED_F4 || sysByte == SYSTEM_RESERVED_F5
+                                || sysByte == SYSTEM_RESERVED_FD || sysByte == SYSTEM_RESERVED_F9
+                                || sysByte == SYSEX_STOP || sysByte <= SYSEX_START
                                 ) {
                                 return;
                             }
 
                             bsOut[writeIndex] = sysByte;
                             increaseWrite();
-                            if (sysByte== 0xF1 ||sysByte == 0xF2 || sysByte == 0xF3) {
+                            if (sysByte == TIMING_CODE || sysByte == SPP || sysByte == SONG_SELECT) {
                                 bsOut[writeIndex] = (UMP >> 8) & 0x7F;
                                 increaseWrite();
                             }
-                            if (sysByte == 0xF2) {
+                            if (sysByte == SPP) {
                                 bsOut[writeIndex] = UMP & 0x7F;
                                 increaseWrite();
                             }
