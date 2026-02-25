@@ -170,7 +170,9 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                     return;
                 }
                 if (sysexPos >= 16 && sysexPos <= 15 + intTemp[1]){
-                    buffer[sysexPos - 16] = s7Byte; //Info Data
+                    if (sysexPos - 16 < (int)sizeof(buffer)) {
+                        buffer[sysexPos - 16] = s7Byte; //Info Data
+                    }
                 }if (sysexPos == 16 + intTemp[1]){
                     complete = true;
                 }
@@ -178,7 +180,7 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                 if (complete) {
                     recvEndPointInfoReply(midici,
                                      (uint8_t) intTemp[0],
-                                     intTemp[1],
+                                     intTemp[1] > sizeof(buffer) ? (uint16_t)sizeof(buffer) : intTemp[1],
                                      buffer
                                      );
                 }
@@ -212,7 +214,9 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                 }
 
                 if (sysexPos >= 23 && sysexPos <= 23 + intTemp[3]){
-                    buffer[sysexPos - 23] = s7Byte; //product ID
+                    if (sysexPos - 23 < (int)sizeof(buffer)) {
+                        buffer[sysexPos - 23] = s7Byte; //product ID
+                    }
                 }
                 if (sysexPos == 23 + intTemp[3]){
                     complete = true;
@@ -232,7 +236,7 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                             (uint8_t) intTemp[1],
                             (uint8_t) intTemp[2],
                             ackNakDetails,
-                            intTemp[3],
+                            intTemp[3] > sizeof(buffer) ? (uint16_t)sizeof(buffer) : intTemp[3],
                             buffer
                     );
 
@@ -244,7 +248,7 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                             (uint8_t) intTemp[1],
                             (uint8_t) intTemp[2],
                             ackNakDetails,
-                            intTemp[3],
+                            intTemp[3] > sizeof(buffer) ? (uint16_t)sizeof(buffer) : intTemp[3],
                             buffer
                         );
                 }
@@ -526,7 +530,9 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             }
 
             if (sysexPos >= 21 && sysexPos <= 21 + intTemp[0]){
-                buffer[sysexPos - 22 + 6] = s7Byte; //product ID
+                if (sysexPos - 22 + 6 < (int)sizeof(buffer)) {
+                    buffer[sysexPos - 22 + 6] = s7Byte; //product ID
+                }
             }
 
             if (sysexPos == 21 + intTemp[0] && recvSetProfileDetailsInquiry != nullptr){
@@ -534,7 +540,7 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
                                                     buffer[2], buffer[3],
                                                     buffer[4]},
                                            buffer[5],
-                                           intTemp[0],
+                                           intTemp[0] > (sizeof(buffer) - 6) ? (uint16_t)(sizeof(buffer) - 6) : intTemp[0],
                                            &(buffer[6])
                 );
             }
@@ -652,8 +658,12 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
 
             if (sysexPos >= 16 && sysexPos <= 15 + headerLength) {
                 uint16_t charOffset = (sysexPos - 16);
-                buffer[charOffset] = s7Byte;
-                peHeaderStr[midici._peReqIdx].push_back(s7Byte);
+                if (charOffset < sizeof(buffer)) {
+                    buffer[charOffset] = s7Byte;
+                }
+                if (peHeaderStr[midici._peReqIdx].length() < 1024) {
+                    peHeaderStr[midici._peReqIdx].push_back(s7Byte);
+                }
 
 
                 if (sysexPos == 15 + headerLength) {
