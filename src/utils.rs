@@ -119,14 +119,35 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
 
     // simple bit shift
     let scale_bits = dst_bits.saturating_sub(src_bits);
-    let mut bit_shifted_value = src_val << scale_bits;
+    let bit_shifted_value = src_val << scale_bits;
     let src_center = 1 << (src_bits - 1);
 
     if src_val <= src_center {
         return bit_shifted_value;
     }
 
-    // expanded bit repeat scheme
+    // Optimization for common MIDI 2.0 cases (Targeting 32-bit UMP)
+    // These paths are mathematically equivalent to the loop below but branchless.
+    if dst_bits == 32 {
+        if src_bits == 7 {
+             // 7-bit to 32-bit (e.g. Velocity, CC)
+             // Pattern: Shift 25, then fill with repeated lower 6 bits (src_bits-1)
+             // Repeat shifts: 19, 13, 7, 1, -5
+             // Multiplier 0x82082 = (1<<19) | (1<<13) | (1<<7) | (1<<1)
+             // Final term is shift right by 5
+             let repeat_val = src_val & 0x3F;
+             return bit_shifted_value | (repeat_val * 0x00082082) | (repeat_val >> 5);
+        } else if src_bits == 14 {
+             // 14-bit to 32-bit (e.g. Pitch Bend, NRPN)
+             // Pattern: Shift 18, then fill with repeated lower 13 bits
+             // Repeat shifts: 5, -8
+             let repeat_val = src_val & 0x1FFF;
+             return bit_shifted_value | (repeat_val << 5) | (repeat_val >> 8);
+        }
+    }
+
+    // expanded bit repeat scheme (Legacy/Fallback path)
+    let mut current_bit_shifted = bit_shifted_value;
     let repeat_bits = src_bits - 1;
     let repeat_mask = (1 << repeat_bits) - 1;
     let mut repeat_value = src_val & repeat_mask;
@@ -138,11 +159,11 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
     }
 
     while repeat_value != 0 {
-        bit_shifted_value |= repeat_value;
+        current_bit_shifted |= repeat_value;
         repeat_value >>= repeat_bits;
     }
 
-    bit_shifted_value
+    current_bit_shifted
 }
 
 /// Scales a value down from a larger bit depth to a smaller bit depth.
