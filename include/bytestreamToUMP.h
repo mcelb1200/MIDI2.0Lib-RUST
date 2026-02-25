@@ -190,7 +190,7 @@ class bytestreamToUMP{
                         || d0 == SONG_SELECT
                         ) {
                     bsToUMP(d0, midi1Byte, 0);
-                } else if (d0 == 0xF4 || d0 == 0xF5 || d0 == 0xFD || d0==0xF9) {
+                } else if (d0 == SYSTEM_RESERVED_F4 || d0 == SYSTEM_RESERVED_F5 || d0 == SYSTEM_RESERVED_FD || d0 == SYSTEM_RESERVED_F9) {
                     resetBuffer();
 
                 } else if (d0 < SYSEX_START || d0 == SPP) { // First data byte
