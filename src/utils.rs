@@ -1,4 +1,3 @@
-
 // Constants from include/utils.h
 
 /// Note Off status byte (0x80).
@@ -124,6 +123,21 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
 
     if src_val <= src_center {
         return bit_shifted_value;
+    }
+
+    // Optimization for common MIDI 2.0 scalings (7-bit and 14-bit to 32-bit)
+    if dst_bits == 32 {
+        if src_bits == 7 {
+            // 7-bit to 32-bit scaling (e.g. Velocity, CC)
+            // Repeat lower 6 bits (src_bits - 1)
+            let v = src_val & 0x3F;
+            return bit_shifted_value | (v << 19) | (v << 13) | (v << 7) | (v << 1) | (v >> 5);
+        } else if src_bits == 14 {
+            // 14-bit to 32-bit scaling (e.g. Pitch Bend, High Res Velocity)
+            // Repeat lower 13 bits (src_bits - 1)
+            let v = src_val & 0x1FFF;
+            return bit_shifted_value | (v << 5) | (v >> 8);
+        }
     }
 
     // expanded bit repeat scheme

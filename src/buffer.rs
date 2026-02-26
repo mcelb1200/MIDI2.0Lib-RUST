@@ -1,4 +1,4 @@
-use crate::ump::{Ump, MessageType};
+use crate::ump::{MessageType, Ump};
 
 /// A parser for a stream of 32-bit words into Universal MIDI Packets (UMP).
 ///
