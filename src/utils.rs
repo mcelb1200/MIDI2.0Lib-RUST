@@ -114,6 +114,9 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
 
     // handle 1-bit (bool) scaling
     if src_bits == 1 {
+        if dst_bits == 32 {
+            return u32::MAX;
+        }
         return (1 << dst_bits) - 1;
     }
 

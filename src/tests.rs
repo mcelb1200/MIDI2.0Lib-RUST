@@ -95,4 +95,11 @@ mod tests {
         // scale_down where src_bits - dst_bits == 32
         assert_eq!(scale_down(100, 32, 0), 0);
     }
+
+    #[test]
+    fn test_scale_up_panic() {
+        // This should not panic
+        let res = scale_up(1, 1, 32);
+        assert_eq!(res, 0xFFFFFFFF);
+    }
 }
