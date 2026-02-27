@@ -170,7 +170,7 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                     return;
                 }
                 if (sysexPos >= 16 && sysexPos <= 15 + intTemp[1]){
-                    buffer[sysexPos - 16] = s7Byte; //Info Data
+                if (sysexPos - 16 < 256) buffer[sysexPos - 16] = s7Byte; //Info Data
                 }if (sysexPos == 16 + intTemp[1]){
                     complete = true;
                 }
@@ -203,7 +203,7 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                 }
 
                 if (sysexPos >= 16 && sysexPos <= 20){
-                    buffer[sysexPos - 16] = s7Byte; //ackNakDetails
+                if (sysexPos - 16 < 256) buffer[sysexPos - 16] = s7Byte; //ackNakDetails
                 }
 
                 if(sysexPos == 21 || sysexPos == 22){
@@ -212,7 +212,7 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                 }
 
                 if (sysexPos >= 23 && sysexPos <= 23 + intTemp[3]){
-                    buffer[sysexPos - 23] = s7Byte; //product ID
+                if (sysexPos - 23 < 256) buffer[sysexPos - 23] = s7Byte; //product ID
                 }
                 if (sysexPos == 23 + intTemp[3]){
                     complete = true;
@@ -526,7 +526,7 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             }
 
             if (sysexPos >= 21 && sysexPos <= 21 + intTemp[0]){
-                buffer[sysexPos - 22 + 6] = s7Byte; //product ID
+                if (sysexPos - 22 + 6 < 256) buffer[sysexPos - 22 + 6] = s7Byte; //product ID
             }
 
             if (sysexPos == 21 + intTemp[0] && recvSetProfileDetailsInquiry != nullptr){
@@ -652,8 +652,9 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
 
             if (sysexPos >= 16 && sysexPos <= 15 + headerLength) {
                 uint16_t charOffset = (sysexPos - 16);
-                buffer[charOffset] = s7Byte;
-                peHeaderStr[midici._peReqIdx].push_back(s7Byte);
+                if (charOffset < 256) buffer[charOffset] = s7Byte;
+                //Prevent Memory Exhaustion
+                if (peHeaderStr[midici._peReqIdx].length() < 1024) peHeaderStr[midici._peReqIdx].push_back(s7Byte);
 
 
                 if (sysexPos == 15 + headerLength) {
