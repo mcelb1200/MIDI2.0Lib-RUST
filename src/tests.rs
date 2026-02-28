@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
+    use crate::buffer::UmpStreamParser;
     use crate::messages::UmpFactory;
     use crate::ump::MessageType;
-    use crate::buffer::UmpStreamParser;
     use crate::utils::*;
 
     extern crate alloc;
@@ -65,19 +65,19 @@ mod tests {
 
     #[test]
     fn test_scaling() {
-         // Scale 127 (7-bit) to 16-bit
-         let val = scale_up(127, 7, 16);
-         assert_eq!(val, 0xFFFF);
+        // Scale 127 (7-bit) to 16-bit
+        let val = scale_up(127, 7, 16);
+        assert_eq!(val, 0xFFFF);
 
-         // Scale 64 (7-bit) to 16-bit
-         // 0x40 -> 0x8000
-         let val = scale_up(64, 7, 16);
-         // exact center behavior might differ slightly depending on implementation but let's check basic
-         assert!(val > 0x7F00 && val < 0x8100);
+        // Scale 64 (7-bit) to 16-bit
+        // 0x40 -> 0x8000
+        let val = scale_up(64, 7, 16);
+        // exact center behavior might differ slightly depending on implementation but let's check basic
+        assert!(val > 0x7F00 && val < 0x8100);
 
-         // Scale down
-         let val = scale_down(0xFFFF, 16, 7);
-         assert_eq!(val, 127);
+        // Scale down
+        let val = scale_down(0xFFFF, 16, 7);
+        assert_eq!(val, 127);
     }
 
     #[test]
@@ -94,5 +94,12 @@ mod tests {
         // Test shift boundary
         // scale_down where src_bits - dst_bits == 32
         assert_eq!(scale_down(100, 32, 0), 0);
+    }
+
+    #[test]
+    fn test_scale_up_panic() {
+        // This should not panic
+        let res = scale_up(1, 1, 32);
+        assert_eq!(res, 0xFFFFFFFF);
     }
 }
