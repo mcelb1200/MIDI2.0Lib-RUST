@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    extern crate std;
     use crate::messages::UmpFactory;
     use crate::ump::MessageType;
     use crate::buffer::UmpStreamParser;
