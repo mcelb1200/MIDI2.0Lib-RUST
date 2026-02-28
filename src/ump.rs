@@ -107,7 +107,7 @@ impl MessageType {
 impl From<u8> for MessageType {
     /// Converts a raw u8 value to a `MessageType`.
     fn from(val: u8) -> Self {
-       Self::from_u8(val)
+        Self::from_u8(val)
     }
 }
 
@@ -210,7 +210,11 @@ impl Default for Ump {
 
 impl fmt::Debug for Ump {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Ump({:08X}, {:08X}, {:08X}, {:08X})", self.data[0], self.data[1], self.data[2], self.data[3])
+        write!(
+            f,
+            "Ump({:08X}, {:08X}, {:08X}, {:08X})",
+            self.data[0], self.data[1], self.data[2], self.data[3]
+        )
     }
 }
 

@@ -1,4 +1,3 @@
-
 // Constants from include/utils.h
 
 /// Note Off status byte (0x80).
@@ -184,28 +183,22 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
         return bit_shifted_value;
     }
 
-    // Optimization for common MIDI 2.0 cases (Targeting 32-bit UMP)
-    // These paths are mathematically equivalent to the loop below but branchless.
+    // Optimization for common MIDI 2.0 scalings (7-bit and 14-bit to 32-bit)
     if dst_bits == 32 {
         if src_bits == 7 {
-             // 7-bit to 32-bit (e.g. Velocity, CC)
-             // Pattern: Shift 25, then fill with repeated lower 6 bits (src_bits-1)
-             // Repeat shifts: 19, 13, 7, 1, -5
-             // Multiplier 0x82082 = (1<<19) | (1<<13) | (1<<7) | (1<<1)
-             // Final term is shift right by 5
-             let repeat_val = src_val & 0x3F;
-             return bit_shifted_value | (repeat_val * 0x00082082) | (repeat_val >> 5);
+            // 7-bit to 32-bit scaling (e.g. Velocity, CC)
+            // Repeat lower 6 bits (src_bits - 1)
+            let v = src_val & 0x3F;
+            return bit_shifted_value | (v << 19) | (v << 13) | (v << 7) | (v << 1) | (v >> 5);
         } else if src_bits == 14 {
-             // 14-bit to 32-bit (e.g. Pitch Bend, NRPN)
-             // Pattern: Shift 18, then fill with repeated lower 13 bits
-             // Repeat shifts: 5, -8
-             let repeat_val = src_val & 0x1FFF;
-             return bit_shifted_value | (repeat_val << 5) | (repeat_val >> 8);
+            // 14-bit to 32-bit scaling (e.g. Pitch Bend, High Res Velocity)
+            // Repeat lower 13 bits (src_bits - 1)
+            let v = src_val & 0x1FFF;
+            return bit_shifted_value | (v << 5) | (v >> 8);
         }
     }
 
-    // expanded bit repeat scheme (Legacy/Fallback path)
-    let mut current_bit_shifted = bit_shifted_value;
+    // expanded bit repeat scheme
     let repeat_bits = src_bits - 1;
     let repeat_mask = (1 << repeat_bits) - 1;
     let mut repeat_value = src_val & repeat_mask;
