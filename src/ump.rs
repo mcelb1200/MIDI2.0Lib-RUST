@@ -51,25 +51,29 @@ impl MessageType {
     ///
     /// The corresponding `MessageType`. Defaults to `Utility` if an invalid value is provided (though all 4-bit values are covered).
     pub fn from_u8(val: u8) -> Self {
-         match val {
-            0x0 => MessageType::Utility,
-            0x1 => MessageType::System,
-            0x2 => MessageType::Midi1ChannelVoice,
-            0x3 => MessageType::SysEx7,
-            0x4 => MessageType::Midi2ChannelVoice,
-            0x5 => MessageType::Data,
-            0x6 => MessageType::Reserved6,
-            0x7 => MessageType::Reserved7,
-            0x8 => MessageType::Reserved8,
-            0x9 => MessageType::Reserved9,
-            0xA => MessageType::ReservedA,
-            0xB => MessageType::ReservedB,
-            0xC => MessageType::ReservedC,
-            0xD => MessageType::FlexData,
-            0xE => MessageType::ReservedE,
-            0xF => MessageType::Stream,
-            _ => MessageType::Utility,
+        const MESSAGE_TYPES: [MessageType; 16] = [
+            MessageType::Utility,
+            MessageType::System,
+            MessageType::Midi1ChannelVoice,
+            MessageType::SysEx7,
+            MessageType::Midi2ChannelVoice,
+            MessageType::Data,
+            MessageType::Reserved6,
+            MessageType::Reserved7,
+            MessageType::Reserved8,
+            MessageType::Reserved9,
+            MessageType::ReservedA,
+            MessageType::ReservedB,
+            MessageType::ReservedC,
+            MessageType::FlexData,
+            MessageType::ReservedE,
+            MessageType::Stream,
+        ];
+
+        if val > 0xF {
+            return MessageType::Utility;
         }
+        MESSAGE_TYPES[val as usize]
     }
 
     /// Returns the number of 32-bit words required for this message type.
@@ -78,15 +82,25 @@ impl MessageType {
     ///
     /// The number of words (1, 2, 3, or 4).
     pub fn word_count(&self) -> usize {
-        match self {
-            MessageType::Utility | MessageType::System | MessageType::Midi1ChannelVoice => 1,
-            MessageType::SysEx7 | MessageType::Midi2ChannelVoice => 2,
-            MessageType::Data | MessageType::FlexData | MessageType::Stream => 4,
-            MessageType::Reserved8 | MessageType::Reserved9 | MessageType::ReservedA => 2, // 64-bit
-            MessageType::ReservedB | MessageType::ReservedC => 3, // 96-bit
-            MessageType::ReservedE => 4, // 128-bit
-            _ => 1,
-        }
+        const WORD_COUNTS: [usize; 16] = [
+            1, // Utility
+            1, // System
+            1, // Midi1ChannelVoice
+            2, // SysEx7
+            2, // Midi2ChannelVoice
+            4, // Data
+            1, // Reserved6
+            1, // Reserved7
+            2, // Reserved8
+            2, // Reserved9
+            2, // ReservedA
+            3, // ReservedB
+            3, // ReservedC
+            4, // FlexData
+            4, // ReservedE
+            4, // Stream
+        ];
+        WORD_COUNTS[*self as usize]
     }
 }
 

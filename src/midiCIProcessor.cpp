@@ -205,7 +205,7 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                 }
 
                 if (sysexPos >= 16 && sysexPos <= 20){
-                    buffer[sysexPos - 16] = s7Byte; //ackNakDetails
+                if (sysexPos - 16 < 256) buffer[sysexPos - 16] = s7Byte; //ackNakDetails
                 }
 
                 if(sysexPos == 21 || sysexPos == 22){
