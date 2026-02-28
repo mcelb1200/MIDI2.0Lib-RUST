@@ -113,12 +113,70 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
 
     // handle 1-bit (bool) scaling
     if src_bits == 1 {
+        if dst_bits == 32 {
+            return u32::MAX;
+        }
         return (1 << dst_bits) - 1;
+    }
+
+    // Specialized optimizations for common MIDI conversions
+    if dst_bits == 32 {
+        if src_bits == 7 {
+            // 7-bit to 32-bit: Repeat 7 bits 4 times + top 4 bits
+            // 0x7F -> 0xFE000000 | 0x01FC0000 | 0x0003F800 | 0x000007F0 | 0x0000000F = 0xFFFFFFFF
+            // Or more simply: shifts to fill the space
+            // Pattern: VVVVVVV VVVVVVV VVVVVVV VVVVVVV VVVV
+            // But strict MIDI spec scaling often follows specific shifting rules.
+            // Using the "shift and repeat" logic from the generic implementation below but unrolled.
+
+            // Logic derived from generic loop behavior for 7->32:
+            // src_center = 64 (0x40). If val <= 64, it's just val << 25.
+            // If val > 64, we fill lower bits.
+            if src_val <= 64 {
+                return src_val << 25;
+            }
+            // 7-bit to 32-bit unrolled generic logic:
+            // scale_bits = 25
+            // repeat_bits = 6
+            // repeat_value initial = src_val & 0x3F
+            // loop 1: bit_shifted |= (repeat_value << 19)
+            // loop 2: bit_shifted |= (repeat_value << 13)
+            // loop 3: bit_shifted |= (repeat_value << 7)
+            // loop 4: bit_shifted |= (repeat_value << 1)
+            // loop 5: bit_shifted |= (repeat_value >> 5)
+
+            let mut result = src_val << 25;
+            let repeat_val = src_val & 0x3F;
+            result |= repeat_val << 19;
+            result |= repeat_val << 13;
+            result |= repeat_val << 7;
+            result |= repeat_val << 1;
+            result |= repeat_val >> 5;
+            return result;
+        } else if src_bits == 14 {
+            // 14-bit to 32-bit unrolled generic logic:
+            // src_center = 8192 (0x2000).
+            if src_val <= 8192 {
+                return src_val << 18;
+            }
+
+            // scale_bits = 18
+            // repeat_bits = 13
+            // repeat_value initial = src_val & 0x1FFF
+            // loop 1: bit_shifted |= (repeat_value << 5)
+            // loop 2: bit_shifted |= (repeat_value >> 8)
+
+            let mut result = src_val << 18;
+            let repeat_val = src_val & 0x1FFF;
+            result |= repeat_val << 5;
+            result |= repeat_val >> 8;
+            return result;
+        }
     }
 
     // simple bit shift
     let scale_bits = dst_bits.saturating_sub(src_bits);
-    let mut bit_shifted_value = src_val << scale_bits;
+    let bit_shifted_value = src_val << scale_bits;
     let src_center = 1 << (src_bits - 1);
 
     if src_val <= src_center {
@@ -152,11 +210,11 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
     }
 
     while repeat_value != 0 {
-        bit_shifted_value |= repeat_value;
+        current_bit_shifted |= repeat_value;
         repeat_value >>= repeat_bits;
     }
 
-    bit_shifted_value
+    current_bit_shifted
 }
 
 /// Scales a value down from a larger bit depth to a smaller bit depth.
