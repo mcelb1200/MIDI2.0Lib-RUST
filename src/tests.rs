@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    extern crate std;
     use crate::messages::UmpFactory;
     use crate::ump::MessageType;
     use crate::buffer::UmpStreamParser;
@@ -95,4 +96,54 @@ mod tests {
         // scale_down where src_bits - dst_bits == 32
         assert_eq!(scale_down(100, 32, 0), 0);
     }
+
+    // Reference implementation (generic loop) to verify optimization
+    fn scale_up_reference(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
+        if src_bits == 0 || src_bits > 32 || dst_bits > 32 { return 0; }
+        if src_val == 0 { return 0; }
+        if src_bits == 1 { return (1 << dst_bits) - 1; }
+
+        let scale_bits = dst_bits.saturating_sub(src_bits);
+        let mut bit_shifted_value = src_val << scale_bits;
+        let src_center = 1 << (src_bits - 1);
+
+        if src_val <= src_center {
+            return bit_shifted_value;
+        }
+
+        let repeat_bits = src_bits - 1;
+        let repeat_mask = (1 << repeat_bits) - 1;
+        let mut repeat_value = src_val & repeat_mask;
+
+        if scale_bits > repeat_bits {
+            repeat_value <<= scale_bits - repeat_bits;
+        } else {
+            repeat_value >>= repeat_bits - scale_bits;
+        }
+
+        while repeat_value != 0 {
+            bit_shifted_value |= repeat_value;
+            repeat_value >>= repeat_bits;
+        }
+
+        bit_shifted_value
+    }
+
+    #[test]
+    fn test_scale_up_optimization_accuracy() {
+        // Verify 7-bit to 32-bit
+        for i in 0..=127 {
+            let optimized = scale_up(i, 7, 32);
+            let reference = scale_up_reference(i, 7, 32);
+            assert_eq!(optimized, reference, "Mismatch at 7-bit input {}", i);
+        }
+
+        // Verify 14-bit to 32-bit
+        for i in 0..=16383 {
+            let optimized = scale_up(i, 14, 32);
+            let reference = scale_up_reference(i, 14, 32);
+            assert_eq!(optimized, reference, "Mismatch at 14-bit input {}", i);
+        }
+    }
+
 }
