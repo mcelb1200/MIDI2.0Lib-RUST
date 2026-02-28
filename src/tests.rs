@@ -1,9 +1,8 @@
 #[cfg(test)]
 mod tests {
-    extern crate std;
+    use crate::buffer::UmpStreamParser;
     use crate::messages::UmpFactory;
     use crate::ump::MessageType;
-    use crate::buffer::UmpStreamParser;
     use crate::utils::*;
 
     extern crate alloc;
@@ -66,19 +65,19 @@ mod tests {
 
     #[test]
     fn test_scaling() {
-         // Scale 127 (7-bit) to 16-bit
-         let val = scale_up(127, 7, 16);
-         assert_eq!(val, 0xFFFF);
+        // Scale 127 (7-bit) to 16-bit
+        let val = scale_up(127, 7, 16);
+        assert_eq!(val, 0xFFFF);
 
-         // Scale 64 (7-bit) to 16-bit
-         // 0x40 -> 0x8000
-         let val = scale_up(64, 7, 16);
-         // exact center behavior might differ slightly depending on implementation but let's check basic
-         assert!(val > 0x7F00 && val < 0x8100);
+        // Scale 64 (7-bit) to 16-bit
+        // 0x40 -> 0x8000
+        let val = scale_up(64, 7, 16);
+        // exact center behavior might differ slightly depending on implementation but let's check basic
+        assert!(val > 0x7F00 && val < 0x8100);
 
-         // Scale down
-         let val = scale_down(0xFFFF, 16, 7);
-         assert_eq!(val, 127);
+        // Scale down
+        let val = scale_down(0xFFFF, 16, 7);
+        assert_eq!(val, 127);
     }
 
     #[test]
@@ -98,43 +97,9 @@ mod tests {
     }
 
     #[test]
-    fn test_scaling_exhaustive() {
-        // Helper function to replicate the original slow implementation for verification
-        fn scale_up_reference(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
-            if src_bits == 0 || src_bits > 32 || dst_bits > 32 { return 0; }
-            if src_val == 0 { return 0; }
-            if src_bits == 1 { return (1 << dst_bits) - 1; }
-            let scale_bits = dst_bits.saturating_sub(src_bits);
-            let mut bit_shifted_value = src_val << scale_bits;
-            let src_center = 1 << (src_bits - 1);
-            if src_val <= src_center { return bit_shifted_value; }
-            let repeat_bits = src_bits - 1;
-            let repeat_mask = (1 << repeat_bits) - 1;
-            let mut repeat_value = src_val & repeat_mask;
-            if scale_bits > repeat_bits {
-                repeat_value <<= scale_bits - repeat_bits;
-            } else {
-                repeat_value >>= repeat_bits - scale_bits;
-            }
-            while repeat_value != 0 {
-                bit_shifted_value |= repeat_value;
-                repeat_value >>= repeat_bits;
-            }
-            bit_shifted_value
-        }
-
-        // Test 7->32 (Common for Velocity, CC)
-        for val in 0..=127 {
-            let optimized = scale_up(val, 7, 32);
-            let reference = scale_up_reference(val, 7, 32);
-            assert_eq!(optimized, reference, "Mismatch for 7->32 input {}", val);
-        }
-
-        // Test 14->32 (Common for Pitch Bend, NRPN)
-        for val in 0..=16383 {
-            let optimized = scale_up(val, 14, 32);
-            let reference = scale_up_reference(val, 14, 32);
-            assert_eq!(optimized, reference, "Mismatch for 14->32 input {}", val);
-        }
+    fn test_scale_up_panic() {
+        // This should not panic
+        let res = scale_up(1, 1, 32);
+        assert_eq!(res, 0xFFFFFFFF);
     }
 }

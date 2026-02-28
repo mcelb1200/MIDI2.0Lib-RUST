@@ -1,8 +1,8 @@
 #![no_std]
-pub mod utils;
-pub mod ump;
-pub mod messages;
 pub mod buffer;
+pub mod messages;
+pub mod ump;
+pub mod utils;
 
 #[cfg(test)]
 mod tests;
