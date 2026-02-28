@@ -535,7 +535,7 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
                 }
             }
 
-            if (sysexPos == 21 + intTemp[0] && recvSetProfileDetailsInquiry != nullptr){
+            if (sysexPos == 21 + intTemp[0] && recvSetProfileDetailsReply != nullptr){
                 recvSetProfileDetailsReply(midici, {buffer[0], buffer[1],
                                                     buffer[2], buffer[3],
                                                     buffer[4]},

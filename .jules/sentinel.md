@@ -1,0 +1,4 @@
+## 2024-05-18 - Trusting SysEx length fields for fixed internal buffers
+**Vulnerability:** Out-of-bounds Read
+**Learning:** In C++ specifically, passing a pointer to an internal buffer, and an unsanitized length variable into a user callback provides an opportunity for malicious devices to dictate the buffer length being read by the client application. In this case, `intTemp[1]` which dictated the length could exceed the internal bounds of `buffer` (which is size 256), leading an out-of-bounds read vulnerability.
+**Prevention:** Bound `intTemp[X]` parameters to the length of the actual array provided to the user callback (`buffer`) since we already bounds check inserting data into `buffer`.
