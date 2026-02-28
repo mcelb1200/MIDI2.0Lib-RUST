@@ -178,7 +178,7 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                 if (complete) {
                     recvEndPointInfoReply(midici,
                                      (uint8_t) intTemp[0],
-                                     intTemp[1],
+                                     intTemp[1] > 256 ? 256 : intTemp[1],
                                      buffer
                                      );
                 }
@@ -232,7 +232,7 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                             (uint8_t) intTemp[1],
                             (uint8_t) intTemp[2],
                             ackNakDetails,
-                            intTemp[3],
+                            intTemp[3] > 256 ? 256 : intTemp[3],
                             buffer
                     );
 
@@ -244,7 +244,7 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                             (uint8_t) intTemp[1],
                             (uint8_t) intTemp[2],
                             ackNakDetails,
-                            intTemp[3],
+                            intTemp[3] > 256 ? 256 : intTemp[3],
                             buffer
                         );
                 }
@@ -529,12 +529,12 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
                 if (sysexPos - 22 + 6 < 256) buffer[sysexPos - 22 + 6] = s7Byte; //product ID
             }
 
-            if (sysexPos == 21 + intTemp[0] && recvSetProfileDetailsInquiry != nullptr){
+            if (sysexPos == 21 + intTemp[0] && recvSetProfileDetailsReply != nullptr){
                 recvSetProfileDetailsReply(midici, {buffer[0], buffer[1],
                                                     buffer[2], buffer[3],
                                                     buffer[4]},
                                            buffer[5],
-                                           intTemp[0],
+                                           intTemp[0] > 250 ? 250 : intTemp[0],
                                            &(buffer[6])
                 );
             }
