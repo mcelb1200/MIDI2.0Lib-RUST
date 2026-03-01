@@ -82,7 +82,7 @@ impl MessageType {
     ///
     /// The number of words (1, 2, 3, or 4).
     pub fn word_count(&self) -> usize {
-        const WORD_COUNTS: [usize; 16] = [
+        const WORD_COUNTS: [u8; 16] = [
             1, // Utility
             1, // System
             1, // Midi1ChannelVoice
@@ -100,7 +100,7 @@ impl MessageType {
             4, // ReservedE
             4, // Stream
         ];
-        WORD_COUNTS[*self as usize]
+        WORD_COUNTS[*self as usize] as usize
     }
 }
 

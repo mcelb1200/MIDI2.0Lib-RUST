@@ -209,6 +209,7 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
         repeat_value >>= repeat_bits - scale_bits;
     }
 
+    let mut current_bit_shifted = bit_shifted_value;
     while repeat_value != 0 {
         current_bit_shifted |= repeat_value;
         repeat_value >>= repeat_bits;
