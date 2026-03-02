@@ -238,14 +238,15 @@ namespace M2Utils {
   return srcVal >> scaleBits;
  }
 
- inline void hirezRepresentation(char * outputString, uint32_t srcVal, uint8_t srcBits, uint8_t decimalPlaces) {
+ inline void hirezRepresentation(char * outputString, size_t outputLen, uint32_t srcVal, uint8_t srcBits, uint8_t decimalPlaces) {
+  if (outputLen == 0) return;
   if (srcVal==0) {
-   sprintf(outputString,"MIN");
+   snprintf(outputString, outputLen, "MIN");
    return;
   }
 
   if (srcVal == (1UL << (srcBits-1))+0L) {
-   sprintf(outputString,"MID");
+   snprintf(outputString, outputLen, "MID");
    return;
   }
 
@@ -255,7 +256,7 @@ namespace M2Utils {
   }
 
   if (srcVal==maxval) {
-   sprintf(outputString,"MAX");
+   snprintf(outputString, outputLen, "MAX");
    return;
   }
 
@@ -263,7 +264,7 @@ namespace M2Utils {
   uint32_t fractionalValue = srcVal - (srcVal>> fractionalBits <<fractionalBits );
   float hiRezValue = (float)(srcVal >> fractionalBits) + ( (float)fractionalValue / (float)(1<<fractionalBits));
 
-  sprintf(outputString, "%.*f", decimalPlaces, hiRezValue );
+  snprintf(outputString, outputLen, "%.*f", decimalPlaces, hiRezValue );
 
  }
 
