@@ -44,6 +44,27 @@ mod tests {
     }
 
     #[test]
+    fn test_midi2_pitch_bend() {
+        let group = 2;
+        let channel = 5;
+        let value: u32 = 0x12345678;
+        let pb = UmpFactory::midi2_pitch_bend(group, channel, value);
+
+        assert_eq!(pb.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(pb.group(), group);
+        assert_eq!(pb.channel(), channel);
+        assert_eq!(pb.status(), PITCH_BEND);
+        assert_eq!(pb.data[1], value);
+
+        // Explicit check of the first word
+        let w1 = pb.data[0];
+        assert_eq!((w1 >> 28) & 0xF, 0x4); // MT=4
+        assert_eq!((w1 >> 24) & 0xF, group as u32);
+        assert_eq!((w1 >> 16) & 0xF0, 0xE0); // Status=PitchBend
+        assert_eq!((w1 >> 16) & 0x0F, channel as u32);
+    }
+
+    #[test]
     fn test_stream_parser() {
         let data = vec![
             0x20903C64, // MIDI 1.0 Note On
