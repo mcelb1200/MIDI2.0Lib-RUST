@@ -29,7 +29,7 @@ The core of MIDI 2.0 is the Universal MIDI Packet (UMP), which is a 32-bit word 
 
 ### Creating Messages
 
-The `messages::UmpFactory` provides helper methods to create common MIDI messages.
+The `messages::UmpFactory` provides helper methods to create common MIDI messages, ranging from MIDI 1.0 and 2.0 channel voice messages to System and Utility messages.
 
 #### MIDI 1.0 Channel Voice
 
@@ -48,6 +48,22 @@ use am_midi2::messages::UmpFactory;
 // Create a MIDI 2.0 Note On message with high-resolution velocity
 // Group 0, Channel 0, Note 60, Attribute Type 0, Velocity 0x8000 (mid), Attribute Data 0
 let m2_note_on = UmpFactory::midi2_note_on(0, 0, 60, 0, 0x8000, 0);
+
+// Create a MIDI 2.0 Pitch Bend message
+// Group 0, Channel 0, 32-bit Pitch Bend Value
+let pitch_bend = UmpFactory::midi2_pitch_bend(0, 0, 0x80000000);
+```
+
+#### System Common & Utility Messages
+
+```rust
+use am_midi2::messages::UmpFactory;
+
+// Create a MIDI Timing Clock message on Group 0
+let clock = UmpFactory::timing_clock(0);
+
+// Create a Jitter Reduction Timestamp message
+let jr_timestamp = UmpFactory::jr_timestamp(12345);
 ```
 
 ### Parsing Streams
@@ -80,7 +96,7 @@ for ump in parser {
 
 ### Utility Functions
 
-`am_midi2` provides utility functions for bit scaling, which is crucial for converting between MIDI 1.0 (7-bit) and MIDI 2.0 (16-bit or 32-bit) values.
+`am_midi2` provides utility functions for bit scaling, which is crucial for converting between MIDI 1.0 (7-bit) and MIDI 2.0 (16-bit or 32-bit) values. The library includes optimized fast paths for common parameters in rust hot paths.
 
 ```rust
 use am_midi2::utils::{scale_up, scale_down};

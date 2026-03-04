@@ -1,0 +1,22 @@
+name: Legacy C++ CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install g++
+      run: sudo apt-get update && sudo apt-get install -y g++
+
+    - name: Compile and Run Tests
+      run: |
+        g++ -g -Wuninitialized -Wmaybe-uninitialized -Wall -Wshadow -Wcast-qual -std=c++14 -Wextra -pedantic -Wno-unused-parameter -I . -I ./include -o test src/*.cpp tests/tests.cpp
+        ./test
