@@ -1,8 +1,8 @@
-# am_midi2
+# el_midi2
 
 A Rust library for MIDI 2.0.
 
-`am_midi2` is a general-purpose, `no_std` compatible library for building MIDI 2.0 Devices and Applications. It aims to work on everything from embedded devices to large-scale applications, providing the building blocks, processing, and translations needed for MIDI 2.0.
+`el_midi2` is a general-purpose, `no_std` compatible library for building MIDI 2.0 Devices and Applications. It aims to work on everything from embedded devices to large-scale applications, providing the building blocks, processing, and translations needed for MIDI 2.0.
 
 This library is a Rust port of an existing C++ MIDI 2.0 library, focusing on safety and ergonomics while maintaining a small footprint. It implements the core primitives, Universal MIDI Packets (UMP), stream parsing, and bit manipulation utilities according to the Phase 1 and Phase 2 roadmap goals.
 
