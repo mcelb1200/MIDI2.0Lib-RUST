@@ -1,13 +1,16 @@
 # Cross-Platform Portable Tools Plan for `am_midi2`
 
 ## Objective
-To build a suite of cross-platform, portable CLI tools and utilities around the `am_midi2` library to fully implement and validate both MIDI 1.0 and 2.0 standards. These tools will focus on **Safety, Accuracy, and Performance**, allowing developers to build, test, and debug MIDI 2.0 hardware and software.
+To build a suite of cross-platform, portable CLI tools and utilities (`el_` suite) to fully implement and validate both MIDI 1.0 and 2.0 standards. These tools will focus on **Safety, Accuracy, and Performance**, allowing developers to build, test, and debug MIDI 2.0 hardware and software.
+
+*Note: These tools are being designed and implemented independently of the original `am` project. We will leverage existing, proven implementations (such as `midir`) where appropriate, strictly adhering to permissive licensing schemes (e.g., MIT, Apache 2.0) and ensuring proper attribution.*
 
 ## Architecture & Principles
 1. **Safety First:** The tools will be written in Rust, leveraging `am_midi2`’s `no_std` core where appropriate.
 2. **High Performance:** Utilizing zero-copy principles, memory-mapped I/O for file processing, and lock-free data structures for real-time routing.
 3. **Cross-Platform:** Binaries will be built for Windows, macOS, and Linux via GitHub Actions.
 4. **Modularity:** Tools should function both as standalone CLI applications and as embeddable library modules.
+5. **Permissive & Independent:** Designed independently, relying on permissively licensed open-source crates, ensuring all third-party code is properly attributed.
 
 ## Proposed Tools
 
