@@ -11,7 +11,7 @@ To build a suite of cross-platform, portable CLI tools and utilities around the 
 
 ## Proposed Tools
 
-### 1. `am2_dump` (Stream Analyzer & Hex Dumper)
+### 1. `el_dump` (Stream Analyzer & Hex Dumper)
 **Purpose:** Inspect and debug MIDI streams.
 - **Features:**
   - Reads raw binary `.ump` files or listens to a live MIDI interface.
@@ -20,7 +20,7 @@ To build a suite of cross-platform, portable CLI tools and utilities around the 
   - Detects and flags malformed or out-of-spec UMPs.
 - **Safety/Accuracy:** Validates stream boundaries to prevent buffer overruns when parsing truncated packets (leveraging `UmpStreamParser`).
 
-### 2. `am2_bridge` (Protocol Translator)
+### 2. `el_bridge` (Protocol Translator)
 **Purpose:** Translate between MIDI 1.0 byte streams and MIDI 2.0 UMP streams in real-time.
 - **Features:**
   - Standard MIDI (DIN/USB) to UMP Translation (MT=0x2 and MT=0x4).
@@ -29,15 +29,15 @@ To build a suite of cross-platform, portable CLI tools and utilities around the 
   - Supports bidirectional routing between legacy devices and new MIDI 2.0 endpoints.
 - **Performance:** Designed with hot-path optimizations to minimize jitter and latency during translation.
 
-### 3. `am2_gen` (Message Generator)
+### 3. `el_gen` (Message Generator)
 **Purpose:** Generate precise MIDI 2.0 test patterns.
 - **Features:**
-  - CLI arguments to generate specific packets (e.g., `am2_gen note_on --group 1 --channel 2 --note 60 --velocity max`).
+  - CLI arguments to generate specific packets (e.g., `el_gen note_on --group 1 --channel 2 --note 60 --velocity max`).
   - Support for generating complex multi-step message sequences, including **NRPN sweeps**, **14-bit CC** streams, and large **SysEx payload chunking**.
   - Capable of generating stress-test files containing millions of valid or intentionally malformed packets to test receiver robustness.
-  - Outputs raw binary to stdout, allowing it to be piped into `am2_dump` or written to a `.ump` file.
+  - Outputs raw binary to stdout, allowing it to be piped into `el_dump` or written to a `.ump` file.
 
-### 4. `am2_ci_sim` (MIDI-CI Simulator)
+### 4. `el_ci_sim` (MIDI-CI Simulator)
 **Purpose:** Simulate a MIDI-CI (Capability Inquiry) handshake.
 - **Features:**
   - Acts as an Initiator or Responder to test Discovery, Protocol Negotiation, and Profile Configuration.
@@ -50,6 +50,6 @@ To build a suite of cross-platform, portable CLI tools and utilities around the 
 - **Testing:** Each tool will have integration tests verifying CLI outputs against known-good UMP hex dumps.
 
 ## Phased Implementation
-- **Phase A:** Scaffolding the workspace, adding `clap` for CLI parsing, and implementing `am2_dump` and `am2_gen`.
-- **Phase B:** Implementing `am2_bridge` by integrating a cross-platform MIDI backend (e.g., `midir`).
-- **Phase C:** Implementing the complex `am2_ci_sim` once the Phase 3 MIDI-CI core logic is finalized in `am_midi2`.
+- **Phase A:** Scaffolding the workspace, adding `clap` for CLI parsing, and implementing `el_dump` and `el_gen`.
+- **Phase B:** Implementing `el_bridge` by integrating a cross-platform MIDI backend (e.g., `midir`).
+- **Phase C:** Implementing the complex `el_ci_sim` once the Phase 3 MIDI-CI core logic is finalized in `am_midi2`.
