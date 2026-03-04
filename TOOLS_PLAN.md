@@ -16,6 +16,7 @@ To build a suite of cross-platform, portable CLI tools and utilities around the 
 - **Features:**
   - Reads raw binary `.ump` files or listens to a live MIDI interface.
   - Decodes and beautifully prints Universal MIDI Packets (UMP) to stdout with color-coded Message Types (MT), Groups, and Status bytes.
+  - Explicitly handles the parsing and display of complex multi-packet messages like **SysEx (System Exclusive)**, **NRPN (Non-Registered Parameter Numbers)**, and **14-bit MIDI 1.0 CC (Control Change)** combinations.
   - Detects and flags malformed or out-of-spec UMPs.
 - **Safety/Accuracy:** Validates stream boundaries to prevent buffer overruns when parsing truncated packets (leveraging `UmpStreamParser`).
 
@@ -23,6 +24,7 @@ To build a suite of cross-platform, portable CLI tools and utilities around the 
 **Purpose:** Translate between MIDI 1.0 byte streams and MIDI 2.0 UMP streams in real-time.
 - **Features:**
   - Standard MIDI (DIN/USB) to UMP Translation (MT=0x2 and MT=0x4).
+  - Robust handling of fragmented MIDI 1.0 data streams, properly aggregating **14-bit CC pairs**, **NRPN sequences**, and **SysEx chunks** into their single-packet MIDI 2.0 UMP equivalents, and vice versa.
   - Handles high-resolution scaling for velocity, pitch bend, and controllers (using `utils::scale_up` and `scale_down`).
   - Supports bidirectional routing between legacy devices and new MIDI 2.0 endpoints.
 - **Performance:** Designed with hot-path optimizations to minimize jitter and latency during translation.
@@ -31,6 +33,7 @@ To build a suite of cross-platform, portable CLI tools and utilities around the 
 **Purpose:** Generate precise MIDI 2.0 test patterns.
 - **Features:**
   - CLI arguments to generate specific packets (e.g., `am2_gen note_on --group 1 --channel 2 --note 60 --velocity max`).
+  - Support for generating complex multi-step message sequences, including **NRPN sweeps**, **14-bit CC** streams, and large **SysEx payload chunking**.
   - Capable of generating stress-test files containing millions of valid or intentionally malformed packets to test receiver robustness.
   - Outputs raw binary to stdout, allowing it to be piped into `am2_dump` or written to a `.ump` file.
 
