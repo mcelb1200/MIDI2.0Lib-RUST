@@ -214,8 +214,8 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                 }
 
                 if (sysexPos >= 23 && sysexPos <= 23 + intTemp[3]){
-                    if (sysexPos - 23 + 5 < (int)sizeof(buffer)) {
-                        buffer[sysexPos - 23 + 5] = s7Byte; //product ID/Message
+                    if (sysexPos - 23 < (int)sizeof(buffer)) {
+                        buffer[sysexPos - 23] = s7Byte; //product ID
                     }
                 }
                 if (sysexPos == 23 + intTemp[3]){
@@ -236,8 +236,8 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                             (uint8_t) intTemp[1],
                             (uint8_t) intTemp[2],
                             ackNakDetails,
-                            intTemp[3] > (sizeof(buffer)-5) ? (uint16_t)(sizeof(buffer)-5) : intTemp[3],
-                            &(buffer[5])
+                            intTemp[3] > sizeof(buffer) ? (uint16_t)sizeof(buffer) : intTemp[3],
+                            buffer
                     );
 
                     if (midici.ciType == MIDICI_ACK && midici.ciVer > 1 && recvACK != nullptr)
@@ -248,8 +248,8 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                             (uint8_t) intTemp[1],
                             (uint8_t) intTemp[2],
                             ackNakDetails,
-                            intTemp[3] > (sizeof(buffer)-5) ? (uint16_t)(sizeof(buffer)-5) : intTemp[3],
-                            &(buffer[5])
+                            intTemp[3] > sizeof(buffer) ? (uint16_t)sizeof(buffer) : intTemp[3],
+                            buffer
                         );
                 }
                 break;
@@ -530,8 +530,8 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             }
 
             if (sysexPos >= 21 && sysexPos <= 21 + intTemp[0]){
-                if (sysexPos - 21 + 6 < (int)sizeof(buffer)) {
-                    buffer[sysexPos - 21 + 6] = s7Byte; //product ID
+                if (sysexPos - 22 + 6 < (int)sizeof(buffer)) {
+                    buffer[sysexPos - 22 + 6] = s7Byte; //product ID
                 }
             }
 
