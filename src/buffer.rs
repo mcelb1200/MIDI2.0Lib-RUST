@@ -1,4 +1,4 @@
-use crate::ump::{MessageType, Ump};
+use crate::ump::Ump;
 
 /// A parser for a stream of 32-bit words into Universal MIDI Packets (UMP).
 ///
@@ -48,12 +48,32 @@ where
     /// * `None` - If the stream ends or is truncated.
     fn next(&mut self) -> Option<Self::Item> {
         let w1 = self.iter.next()?;
-        let message_type_val = ((w1 >> 28) & 0xF) as u8;
-        let mt = MessageType::from(message_type_val);
-        let mut ump = Ump::new();
-        ump.data[0] = w1;
+        let message_type_val = ((w1 >> 28) & 0xF) as usize;
 
-        let count = mt.word_count();
+        const WORD_COUNTS: [usize; 16] = [
+            1, // Utility
+            1, // System
+            1, // Midi1ChannelVoice
+            2, // SysEx7
+            2, // Midi2ChannelVoice
+            4, // Data
+            1, // Reserved6
+            1, // Reserved7
+            2, // Reserved8
+            2, // Reserved9
+            2, // ReservedA
+            3, // ReservedB
+            3, // ReservedC
+            4, // FlexData
+            4, // ReservedE
+            4, // Stream
+        ];
+
+        let count = WORD_COUNTS[message_type_val];
+        let mut ump = Ump {
+            data: [w1, 0, 0, 0],
+        };
+
         if count == 1 {
             return Some(ump);
         }
