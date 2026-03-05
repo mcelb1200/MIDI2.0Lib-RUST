@@ -214,8 +214,8 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                 }
 
                 if (sysexPos >= 23 && sysexPos <= 23 + intTemp[3]){
-                    if (sysexPos - 23 < (int)sizeof(buffer)) {
-                        buffer[sysexPos - 23] = s7Byte; //product ID
+                    if (sysexPos - 23 + 5 < (int)sizeof(buffer)) {
+                        buffer[sysexPos - 23 + 5] = s7Byte; //product ID/Message
                     }
                 }
                 if (sysexPos == 23 + intTemp[3]){
@@ -236,8 +236,8 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                             (uint8_t) intTemp[1],
                             (uint8_t) intTemp[2],
                             ackNakDetails,
-                            intTemp[3] > sizeof(buffer) ? (uint16_t)sizeof(buffer) : intTemp[3],
-                            buffer
+                            intTemp[3] > (sizeof(buffer)-5) ? (uint16_t)(sizeof(buffer)-5) : intTemp[3],
+                            &(buffer[5])
                     );
 
                     if (midici.ciType == MIDICI_ACK && midici.ciVer > 1 && recvACK != nullptr)
@@ -248,8 +248,8 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                             (uint8_t) intTemp[1],
                             (uint8_t) intTemp[2],
                             ackNakDetails,
-                            intTemp[3] > sizeof(buffer) ? (uint16_t)sizeof(buffer) : intTemp[3],
-                            buffer
+                            intTemp[3] > (sizeof(buffer)-5) ? (uint16_t)(sizeof(buffer)-5) : intTemp[3],
+                            &(buffer[5])
                         );
                 }
                 break;
@@ -530,8 +530,8 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             }
 
             if (sysexPos >= 21 && sysexPos <= 21 + intTemp[0]){
-                if (sysexPos - 22 + 6 < (int)sizeof(buffer)) {
-                    buffer[sysexPos - 22 + 6] = s7Byte; //product ID
+                if (sysexPos - 21 + 6 < (int)sizeof(buffer)) {
+                    buffer[sysexPos - 21 + 6] = s7Byte; //product ID
                 }
             }
 
@@ -563,7 +563,7 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
 
             //******************
 
-            uint16_t charOffset = (sysexPos - 22) % S7_BUFFERLEN;
+            uint16_t charOffset = ((sysexPos - 22) % (S7_BUFFERLEN - 5)) + 5;
             uint16_t dataLength = intTemp[0];
             if(
                     (sysexPos >= 22 && sysexPos <= 21 + dataLength)
@@ -573,13 +573,13 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
 
                 bool lastByteOfSet = (sysexPos == 21 + dataLength);
 
-                if(charOffset == S7_BUFFERLEN -1
+                if(charOffset == S7_BUFFERLEN - 1
                    || sysexPos == 21 + dataLength
                    || dataLength == 0
                         ){
                     recvProfileSpecificData(midici, {buffer[0], buffer[1],
                                                 buffer[2], buffer[3],
-                                                buffer[4]}, charOffset+1, buffer, intTemp[1], lastByteOfSet);
+                                                buffer[4]}, charOffset + 1 - 5, &(buffer[5]), intTemp[1], lastByteOfSet);
                     intTemp[1]++;
                 }
             }

@@ -6,3 +6,7 @@
 **Vulnerability:** The `hirezRepresentation` function in `include/utils.h` used `sprintf` to format high-resolution output strings. Since `sprintf` does not know the size of the target buffer, this could potentially lead to a buffer overflow if the generated string exceeds the buffer size.
 **Learning:** Legacy C++ code often uses unsafe string functions like `sprintf`, `strcpy`, and `strcat` which are prone to buffer overflows. These should always be replaced with safer, bounds-checked equivalents.
 **Prevention:** Replace `sprintf` with `snprintf` by modifying the function signature to accept a buffer length parameter (`size_t outputLen`). Always pass the correct buffer size to `snprintf` to ensure the buffer is never overrun.
+## 2026-03-05 - Buffer overwrite by overlapping variables
+**Vulnerability:** In C++, fixed-size arrays were used to store both fixed header components and variable-length payload components, but overlapping index limits allowed payload data to overwrite header data, leading to a buffer overwrite.
+**Learning:** Even if the bounds of the array as a whole are checked to prevent out-of-bounds writes, the logic inside a single array may overwrite other variables stored in the array if the indices used for variable-length payload storage are not correctly offset from the header field indices.
+**Prevention:** Explicitly subtract the header storage size from the maximum allowed payload write length when bounds-checking, and explicitly offset the write indices by the header storage size.
