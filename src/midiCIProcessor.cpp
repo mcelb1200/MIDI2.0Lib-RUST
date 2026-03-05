@@ -563,7 +563,7 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
 
             //******************
 
-            uint16_t charOffset = (sysexPos - 22) % S7_BUFFERLEN;
+            uint16_t charOffset = ((sysexPos - 22) % (S7_BUFFERLEN - 5)) + 5;
             uint16_t dataLength = intTemp[0];
             if(
                     (sysexPos >= 22 && sysexPos <= 21 + dataLength)
@@ -573,13 +573,13 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
 
                 bool lastByteOfSet = (sysexPos == 21 + dataLength);
 
-                if(charOffset == S7_BUFFERLEN -1
+                if(charOffset == S7_BUFFERLEN - 1
                    || sysexPos == 21 + dataLength
                    || dataLength == 0
                         ){
                     recvProfileSpecificData(midici, {buffer[0], buffer[1],
                                                 buffer[2], buffer[3],
-                                                buffer[4]}, charOffset+1, buffer, intTemp[1], lastByteOfSet);
+                                                buffer[4]}, charOffset + 1 - 5, &(buffer[5]), intTemp[1], lastByteOfSet);
                     intTemp[1]++;
                 }
             }
