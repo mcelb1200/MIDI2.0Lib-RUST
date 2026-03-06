@@ -50,7 +50,7 @@ where
         let w1 = self.iter.next()?;
         let message_type_val = ((w1 >> 28) & 0xF) as usize;
 
-        const WORD_COUNTS: [usize; 16] = [
+        const WORD_COUNTS: [u8; 16] = [
             1, // Utility
             1, // System
             1, // Midi1ChannelVoice
@@ -69,7 +69,7 @@ where
             4, // Stream
         ];
 
-        let count = WORD_COUNTS[message_type_val];
+        let count = WORD_COUNTS[message_type_val] as usize;
         let mut ump = Ump {
             data: [w1, 0, 0, 0],
         };
