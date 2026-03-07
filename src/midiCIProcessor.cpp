@@ -167,13 +167,14 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                 }
                 if(sysexPos == 14 || sysexPos == 15){
                     intTemp[1] += s7Byte << (7 * (sysexPos - 14 ));
-                    return;
                 }
                 if (sysexPos >= 16 && sysexPos <= 15 + intTemp[1]){
                     if (sysexPos - 16 < (int)sizeof(buffer)) {
                         buffer[sysexPos - 16] = s7Byte; //Info Data
                     }
-                }if (sysexPos == 16 + intTemp[1]){
+                }
+
+                if (sysexPos == 15 + intTemp[1] && sysexPos >= 15){
                     complete = true;
                 }
 
@@ -210,15 +211,14 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
 
                 if(sysexPos == 21 || sysexPos == 22){
                     intTemp[3] += s7Byte << (7 * (sysexPos - 21 ));
-                    return;
                 }
 
-                if (sysexPos >= 23 && sysexPos <= 23 + intTemp[3]){
-                    if (sysexPos - 23 < (int)sizeof(buffer)) {
-                        buffer[sysexPos - 23] = s7Byte; //product ID
+                if (sysexPos >= 23 && sysexPos <= 22 + intTemp[3]){
+                    if (sysexPos - 23 < (int)sizeof(buffer) - 5) {
+                        buffer[sysexPos - 23 + 5] = s7Byte; //product ID
                     }
                 }
-                if (sysexPos == 23 + intTemp[3]){
+                if (sysexPos == 22 + intTemp[3] && sysexPos >= 22){
                     complete = true;
                 }
 
@@ -236,8 +236,8 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                             (uint8_t) intTemp[1],
                             (uint8_t) intTemp[2],
                             ackNakDetails,
-                            intTemp[3] > sizeof(buffer) ? (uint16_t)sizeof(buffer) : intTemp[3],
-                            buffer
+                            intTemp[3] > (sizeof(buffer)-5) ? (uint16_t)(sizeof(buffer)-5) : intTemp[3],
+                            &(buffer[5])
                     );
 
                     if (midici.ciType == MIDICI_ACK && midici.ciVer > 1 && recvACK != nullptr)
@@ -248,8 +248,8 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                             (uint8_t) intTemp[1],
                             (uint8_t) intTemp[2],
                             ackNakDetails,
-                            intTemp[3] > sizeof(buffer) ? (uint16_t)sizeof(buffer) : intTemp[3],
-                            buffer
+                            intTemp[3] > (sizeof(buffer)-5) ? (uint16_t)(sizeof(buffer)-5) : intTemp[3],
+                            &(buffer[5])
                         );
                 }
                 break;
@@ -529,13 +529,13 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
                 intTemp[0] += s7Byte << (7 * (sysexPos - 19 ));
             }
 
-            if (sysexPos >= 21 && sysexPos <= 21 + intTemp[0]){
-                if (sysexPos - 22 + 6 < (int)sizeof(buffer)) {
-                    buffer[sysexPos - 22 + 6] = s7Byte; //product ID
+            if (sysexPos >= 21 && sysexPos <= 20 + intTemp[0]){
+                if (sysexPos - 21 < (int)sizeof(buffer) - 6) {
+                    buffer[sysexPos - 21 + 6] = s7Byte; //product ID
                 }
             }
 
-            if (sysexPos == 21 + intTemp[0] && recvSetProfileDetailsReply != nullptr){
+            if (sysexPos == 20 + intTemp[0] && sysexPos >= 20 && recvSetProfileDetailsReply != nullptr){
                 recvSetProfileDetailsReply(midici, {buffer[0], buffer[1],
                                                     buffer[2], buffer[3],
                                                     buffer[4]},
