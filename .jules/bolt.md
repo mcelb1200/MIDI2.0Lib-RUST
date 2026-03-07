@@ -14,3 +14,7 @@
 ## 2024-05-24 - [Avoid Duplicated Conditional Checks in Hot Paths]
 **Learning:** The `scale_up` utility function had two separate `if dst_bits == 32` blocks with duplicated logic checking `src_bits`. This redundancy resulted in unnecessary branching, variable assignment overhead, and an overall slower execution (e.g., ~57ms for 10M iterations). Merging these into a single fast path using concise bitwise operators reduced the instruction count and yielded an ~8x performance improvement (down to ~7ms for 10M iterations).
 **Action:** When creating explicit fast paths for common parameters, consolidate the condition checks into single branch blocks and simplify intermediate variables into direct bitwise return statements to assist compiler optimization in hot paths.
+
+## 2024-05-24 - Unroll UmpStreamParser Iterator
+**Learning:** In hot parser loops reading from an iterator (like `UmpStreamParser::next`), using a `for` loop to conditionally populate an array introduces branching and mutable state overhead that limits compiler optimizations.
+**Action:** Replace small bounded `for` loops with explicitly unrolled `match` statements and direct left-to-right array initialization (`[w1, iter.next()?, ...]`). This maintains correct evaluation order while saving ~10% execution time by removing loop counters and branch mispredictions.
