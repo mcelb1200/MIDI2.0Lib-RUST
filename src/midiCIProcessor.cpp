@@ -579,7 +579,7 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
                         ){
                     recvProfileSpecificData(midici, {buffer[0], buffer[1],
                                                 buffer[2], buffer[3],
-                                                buffer[4]}, charOffset + 1 - 5, &(buffer[5]), intTemp[1], lastByteOfSet);
+                                                buffer[4]}, dataLength == 0 ? 0 : charOffset + 1 - 5, &(buffer[5]), intTemp[1], lastByteOfSet);
                     intTemp[1]++;
                 }
             }
@@ -736,17 +736,17 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
                 if (charOffset == S7_BUFFERLEN - 1 || lastByteOfChunk) {
                     if (midici.ciType == MIDICI_PE_GETREPLY && recvPEGetReply != nullptr) {
                         recvPEGetReply(midici, peHeaderStr[midici._peReqIdx],
-                                         charOffset + 1, buffer, lastByteOfChunk, lastByteOfSet);
+                                         bodyLength == 0 ? 0 : charOffset + 1, buffer, lastByteOfChunk, lastByteOfSet);
                     }
 
                     if (midici.ciType == MIDICI_PE_SUB && recvPESubInquiry != nullptr) {
                         recvPESubInquiry(midici, peHeaderStr[midici._peReqIdx],
-                                         charOffset + 1, buffer, lastByteOfChunk, lastByteOfSet);
+                                         bodyLength == 0 ? 0 : charOffset + 1, buffer, lastByteOfChunk, lastByteOfSet);
                     }
 
                     if (midici.ciType == MIDICI_PE_SET && recvPESetInquiry != nullptr) {
                         recvPESetInquiry(midici, peHeaderStr[midici._peReqIdx],
-                                         charOffset + 1, buffer, lastByteOfChunk, lastByteOfSet);
+                                         bodyLength == 0 ? 0 : charOffset + 1, buffer, lastByteOfChunk, lastByteOfSet);
                     }
                     midici.partialChunkCount++;
                 }
