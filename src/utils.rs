@@ -129,6 +129,15 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
             }
             let v = src_val & 0x3F;
             return shifted | (v << 19) | (v << 13) | (v << 7) | (v << 1) | (v >> 5);
+        } else if src_bits == 8 {
+            // Fast path for 8-bit to 32-bit (e.g., some SysEx data mappings)
+            // ⚡ Bolt Optimization: Replace loop-based generic scaling with unrolled bitmath
+            let shifted = src_val << 24;
+            if src_val <= 128 {
+                return shifted;
+            }
+            let v = src_val & 0x7F;
+            return shifted | (v << 17) | (v << 10) | (v << 3) | (v >> 4);
         } else if src_bits == 14 {
             // Fast path for 14-bit to 32-bit (e.g., Pitch Bend, High Res Velocity)
             let shifted = src_val << 18;
