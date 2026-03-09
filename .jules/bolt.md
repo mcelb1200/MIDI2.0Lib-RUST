@@ -18,3 +18,7 @@
 ## 2024-05-24 - Unroll UmpStreamParser Iterator
 **Learning:** In hot parser loops reading from an iterator (like `UmpStreamParser::next`), using a `for` loop to conditionally populate an array introduces branching and mutable state overhead that limits compiler optimizations.
 **Action:** Replace small bounded `for` loops with explicitly unrolled `match` statements and direct left-to-right array initialization (`[w1, iter.next()?, ...]`). This maintains correct evaluation order while saving ~10% execution time by removing loop counters and branch mispredictions.
+
+## 2025-10-24 - [Avoid Duplicated Bounds Checking in scale_down]
+**Learning:** The `scale_down` function previously performed bounds checking twice: first validating `src_bits > 32 || dst_bits > 32` and then calculating `scale_bits` to check if `scale_bits >= 32`. By calculating `scale_bits` early using `saturating_sub` and merging all limits into a single `if` statement, we reduce unnecessary variable assignment jumps and duplicate branching in hot paths. This optimized simple right shift scales much faster.
+**Action:** When implementing mathematical utilities or bit shifts, attempt to compute any preliminary saturating operations first so that out-of-bounds error handling can be consolidated into a single early-return condition block.
