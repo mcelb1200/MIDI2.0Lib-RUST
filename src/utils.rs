@@ -192,14 +192,11 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
 ///
 /// The scaled down value.
 pub fn scale_down(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
-    // Prevent panic on invalid input
-    if src_bits > 32 || dst_bits > 32 {
-        return 0;
-    }
-
     let scale_bits = src_bits.saturating_sub(dst_bits);
-    // Double check to ensure we don't shift by >= 32
-    if scale_bits >= 32 {
+    // ⚡ Bolt Optimization: Consolidate bounds checking into a single branch
+    // after calculating `scale_bits`. This prevents duplicate branching
+    // overhead in the hot path while maintaining the same safety guarantees.
+    if scale_bits >= 32 || src_bits > 32 || dst_bits > 32 {
         return 0;
     }
     src_val >> scale_bits
