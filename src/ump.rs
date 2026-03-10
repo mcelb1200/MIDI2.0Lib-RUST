@@ -70,10 +70,9 @@ impl MessageType {
             MessageType::Stream,
         ];
 
-        if val > 0xF {
-            return MessageType::Utility;
-        }
-        MESSAGE_TYPES[val as usize]
+        // ⚡ Bolt Optimization: Replace explicit bounds check with a bitmask
+        // to prevent branch mispredictions in hot parsing loops.
+        MESSAGE_TYPES[(val & 0xF) as usize]
     }
 
     /// Returns the number of 32-bit words required for this message type.
