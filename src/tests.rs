@@ -10,6 +10,13 @@ mod tests {
     use alloc::vec;
 
     #[test]
+    fn test_noop() {
+        let noop = UmpFactory::noop();
+        assert_eq!(noop.data, [0, 0, 0, 0]);
+        assert_eq!(noop.message_type(), MessageType::Utility);
+    }
+
+    #[test]
     fn test_message_creation_midi1() {
         let note_on = UmpFactory::midi1_note_on(0, 1, 60, 100);
         let w = note_on.data[0];
