@@ -24,6 +24,7 @@ where
     /// # Returns
     ///
     /// A new `UmpStreamParser` instance.
+    #[must_use]
     pub fn new(iter: I) -> Self {
         Self { iter }
     }

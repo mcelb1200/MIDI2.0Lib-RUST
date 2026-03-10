@@ -50,6 +50,7 @@ impl MessageType {
     /// # Returns
     ///
     /// The corresponding `MessageType`. Defaults to `Utility` if an invalid value is provided (though all 4-bit values are covered).
+    #[must_use]
     pub fn from_u8(val: u8) -> Self {
         const MESSAGE_TYPES: [MessageType; 16] = [
             MessageType::Utility,
@@ -80,6 +81,7 @@ impl MessageType {
     /// # Returns
     ///
     /// The number of words (1, 2, 3, or 4).
+    #[must_use]
     pub fn word_count(&self) -> usize {
         const WORD_COUNTS: [u8; 16] = [
             1, // Utility
@@ -128,6 +130,7 @@ impl Ump {
     /// # Returns
     ///
     /// A new `Ump` instance with all data set to 0.
+    #[must_use]
     pub fn new() -> Self {
         Ump { data: [0; 4] }
     }
@@ -137,6 +140,7 @@ impl Ump {
     /// # Returns
     ///
     /// The `MessageType` derived from the high 4 bits of the first word.
+    #[must_use]
     pub fn message_type(&self) -> MessageType {
         let mt = (self.data[0] >> 28) as u8;
         MessageType::from(mt)
@@ -161,6 +165,7 @@ impl Ump {
     /// # Returns
     ///
     /// The group number.
+    #[must_use]
     pub fn group(&self) -> u8 {
         ((self.data[0] >> 24) & 0xF) as u8
     }
@@ -184,6 +189,7 @@ impl Ump {
     /// # Returns
     ///
     /// The status byte (with lower nibble zeroed out).
+    #[must_use]
     pub fn status(&self) -> u8 {
         ((self.data[0] >> 16) & 0xF0) as u8
     }
@@ -195,6 +201,7 @@ impl Ump {
     /// # Returns
     ///
     /// The channel number.
+    #[must_use]
     pub fn channel(&self) -> u8 {
         ((self.data[0] >> 16) & 0x0F) as u8
     }

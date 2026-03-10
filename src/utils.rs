@@ -100,6 +100,7 @@ pub const UMP_MIDI_ENDPOINT: u8 = 0xF;
 /// # Returns
 ///
 /// The scaled 32-bit value.
+#[must_use]
 pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
     // Prevent panic on invalid input
     if src_bits == 0 || src_bits > 32 || dst_bits > 32 {
@@ -191,6 +192,7 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
 /// # Returns
 ///
 /// The scaled down value.
+#[must_use]
 pub fn scale_down(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
     let scale_bits = src_bits.saturating_sub(dst_bits);
     // ⚡ Bolt Optimization: Consolidate bounds checking into a single branch
