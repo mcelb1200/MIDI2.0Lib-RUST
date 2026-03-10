@@ -329,10 +329,10 @@ void midiCIProcessor::processProtocolSysex(uint8_t s7Byte){
                 intTemp[1] = s7Byte;
             }
 
-            int protocolOffset = intTemp[1] * 5 + 14;
+            int protocolOffset = intTemp[1] * 5 + 15;
 
             if (sysexPos >= 15 && sysexPos < protocolOffset) {
-                uint8_t pos = (sysexPos - 14) % 5;
+                uint8_t pos = (sysexPos - 15) % 5;
                 buffer[pos] = s7Byte;
                 if (pos == 4 && recvProtocolAvailable != nullptr) {
                     uint8_t protocol[5] = {buffer[0], buffer[1],
@@ -360,8 +360,8 @@ void midiCIProcessor::processProtocolSysex(uint8_t s7Byte){
             if (sysexPos == 13 ) {
                 intTemp[0] = s7Byte;
             }
-            if(sysexPos >= 14 && sysexPos <= 18 && sysexPos - 13 < (int)sizeof(buffer)){
-                buffer[sysexPos-13] = s7Byte;
+            if(sysexPos >= 14 && sysexPos <= 18 && sysexPos - 14 < (int)sizeof(buffer)){
+                buffer[sysexPos-14] = s7Byte;
             }
             if (sysexPos == 18 && recvSetProtocol != nullptr){
                 uint8_t protocol[5] = {buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]};
@@ -414,7 +414,7 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             }
 
             //Disabled Profile Length
-            int enabledProfileOffset = intTemp[0] * 5 + 13;
+            int enabledProfileOffset = intTemp[0] * 5 + 15;
             if (
                     sysexPos == enabledProfileOffset
                     || sysexPos == 1 + enabledProfileOffset
@@ -423,7 +423,7 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             }
 
             if (sysexPos >= 15 && sysexPos < enabledProfileOffset) {
-                uint8_t pos = (sysexPos - 13) % 5;
+                uint8_t pos = (sysexPos - 15) % 5;
                 buffer[pos] = s7Byte;
                 if (pos == 4 && recvSetProfileEnabled != nullptr) {
 
@@ -434,8 +434,8 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             }
 
             if (sysexPos >= 2 + enabledProfileOffset &&
-                sysexPos < enabledProfileOffset + intTemp[1] * 5) {
-                uint8_t pos = (sysexPos - 13) % 5;
+                sysexPos < enabledProfileOffset + 2 + intTemp[1] * 5) {
+                uint8_t pos = (sysexPos - (enabledProfileOffset + 2)) % 5;
                 buffer[pos] = s7Byte;
                 if (pos == 4 && recvSetProfileDisabled != nullptr) {
                     recvSetProfileDisabled(midici, {buffer[0], buffer[1],
@@ -557,7 +557,6 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             if(sysexPos >= 18 && sysexPos <= 21){ //Length of Following Profile Specific Data
                 intTemp[0] += s7Byte << (7 * (sysexPos - 18 ));
                 intTemp[1] = 1;
-                return;
             }
 
 
@@ -647,7 +646,6 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
 
             if (sysexPos == 14 || sysexPos == 15) { //header Length
                 intTemp[0] += s7Byte << (7 * (sysexPos - 14));
-                return;
             }
 
             uint16_t headerLength = intTemp[0];
@@ -665,53 +663,49 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
                 if (peHeaderStr[midici._peReqIdx].length() < 1024) {
                     peHeaderStr[midici._peReqIdx].push_back(s7Byte);
                 }
+            }
 
+            if (sysexPos == 15 + headerLength) {
 
-                if (sysexPos == 15 + headerLength) {
-
-                    switch (midici.ciType) {
-                        case MIDICI_PE_GET:
-                            if (recvPEGetInquiry != nullptr) {
-                                recvPEGetInquiry(midici, peHeaderStr[midici._peReqIdx]);
-                                cleanupRequest(midici._peReqIdx);
-                            }
-                            break;
-                        case MIDICI_PE_SETREPLY:
-                            if (recvPESetReply != nullptr) {
-                                recvPESetReply(midici, peHeaderStr[midici._peReqIdx]);
-                                cleanupRequest(midici._peReqIdx);
-                            }
-                            break;
-                        case MIDICI_PE_SUBREPLY:
-                            if (recvPESubReply != nullptr) {
-                                recvPESubReply(midici, peHeaderStr[midici._peReqIdx]);
-                                cleanupRequest(midici._peReqIdx);
-                            }
-                            break;
-                        case MIDICI_PE_NOTIFY:
-                            if (recvPENotify != nullptr) {
-                                recvPENotify(midici, peHeaderStr[midici._peReqIdx]);
-                                cleanupRequest(midici._peReqIdx);
-                            }
-                            break;
-                    }
+                switch (midici.ciType) {
+                    case MIDICI_PE_GET:
+                        if (recvPEGetInquiry != nullptr) {
+                            recvPEGetInquiry(midici, peHeaderStr[midici._peReqIdx]);
+                            cleanupRequest(midici._peReqIdx);
+                        }
+                        break;
+                    case MIDICI_PE_SETREPLY:
+                        if (recvPESetReply != nullptr) {
+                            recvPESetReply(midici, peHeaderStr[midici._peReqIdx]);
+                            cleanupRequest(midici._peReqIdx);
+                        }
+                        break;
+                    case MIDICI_PE_SUBREPLY:
+                        if (recvPESubReply != nullptr) {
+                            recvPESubReply(midici, peHeaderStr[midici._peReqIdx]);
+                            cleanupRequest(midici._peReqIdx);
+                        }
+                        break;
+                    case MIDICI_PE_NOTIFY:
+                        if (recvPENotify != nullptr) {
+                            recvPENotify(midici, peHeaderStr[midici._peReqIdx]);
+                            cleanupRequest(midici._peReqIdx);
+                        }
+                        break;
                 }
             }
 
             if (sysexPos == 16 + headerLength || sysexPos == 17 + headerLength) {
                 midici.totalChunks +=
                         s7Byte << (7 * (sysexPos - 16 - headerLength));
-                return;
             }
 
             if (sysexPos == 18 + headerLength || sysexPos == 19 + headerLength) {
                 midici.numChunk += s7Byte << (7 * (sysexPos - 18 - headerLength));
-                return;
             }
 
             if (sysexPos == 20 + headerLength) { //Body Length
                 intTemp[1] = s7Byte;
-                return;
             }
             if (sysexPos == 21 + headerLength) { //Body Length
                 intTemp[1] += s7Byte << 7;
