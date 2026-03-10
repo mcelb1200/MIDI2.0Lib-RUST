@@ -557,7 +557,6 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             if(sysexPos >= 18 && sysexPos <= 21){ //Length of Following Profile Specific Data
                 intTemp[0] += s7Byte << (7 * (sysexPos - 18 ));
                 intTemp[1] = 1;
-                return;
             }
 
 
@@ -647,7 +646,6 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
 
             if (sysexPos == 14 || sysexPos == 15) { //header Length
                 intTemp[0] += s7Byte << (7 * (sysexPos - 14));
-                return;
             }
 
             uint16_t headerLength = intTemp[0];
@@ -665,53 +663,49 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
                 if (peHeaderStr[midici._peReqIdx].length() < 1024) {
                     peHeaderStr[midici._peReqIdx].push_back(s7Byte);
                 }
+            }
 
+            if (sysexPos == 15 + headerLength) {
 
-                if (sysexPos == 15 + headerLength) {
-
-                    switch (midici.ciType) {
-                        case MIDICI_PE_GET:
-                            if (recvPEGetInquiry != nullptr) {
-                                recvPEGetInquiry(midici, peHeaderStr[midici._peReqIdx]);
-                                cleanupRequest(midici._peReqIdx);
-                            }
-                            break;
-                        case MIDICI_PE_SETREPLY:
-                            if (recvPESetReply != nullptr) {
-                                recvPESetReply(midici, peHeaderStr[midici._peReqIdx]);
-                                cleanupRequest(midici._peReqIdx);
-                            }
-                            break;
-                        case MIDICI_PE_SUBREPLY:
-                            if (recvPESubReply != nullptr) {
-                                recvPESubReply(midici, peHeaderStr[midici._peReqIdx]);
-                                cleanupRequest(midici._peReqIdx);
-                            }
-                            break;
-                        case MIDICI_PE_NOTIFY:
-                            if (recvPENotify != nullptr) {
-                                recvPENotify(midici, peHeaderStr[midici._peReqIdx]);
-                                cleanupRequest(midici._peReqIdx);
-                            }
-                            break;
-                    }
+                switch (midici.ciType) {
+                    case MIDICI_PE_GET:
+                        if (recvPEGetInquiry != nullptr) {
+                            recvPEGetInquiry(midici, peHeaderStr[midici._peReqIdx]);
+                            cleanupRequest(midici._peReqIdx);
+                        }
+                        break;
+                    case MIDICI_PE_SETREPLY:
+                        if (recvPESetReply != nullptr) {
+                            recvPESetReply(midici, peHeaderStr[midici._peReqIdx]);
+                            cleanupRequest(midici._peReqIdx);
+                        }
+                        break;
+                    case MIDICI_PE_SUBREPLY:
+                        if (recvPESubReply != nullptr) {
+                            recvPESubReply(midici, peHeaderStr[midici._peReqIdx]);
+                            cleanupRequest(midici._peReqIdx);
+                        }
+                        break;
+                    case MIDICI_PE_NOTIFY:
+                        if (recvPENotify != nullptr) {
+                            recvPENotify(midici, peHeaderStr[midici._peReqIdx]);
+                            cleanupRequest(midici._peReqIdx);
+                        }
+                        break;
                 }
             }
 
             if (sysexPos == 16 + headerLength || sysexPos == 17 + headerLength) {
                 midici.totalChunks +=
                         s7Byte << (7 * (sysexPos - 16 - headerLength));
-                return;
             }
 
             if (sysexPos == 18 + headerLength || sysexPos == 19 + headerLength) {
                 midici.numChunk += s7Byte << (7 * (sysexPos - 18 - headerLength));
-                return;
             }
 
             if (sysexPos == 20 + headerLength) { //Body Length
                 intTemp[1] = s7Byte;
-                return;
             }
             if (sysexPos == 21 + headerLength) { //Body Length
                 intTemp[1] += s7Byte << 7;
