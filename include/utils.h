@@ -203,7 +203,31 @@ namespace M2Utils {
 
   //handle 1-bit (bool) scaling
   if(srcBits == 1){
+   if (dstBits == 32) return 0xFFFFFFFF;
    return (1 << dstBits) - 1L;
+  }
+
+  // Specialized optimizations for common MIDI conversions
+  if (dstBits == 32) {
+      if (srcBits == 7) {
+          // Fast path for 7-bit to 32-bit (e.g., Velocity, CC)
+          uint32_t shifted = srcVal << 25;
+          if (srcVal <= 64) return shifted;
+          uint32_t v = srcVal & 0x3F;
+          return shifted | (v << 19) | (v << 13) | (v << 7) | (v << 1) | (v >> 5);
+      } else if (srcBits == 8) {
+          // Fast path for 8-bit to 32-bit (e.g., some SysEx data mappings)
+          uint32_t shifted = srcVal << 24;
+          if (srcVal <= 128) return shifted;
+          uint32_t v = srcVal & 0x7F;
+          return shifted | (v << 17) | (v << 10) | (v << 3) | (v >> 4);
+      } else if (srcBits == 14) {
+          // Fast path for 14-bit to 32-bit (e.g., Pitch Bend, High Res Velocity)
+          uint32_t shifted = srcVal << 18;
+          if (srcVal <= 8192) return shifted;
+          uint32_t v = srcVal & 0x1FFF;
+          return shifted | (v << 5) | (v >> 8);
+      }
   }
 
   // simple bit shift
