@@ -1,6 +1,9 @@
-[package]
-name = "am_midi2"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
+[workspace]
+members = [
+    "el_core",
+    "el_dump",
+    "el_gen",
+    "el_bridge",
+    "el_ci_sim"
+]
+resolver = "2"

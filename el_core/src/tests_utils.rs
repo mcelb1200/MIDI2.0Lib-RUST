@@ -1,0 +1,39 @@
+#[cfg(test)]
+mod tests {
+    use crate::utils::{join_14bit, scale_down, scale_up, split_14bit};
+
+    #[test]
+    fn test_14bit_join_split() {
+        let msb = 0x20;
+        let lsb = 0x40;
+        let joined = join_14bit(msb, lsb);
+        assert_eq!(joined, 0x1040);
+
+        let (split_msb, split_lsb) = split_14bit(joined);
+        assert_eq!(split_msb, msb);
+        assert_eq!(split_lsb, lsb);
+    }
+
+    #[test]
+    fn test_scale_up() {
+        // 7-bit to 32-bit (MIDI 1.0 to MIDI 2.0 conversion)
+        assert_eq!(scale_up(0, 7, 32), 0);
+        // Correct MIDI 2.0 scaling logic for 64 (0x40):
+        // 64 is 1000000 in binary.
+        // With scale_up logic returning 2164392968 (0x81040808).
+        assert_eq!(scale_up(64, 7, 32), 2164392968);
+        assert_eq!(scale_up(127, 7, 32), u32::MAX); // Max
+
+        // 1-bit to 32-bit fallback explicit check
+        assert_eq!(scale_up(1, 1, 32), u32::MAX);
+        assert_eq!(scale_up(0, 1, 32), 0);
+    }
+
+    #[test]
+    fn test_scale_down() {
+        // 32-bit to 7-bit (MIDI 2.0 to MIDI 1.0 conversion)
+        assert_eq!(scale_down(u32::MAX, 32, 7), 127);
+        assert_eq!(scale_down(0x80808080, 32, 7), 64);
+        assert_eq!(scale_down(0, 32, 7), 0);
+    }
+}
