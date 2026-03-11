@@ -25,7 +25,11 @@ pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
     }
 
     // Bound the value to its original bit width max. Use wrapping_shl to prevent overflow on `1 << 32`.
-    let src_max = if src_bits == 32 { u32::MAX } else { (1_u32 << src_bits) - 1 };
+    let src_max = if src_bits == 32 {
+        u32::MAX
+    } else {
+        (1_u32 << src_bits) - 1
+    };
     let val = value & src_max;
 
     // If it's the exact center or below (for 8-bit, 128 is center, but scaling logic dictates shifting)
@@ -33,7 +37,11 @@ pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
         return 0;
     }
     if val == src_max {
-        return if dst_bits == 32 { u32::MAX } else { (1_u32 << dst_bits) - 1 };
+        return if dst_bits == 32 {
+            u32::MAX
+        } else {
+            (1_u32 << dst_bits) - 1
+        };
     }
 
     // Explicit optimized fast-paths for hot operations (no-loop)

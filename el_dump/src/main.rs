@@ -1,3 +1,56 @@
-fn main() {
-    println!("Hello from el_dump!");
+use clap::Parser;
+use el_core::parser::UmpStreamParser;
+use std::fs::File;
+use std::io::{self, Read};
+
+/// el_dump: A CLI tool to parse and dump raw Universal MIDI Packets (UMP) from a file or stdin.
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// The path to the binary .ump file to parse. If omitted, reads from stdin.
+    #[arg(short, long)]
+    file: Option<String>,
+}
+
+fn main() -> io::Result<()> {
+    let args = Args::parse();
+
+    let mut buffer = Vec::new();
+    if let Some(filepath) = args.file {
+        let mut f = File::open(filepath)?;
+        f.read_to_end(&mut buffer)?;
+    } else {
+        io::stdin().read_to_end(&mut buffer)?;
+    }
+
+    if buffer.len() % 4 != 0 {
+        eprintln!(
+            "Warning: Stream length {} is not a multiple of 4 bytes. Truncation may occur.",
+            buffer.len()
+        );
+    }
+
+    // Convert raw u8 bytes into Little-Endian u32 words
+    let mut words = Vec::with_capacity(buffer.len() / 4);
+    for chunk in buffer.chunks_exact(4) {
+        let w = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+        words.push(w);
+    }
+
+    let parser = UmpStreamParser::new(&words);
+
+    println!("--- el_dump: UMP Stream Analyzer ---");
+    for ump in parser {
+        let mt = ump.message_type();
+        let grp = ump.group();
+        let wc = ump.word_count();
+
+        print!("MT: {:?}, Grp: {:2}, Len: {} words | Data: ", mt, grp, wc);
+        for i in 0..wc {
+            print!("{:08X} ", ump.data[i]);
+        }
+        println!();
+    }
+
+    Ok(())
 }
