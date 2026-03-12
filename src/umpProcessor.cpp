@@ -122,7 +122,7 @@ void umpProcessor::processUMP(uint32_t UMP){
                 mess.messageType = mt;
                 mess.form = (umpMess[0] >> 20) & 0xF;
                 mess.dataLength  = std::min((uint8_t)(umpMess[0] >> 16) & 0xF, 6);
-                uint8_t sysex[6];
+                uint8_t sysex[6] = {0};
 
                 if(mess.dataLength > 0)sysex[0] =  (umpMess[0] >> 8) & 0x7F;
                 if(mess.dataLength > 1)sysex[1] =  umpMess[0] & 0x7F;
@@ -388,7 +388,7 @@ void umpProcessor::processUMP(uint32_t UMP){
                 mess.streamId  = (umpMess[0] >> 8) & 0xFF;
                 mess.form = status;
                 mess.dataLength  = (uint8_t)std::min((uint8_t)(umpMess[0] >> 16) & 0xF, 13);
-                uint8_t sysex[13];
+                uint8_t sysex[13] = {0};
 
                 if(mess.dataLength >= 1)sysex[0] =  umpMess[0] & 0xFF;
                 if(mess.dataLength >= 2)sysex[1] =  (umpMess[1] >> 24) & 0xFF;
@@ -421,7 +421,7 @@ void umpProcessor::processUMP(uint32_t UMP){
                     umpMess[3] & 0xFFFF
                     );
             }else if(status == 9){ //MDS Payload
-                uint8_t sysex[14];
+                uint8_t sysex[14] = {0};
                 sysex[0] =  (umpMess[0] >> 8) & 0xFF;
                 sysex[1] =  umpMess[0] & 0xFF;
                 sysex[2] =  (umpMess[1] >> 24) & 0xFF;
