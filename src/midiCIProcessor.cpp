@@ -29,7 +29,7 @@ void midiCIProcessor::endSysex7(){
 void midiCIProcessor::startSysex7(uint8_t group, uint8_t deviceId){
 
     sysexPos = 0;
-    buffer[0]='\0';
+    M2Utils::clear(buffer, 0, sizeof(buffer));
     intTemp[0]=0;
     intTemp[1]=0;
     intTemp[2]=0;
