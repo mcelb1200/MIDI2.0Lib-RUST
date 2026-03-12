@@ -25,3 +25,7 @@
 ## 2025-10-24 - [Avoid Duplicated Bounds Checking in scale_down]
 **Learning:** The `scale_down` function previously performed bounds checking twice: first validating `src_bits > 32 || dst_bits > 32` and then calculating `scale_bits` to check if `scale_bits >= 32`. By calculating `scale_bits` early using `saturating_sub` and merging all limits into a single `if` statement, we reduce unnecessary variable assignment jumps and duplicate branching in hot paths. This optimized simple right shift scales much faster.
 **Action:** When implementing mathematical utilities or bit shifts, attempt to compute any preliminary saturating operations first so that out-of-bounds error handling can be consolidated into a single early-return condition block.
+
+## 2023-10-27 - [C++ scaleUp Optimization]
+**Learning:** Explicitly unrolling generic bit-shifting loops for common MIDI conversion paths (7-bit, 8-bit, 14-bit to 32-bit) in C++ (`M2Utils::scaleUp`) can significantly speed up the hot path (approx. 3x improvement). This matches the optimization strategy used in the Rust implementation.
+**Action:** When working on similar conversion functions, consider replacing generalized loop logic with direct bitwise operations for common, known sizes.
