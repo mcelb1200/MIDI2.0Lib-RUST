@@ -1,0 +1,8 @@
+[package]
+name = "el_core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# We strictly use no_std here, so we only pull in core-compatible crates if needed.
+heapless = "0.8" # Used for statically bounded zero-allocation arrays

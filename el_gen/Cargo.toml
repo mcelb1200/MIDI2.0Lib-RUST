@@ -1,0 +1,8 @@
+[package]
+name = "el_gen"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+el_core = { path = "../el_core" }
+clap = { version = "4.4", features = ["derive"] }
