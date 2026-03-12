@@ -29,3 +29,7 @@
 ## 2023-10-27 - [C++ scaleUp Optimization]
 **Learning:** Explicitly unrolling generic bit-shifting loops for common MIDI conversion paths (7-bit, 8-bit, 14-bit to 32-bit) in C++ (`M2Utils::scaleUp`) can significantly speed up the hot path (approx. 3x improvement). This matches the optimization strategy used in the Rust implementation.
 **Action:** When working on similar conversion functions, consider replacing generalized loop logic with direct bitwise operations for common, known sizes.
+
+## 2025-05-23 - [Optimized MessageType Extraction]
+**Learning:** `Ump::message_type()` uses a large match statement that can be optimized into a direct array lookup using the bitmasked value. Because the types map exactly to 4-bits (`0x0` to `0xF`), masking the shifted value allows us to safely index into a constant array of `MessageType` instances. This replaces branching instructions with a direct data load, yielding measurable performance improvements.
+**Action:** When extracting bounded enum types from a raw word in hot paths (like `Ump::message_type`), prefer a bitmasked direct lookup table over a large `match` statement.
