@@ -16,6 +16,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Install native dependencies (midir)
+      run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
     - name: Set up Rust
       uses: dtolnay/rust-toolchain@stable
       with:
