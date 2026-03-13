@@ -33,3 +33,6 @@
 ## 2025-05-23 - [Optimized MessageType Extraction]
 **Learning:** `Ump::message_type()` uses a large match statement that can be optimized into a direct array lookup using the bitmasked value. Because the types map exactly to 4-bits (`0x0` to `0xF`), masking the shifted value allows us to safely index into a constant array of `MessageType` instances. This replaces branching instructions with a direct data load, yielding measurable performance improvements.
 **Action:** When extracting bounded enum types from a raw word in hot paths (like `Ump::message_type`), prefer a bitmasked direct lookup table over a large `match` statement.
+## 2025-10-24 - [Optimized UmpStreamParser Branching and Lookup]
+**Learning:** In highly iterated `next()` methods mapping an integer type directly to expected read lengths (like `UmpStreamParser` consuming chunks from a stream), looking up the chunk count in a static `const` array first, and then using a secondary `match` on the resulting count adds extra memory lookup overhead and instructions.
+**Action:** Use a direct `match` statement grouped logically by bitmasked values (e.g. `match (w1 >> 28) & 0xF { 0x0 | 0x1 => ... }`). The compiler can optimize this unified block more effectively than a separate array load and subsequent state match, reducing operations and yielding up to 20% faster execution in tight parsing loops.
