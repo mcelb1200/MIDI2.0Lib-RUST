@@ -92,6 +92,26 @@ impl Ump {
 
     #[must_use]
     pub fn word_count(&self) -> usize {
-        self.message_type().word_count()
+        let mt_val = ((self.data[0] >> 28) & 0xF) as usize;
+        // Direct array lookup without branch or enum conversion overhead
+        const WORD_COUNTS: [u8; 16] = [
+            1, // 0x0 Utility
+            1, // 0x1 System
+            1, // 0x2 MIDI 1.0 Voice
+            2, // 0x3 Data 64-bit
+            2, // 0x4 MIDI 2.0 Voice
+            4, // 0x5 Data 128-bit
+            1, // 0x6 Reserved
+            1, // 0x7 Reserved
+            2, // 0x8 Reserved
+            2, // 0x9 Reserved
+            2, // 0xA Reserved
+            3, // 0xB Reserved
+            3, // 0xC Reserved
+            4, // 0xD Reserved
+            4, // 0xE Reserved
+            4, // 0xF Stream
+        ];
+        WORD_COUNTS[mt_val] as usize
     }
 }

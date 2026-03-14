@@ -36,3 +36,7 @@
 ## 2025-10-24 - [Optimized UmpStreamParser Branching and Lookup]
 **Learning:** In highly iterated `next()` methods mapping an integer type directly to expected read lengths (like `UmpStreamParser` consuming chunks from a stream), looking up the chunk count in a static `const` array first, and then using a secondary `match` on the resulting count adds extra memory lookup overhead and instructions.
 **Action:** Use a direct `match` statement grouped logically by bitmasked values (e.g. `match (w1 >> 28) & 0xF { 0x0 | 0x1 => ... }`). The compiler can optimize this unified block more effectively than a separate array load and subsequent state match, reducing operations and yielding up to 20% faster execution in tight parsing loops.
+
+## 2024-05-24 - [Avoid Double Memory Lookups for Enum Properties]
+**Learning:** In hot paths, calling an enum property method that relies on a static array lookup (like `self.message_type().word_count()`) can result in a double memory lookup: one to convert the raw bit value to the enum via a static array, and a second to get the property via another static array.
+**Action:** When a property maps directly from a raw bit value (e.g., extracting word count directly from the Message Type nibble), implement a direct array lookup from the raw value to bypass the intermediate enum conversion overhead.
