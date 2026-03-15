@@ -414,7 +414,7 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             }
 
             //Disabled Profile Length
-            int enabledProfileOffset = intTemp[0] * 5 + 15;
+            int enabledProfileOffset = intTemp[0] + 15;
             if (
                     sysexPos == enabledProfileOffset
                     || sysexPos == 1 + enabledProfileOffset
@@ -434,7 +434,7 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             }
 
             if (sysexPos >= 2 + enabledProfileOffset &&
-                sysexPos < enabledProfileOffset + 2 + intTemp[1] * 5) {
+                sysexPos < enabledProfileOffset + 2 + intTemp[1]) {
                 uint8_t pos = (sysexPos - (enabledProfileOffset + 2)) % 5;
                 buffer[pos] = s7Byte;
                 if (pos == 4 && recvSetProfileDisabled != nullptr) {
