@@ -95,6 +95,12 @@ impl VoiceBuilder {
     }
 
     #[must_use]
+    pub fn midi2_channel_pressure(group: u8, channel: u8, pressure: u32) -> Ump {
+        let w1 = 0x40D00000 | (((group & 0xF) as u32) << 24) | (((channel & 0xF) as u32) << 16);
+        Ump::new(w1, pressure, 0, 0)
+    }
+
+    #[must_use]
     pub fn midi2_nrpn(group: u8, channel: u8, bank: u8, index: u8, value: u32) -> Ump {
         // NRPN Status = 0x02, Bank = Data Byte 1, Index = Data Byte 2
         let w1 = 0x40020000

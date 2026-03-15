@@ -72,6 +72,39 @@ mod tests {
     }
 
     #[test]
+    fn test_midi2_channel_pressure() {
+        let group = 3;
+        let channel = 7;
+        let pressure: u32 = 0x87654321;
+        let cp = UmpFactory::midi2_channel_pressure(group, channel, pressure);
+
+        // Validate basic properties
+        assert_eq!(cp.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(cp.group(), group);
+        assert_eq!(cp.channel(), channel);
+        assert_eq!(cp.status(), CHANNEL_PRESSURE);
+        assert_eq!(cp.data[1], pressure);
+
+        // Explicit check of the first word layout
+        let w1 = cp.data[0];
+        assert_eq!((w1 >> 28) & 0xF, 0x4); // MT=4
+        assert_eq!((w1 >> 24) & 0xF, group as u32);
+        assert_eq!((w1 >> 16) & 0xF0, 0xD0); // Status=Channel Pressure
+        assert_eq!((w1 >> 16) & 0x0F, channel as u32);
+
+        // Edge case: Test out-of-bounds group and channel
+        // Values should be masked to 4 bits (e.g. 17 & 0xF = 1)
+        let oob_group = 17;   // 10001 in binary -> masks to 0001 (1)
+        let oob_channel = 18; // 10010 in binary -> masks to 0010 (2)
+        let max_pressure = u32::MAX;
+        let cp_edge = UmpFactory::midi2_channel_pressure(oob_group, oob_channel, max_pressure);
+
+        assert_eq!(cp_edge.group(), 1);
+        assert_eq!(cp_edge.channel(), 2);
+        assert_eq!(cp_edge.data[1], max_pressure);
+    }
+
+    #[test]
     fn test_stream_parser() {
         let data = vec![
             0x20903C64, // MIDI 1.0 Note On
@@ -88,6 +121,46 @@ mod tests {
         assert_eq!(msg2.message_type(), MessageType::Midi2ChannelVoice);
         assert_eq!(msg2.data[0], 0x40903C00);
         assert_eq!(msg2.data[1], 0x12340000);
+
+        assert!(parser.next().is_none());
+    }
+
+    #[test]
+    fn test_stream_parser_truncated_message() {
+        // Feed an MT=4 (MIDI 2.0 Channel Voice) word without its required 2nd word
+        // e.g. a truncated MIDI 2.0 Channel Pressure message
+        let w1 = UmpFactory::midi2_channel_pressure(0, 0, 0).data[0];
+        let data = vec![w1];
+
+        let mut parser = UmpStreamParser::new(data.into_iter());
+
+        // The parser should safely return None when encountering a truncated multi-word packet
+        // rather than panicking or zero-padding.
+        assert!(parser.next().is_none());
+    }
+
+    #[test]
+    fn test_stream_parser_corrupted_message() {
+        // Feed an MT=4 (MIDI 2.0 Channel Voice) message with completely corrupted data
+        // For instance, status byte and channel completely maxed out (e.g. 0xFF),
+        // but with MT=4 (0x4) intact so the parser expects 2 words.
+        let corrupted_w1 = 0x4FFFFFFF;
+        let corrupted_w2 = 0xFFFFFFFF;
+        let data = vec![corrupted_w1, corrupted_w2];
+
+        let mut parser = UmpStreamParser::new(data.into_iter());
+
+        let msg = parser.next().unwrap();
+        // The parser successfully consumes the 2 words dictated by MT=4
+        assert_eq!(msg.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(msg.data[0], corrupted_w1);
+        assert_eq!(msg.data[1], corrupted_w2);
+
+        // Ensure parsing corrupted data into our generic Ump model doesn't panic
+        // Group, Channel, and Status derive via bitwise masking
+        assert_eq!(msg.group(), 0xF);
+        assert_eq!(msg.channel(), 0xF);
+        assert_eq!(msg.status(), 0xF0);
 
         assert!(parser.next().is_none());
     }

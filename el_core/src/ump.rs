@@ -91,6 +91,16 @@ impl Ump {
     }
 
     #[must_use]
+    pub fn status(&self) -> u8 {
+        ((self.data[0] >> 16) & 0xF0) as u8
+    }
+
+    #[must_use]
+    pub fn channel(&self) -> u8 {
+        ((self.data[0] >> 16) & 0x0F) as u8
+    }
+
+    #[must_use]
     pub fn word_count(&self) -> usize {
         let mt_val = ((self.data[0] >> 28) & 0xF) as usize;
         // Direct array lookup without branch or enum conversion overhead

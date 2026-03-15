@@ -1,3 +1,6 @@
+/// Channel Pressure status byte (0xD0)
+pub const CHANNEL_PRESSURE: u8 = 0xD0;
+
 /// Combines 14-bit CC fragments into a single u16 value
 #[must_use]
 pub fn join_14bit(msb: u8, lsb: u8) -> u16 {

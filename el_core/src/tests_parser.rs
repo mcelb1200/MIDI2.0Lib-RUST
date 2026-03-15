@@ -45,4 +45,30 @@ mod tests {
         // It must return None to prevent parsing corrupted partial packets
         assert!(parser.next().is_none());
     }
+
+    #[test]
+    fn test_parser_corrupted_message() {
+        // Feed an MT=4 (MIDI 2.0 Channel Voice) message with completely corrupted data
+        // For instance, status byte and channel completely maxed out (e.g. 0xFF),
+        // but with MT=4 (0x4) intact so the parser expects 2 words.
+        let corrupted_w1 = 0x4FFFFFFF;
+        let corrupted_w2 = 0xFFFFFFFF;
+        let data = [corrupted_w1, corrupted_w2];
+
+        let mut parser = UmpStreamParser::new(&data);
+
+        let msg = parser.next().unwrap();
+        // The parser successfully consumes the 2 words dictated by MT=4
+        assert_eq!(msg.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(msg.data[0], corrupted_w1);
+        assert_eq!(msg.data[1], corrupted_w2);
+
+        // Ensure parsing corrupted data into our generic Ump model doesn't panic
+        // Group, Channel, and Status derive via bitwise masking
+        assert_eq!(msg.group(), 0xF);
+        assert_eq!(msg.channel(), 0xF);
+        assert_eq!(msg.status(), 0xF0);
+
+        assert!(parser.next().is_none());
+    }
 }
