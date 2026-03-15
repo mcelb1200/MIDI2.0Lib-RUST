@@ -129,7 +129,7 @@ mod tests {
 
         // Edge case: Test out-of-bounds group and channel
         // Values should be masked to 4 bits (e.g. 17 & 0xF = 1)
-        let oob_group = 17;   // 10001 in binary -> masks to 0001 (1)
+        let oob_group = 17; // 10001 in binary -> masks to 0001 (1)
         let oob_channel = 18; // 10010 in binary -> masks to 0010 (2)
         let max_pressure = u32::MAX;
         let cp_edge = UmpFactory::midi2_channel_pressure(oob_group, oob_channel, max_pressure);

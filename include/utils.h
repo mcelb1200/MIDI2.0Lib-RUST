@@ -227,6 +227,12 @@ namespace M2Utils {
           if (srcVal <= 8192) return shifted;
           uint32_t v = srcVal & 0x1FFF;
           return shifted | (v << 5) | (v >> 8);
+      } else if (srcBits == 16) {
+          // Fast path for 16-bit to 32-bit
+          uint32_t shifted = srcVal << 16;
+          if (srcVal <= 32768) return shifted;
+          uint32_t v = srcVal & 0x7FFF;
+          return shifted | (v << 1) | (v >> 14);
       }
   }
 
@@ -256,6 +262,9 @@ namespace M2Utils {
  }
 
  inline uint32_t scaleDown(uint32_t srcVal, uint8_t srcBits, uint8_t dstBits){
+  if (srcBits <= dstBits) {
+      return srcVal;
+  }
   // simple bit shift
   uint8_t scaleBits = (srcBits - dstBits);
   return srcVal >> scaleBits;
