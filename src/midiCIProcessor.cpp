@@ -19,6 +19,9 @@
  * ********************************************************/
 
 #include "midiCIProcessor.h"
+#include <cstdio>
+
+const uint16_t midiCIProcessor::MAX_PE_HEADER_SIZE;
 
 void midiCIProcessor::endSysex7(){
     if(midici._reqTupleSet){
@@ -652,7 +655,7 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
 
             if (sysexPos == 16 && midici.numChunk == 0){
                 peHeaderStr[midici._peReqIdx] = "";
-                peHeaderStr[midici._peReqIdx].reserve(headerLength);
+                peHeaderStr[midici._peReqIdx].reserve(std::min<uint16_t>(headerLength, midiCIProcessor::MAX_PE_HEADER_SIZE));
             }
 
             if (sysexPos >= 16 && sysexPos <= 15 + headerLength) {
@@ -660,8 +663,10 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
                 if (charOffset < sizeof(buffer)) {
                     buffer[charOffset] = s7Byte;
                 }
-                if (peHeaderStr[midici._peReqIdx].length() < 1024) {
+                if (peHeaderStr[midici._peReqIdx].length() < midiCIProcessor::MAX_PE_HEADER_SIZE) {
                     peHeaderStr[midici._peReqIdx].push_back(s7Byte);
+                } else if (charOffset == midiCIProcessor::MAX_PE_HEADER_SIZE) {
+                    printf("Warning: PE Header string exceeded MAX_PE_HEADER_SIZE (%d bytes). Truncating.\n", midiCIProcessor::MAX_PE_HEADER_SIZE);
                 }
             }
 
