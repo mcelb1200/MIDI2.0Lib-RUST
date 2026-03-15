@@ -7,3 +7,10 @@ members = [
     "el_ci_sim"
 ]
 resolver = "2"
+
+[package]
+name = "am_midi2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
