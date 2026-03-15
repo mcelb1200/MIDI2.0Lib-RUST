@@ -66,9 +66,9 @@ mod tests {
         // Explicit check of the first word
         let w1 = pb.data[0];
         assert_eq!((w1 >> 28) & 0xF, 0x4); // MT=4
-        assert_eq!((w1 >> 24) & 0xF, group as u32);
+        assert_eq!((w1 >> 24) & 0xF, u32::from(group));
         assert_eq!((w1 >> 16) & 0xF0, 0xE0); // Status=PitchBend
-        assert_eq!((w1 >> 16) & 0x0F, channel as u32);
+        assert_eq!((w1 >> 16) & 0x0F, u32::from(channel));
     }
 
     #[test]

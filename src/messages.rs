@@ -31,7 +31,7 @@ impl UmpFactory {
     /// A `Ump` containing the JR Clock message.
     #[must_use]
     pub fn jr_clock(clock_time: u16) -> Ump {
-        let val = ((UTILITY_JRCLOCK as u32) << 20) + (clock_time as u32);
+        let val = ((u32::from(UTILITY_JRCLOCK)) << 20) + (u32::from(clock_time));
         Ump {
             data: [val, 0, 0, 0],
         }
@@ -48,7 +48,7 @@ impl UmpFactory {
     /// A `Ump` containing the JR Timestamp message.
     #[must_use]
     pub fn jr_timestamp(timestamp: u16) -> Ump {
-        let val = ((UTILITY_JRTS as u32) << 20) + (timestamp as u32);
+        let val = ((u32::from(UTILITY_JRTS)) << 20) + (u32::from(timestamp));
         Ump {
             data: [val, 0, 0, 0],
         }
@@ -59,10 +59,10 @@ impl UmpFactory {
     /// Helper to create a System Common or Realtime UMP (MT=0x1).
     #[must_use]
     fn mt1_create(group: u8, status: u8, val1: u8, val2: u8) -> Ump {
-        let w = (((UMP_SYSTEM as u32) << 28) + (((group & 0xF) as u32) << 24))
-            + (((status as u32) & 0xFF) << 16)
-            + (((val1 as u32) & 0x7F) << 8)
-            + ((val2 as u32) & 0x7F);
+        let w = (((u32::from(UMP_SYSTEM)) << 28) + ((u32::from(group & 0xF)) << 24))
+            + (((u32::from(status)) & 0xFF) << 16)
+            + (((u32::from(val1)) & 0x7F) << 8)
+            + ((u32::from(val2)) & 0x7F);
         Ump { data: [w, 0, 0, 0] }
     }
 
@@ -219,10 +219,10 @@ impl UmpFactory {
     /// Helper to create a MIDI 1.0 Channel Voice UMP (MT=0x2).
     #[must_use]
     fn mt2_create(group: u8, status: u8, channel: u8, val1: u8, val2: u8) -> Ump {
-        let mut message = ((UMP_M1CVM as u32) << 28) + (((group & 0xF) as u32) << 24);
-        message += (((status & 0xF0) | (channel & 0xF)) as u32) << 16;
-        message += ((val1 & 0x7F) as u32) << 8;
-        message += (val2 & 0x7F) as u32;
+        let mut message = ((u32::from(UMP_M1CVM)) << 28) + ((u32::from(group & 0xF)) << 24);
+        message += (u32::from((status & 0xF0) | (channel & 0xF))) << 16;
+        message += (u32::from(val1 & 0x7F)) << 8;
+        message += u32::from(val2 & 0x7F);
         Ump {
             data: [message, 0, 0, 0],
         }
@@ -355,10 +355,10 @@ impl UmpFactory {
     /// Helper to create the first word of a MIDI 2.0 Channel Voice UMP (MT=0x4).
     #[must_use]
     fn mt4_create_first_word(group: u8, status: u8, channel: u8, val1: u8, val2: u8) -> u32 {
-        let mut message = ((UMP_M2CVM as u32) << 28) + (((group & 0xF) as u32) << 24);
-        message += (((status & 0xF0) | (channel & 0xF)) as u32) << 16;
-        message += (val1 as u32) << 8;
-        message += val2 as u32;
+        let mut message = ((u32::from(UMP_M2CVM)) << 28) + ((u32::from(group & 0xF)) << 24);
+        message += (u32::from((status & 0xF0) | (channel & 0xF))) << 16;
+        message += (u32::from(val1)) << 8;
+        message += u32::from(val2);
         message
     }
 
@@ -386,7 +386,7 @@ impl UmpFactory {
         attribute_data: u16,
     ) -> Ump {
         let word1 = Self::mt4_create_first_word(group, NOTE_OFF, channel, note, attribute_type);
-        let word2 = ((velocity as u32) << 16) | (attribute_data as u32);
+        let word2 = ((u32::from(velocity)) << 16) | (u32::from(attribute_data));
         Ump {
             data: [word1, word2, 0, 0],
         }
@@ -416,7 +416,7 @@ impl UmpFactory {
         attribute_data: u16,
     ) -> Ump {
         let word1 = Self::mt4_create_first_word(group, NOTE_ON, channel, note, attribute_type);
-        let word2 = ((velocity as u32) << 16) | (attribute_data as u32);
+        let word2 = ((u32::from(velocity)) << 16) | (u32::from(attribute_data));
         Ump {
             data: [word1, word2, 0, 0],
         }
@@ -576,9 +576,9 @@ impl UmpFactory {
             0,
             if bank_valid { 1 } else { 0 },
         );
-        let word2 = ((program as u32) << 24)
+        let word2 = ((u32::from(program)) << 24)
             + if bank_valid {
-                ((bank as u32) << 8) + (index as u32)
+                ((u32::from(bank)) << 8) + (u32::from(index))
             } else {
                 0
             };
