@@ -131,4 +131,42 @@ mod tests {
         let res = scale_up(1, 1, 32);
         assert_eq!(res, 0xFFFFFFFF);
     }
+
+    #[test]
+    fn test_message_type_from_u8_valid() {
+        assert_eq!(MessageType::from_u8(0x0), MessageType::Utility);
+        assert_eq!(MessageType::from_u8(0x1), MessageType::System);
+        assert_eq!(MessageType::from_u8(0x2), MessageType::Midi1ChannelVoice);
+        assert_eq!(MessageType::from_u8(0x3), MessageType::SysEx7);
+        assert_eq!(MessageType::from_u8(0x4), MessageType::Midi2ChannelVoice);
+        assert_eq!(MessageType::from_u8(0x5), MessageType::Data);
+        assert_eq!(MessageType::from_u8(0x6), MessageType::Reserved6);
+        assert_eq!(MessageType::from_u8(0x7), MessageType::Reserved7);
+        assert_eq!(MessageType::from_u8(0x8), MessageType::Reserved8);
+        assert_eq!(MessageType::from_u8(0x9), MessageType::Reserved9);
+        assert_eq!(MessageType::from_u8(0xA), MessageType::ReservedA);
+        assert_eq!(MessageType::from_u8(0xB), MessageType::ReservedB);
+        assert_eq!(MessageType::from_u8(0xC), MessageType::ReservedC);
+        assert_eq!(MessageType::from_u8(0xD), MessageType::FlexData);
+        assert_eq!(MessageType::from_u8(0xE), MessageType::ReservedE);
+        assert_eq!(MessageType::from_u8(0xF), MessageType::Stream);
+    }
+
+    #[test]
+    fn test_message_type_from_u8_out_of_bounds() {
+        // Because `from_u8` uses `val & 0xF`, values outside the 0-15 range
+        // should wrap around and still return valid message types instead of panicking.
+
+        // 16 (0x10) -> 0x10 & 0xF = 0x0
+        assert_eq!(MessageType::from_u8(16), MessageType::Utility);
+
+        // 31 (0x1F) -> 0x1F & 0xF = 0xF
+        assert_eq!(MessageType::from_u8(31), MessageType::Stream);
+
+        // 100 (0x64) -> 0x64 & 0xF = 0x4
+        assert_eq!(MessageType::from_u8(100), MessageType::Midi2ChannelVoice);
+
+        // 255 (0xFF) -> 0xFF & 0xF = 0xF
+        assert_eq!(MessageType::from_u8(255), MessageType::Stream);
+    }
 }
