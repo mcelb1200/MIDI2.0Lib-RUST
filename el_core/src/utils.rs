@@ -1,7 +1,7 @@
 /// Combines 14-bit CC fragments into a single u16 value
 #[must_use]
 pub fn join_14bit(msb: u8, lsb: u8) -> u16 {
-    (((msb & 0x7F) as u16) << 7) | ((lsb & 0x7F) as u16)
+    (u16::from(msb & 0x7F) << 7) | u16::from(lsb & 0x7F)
 }
 
 /// Splits a 14-bit u16 value into MSB and LSB
@@ -63,7 +63,7 @@ pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
 
     // Generic fallback for other bit depths
     let mut out = 0_u32;
-    let mut bits_left = dst_bits as i32;
+    let mut bits_left = i32::from(dst_bits);
     let left_aligned = val << (32 - src_bits);
 
     while bits_left > 0 {
@@ -73,7 +73,7 @@ pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
         } else {
             out |= left_aligned.wrapping_shl((-shift) as u32);
         }
-        bits_left -= src_bits as i32;
+        bits_left -= i32::from(src_bits);
     }
 
     out
