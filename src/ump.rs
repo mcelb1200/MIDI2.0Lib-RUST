@@ -155,7 +155,7 @@ impl Ump {
     /// * `mt` - The `MessageType` to set.
     pub fn set_message_type(&mut self, mt: MessageType) {
         self.data[0] &= 0x0FFFFFFF;
-        self.data[0] |= (mt as u8 as u32) << 28;
+        self.data[0] |= u32::from(mt as u8) << 28;
     }
 
     /// Gets the Group number (0-15) of the UMP.
@@ -177,7 +177,7 @@ impl Ump {
     /// * `group` - The group number to set (0-15). The value is masked to 4 bits.
     pub fn set_group(&mut self, group: u8) {
         self.data[0] &= 0xF0FFFFFF;
-        self.data[0] |= ((group as u32) & 0xF) << 24;
+        self.data[0] |= ((u32::from(group)) & 0xF) << 24;
     }
 
     /// Gets the Status byte of the UMP.
