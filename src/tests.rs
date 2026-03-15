@@ -101,9 +101,42 @@ mod tests {
         // Explicit check of the first word
         let w1 = pb.data[0];
         assert_eq!((w1 >> 28) & 0xF, 0x4); // MT=4
-        assert_eq!((w1 >> 24) & 0xF, group as u32);
+        assert_eq!((w1 >> 24) & 0xF, u32::from(group));
         assert_eq!((w1 >> 16) & 0xF0, 0xE0); // Status=PitchBend
+        assert_eq!((w1 >> 16) & 0x0F, u32::from(channel));
+    }
+
+    #[test]
+    fn test_midi2_channel_pressure() {
+        let group = 3;
+        let channel = 7;
+        let pressure: u32 = 0x87654321;
+        let cp = UmpFactory::midi2_channel_pressure(group, channel, pressure);
+
+        // Validate basic properties
+        assert_eq!(cp.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(cp.group(), group);
+        assert_eq!(cp.channel(), channel);
+        assert_eq!(cp.status(), CHANNEL_PRESSURE);
+        assert_eq!(cp.data[1], pressure);
+
+        // Explicit check of the first word layout
+        let w1 = cp.data[0];
+        assert_eq!((w1 >> 28) & 0xF, 0x4); // MT=4
+        assert_eq!((w1 >> 24) & 0xF, group as u32);
+        assert_eq!((w1 >> 16) & 0xF0, 0xD0); // Status=Channel Pressure
         assert_eq!((w1 >> 16) & 0x0F, channel as u32);
+
+        // Edge case: Test out-of-bounds group and channel
+        // Values should be masked to 4 bits (e.g. 17 & 0xF = 1)
+        let oob_group = 17;   // 10001 in binary -> masks to 0001 (1)
+        let oob_channel = 18; // 10010 in binary -> masks to 0010 (2)
+        let max_pressure = u32::MAX;
+        let cp_edge = UmpFactory::midi2_channel_pressure(oob_group, oob_channel, max_pressure);
+
+        assert_eq!(cp_edge.group(), 1);
+        assert_eq!(cp_edge.channel(), 2);
+        assert_eq!(cp_edge.data[1], max_pressure);
     }
 
     #[test]
