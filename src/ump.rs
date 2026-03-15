@@ -50,6 +50,7 @@ impl MessageType {
     /// # Returns
     ///
     /// The corresponding `MessageType`. Defaults to `Utility` if an invalid value is provided (though all 4-bit values are covered).
+    #[must_use]
     pub fn from_u8(val: u8) -> Self {
         const MESSAGE_TYPES: [MessageType; 16] = [
             MessageType::Utility,
@@ -70,10 +71,9 @@ impl MessageType {
             MessageType::Stream,
         ];
 
-        if val > 0xF {
-            return MessageType::Utility;
-        }
-        MESSAGE_TYPES[val as usize]
+        // ⚡ Bolt Optimization: Replace explicit bounds check with a bitmask
+        // to prevent branch mispredictions in hot parsing loops.
+        MESSAGE_TYPES[(val & 0xF) as usize]
     }
 
     /// Returns the number of 32-bit words required for this message type.
@@ -81,6 +81,7 @@ impl MessageType {
     /// # Returns
     ///
     /// The number of words (1, 2, 3, or 4).
+    #[must_use]
     pub fn word_count(&self) -> usize {
         const WORD_COUNTS: [u8; 16] = [
             1, // Utility
@@ -129,6 +130,7 @@ impl Ump {
     /// # Returns
     ///
     /// A new `Ump` instance with all data set to 0.
+    #[must_use]
     pub fn new() -> Self {
         Ump { data: [0; 4] }
     }
@@ -138,6 +140,7 @@ impl Ump {
     /// # Returns
     ///
     /// The `MessageType` derived from the high 4 bits of the first word.
+    #[must_use]
     pub fn message_type(&self) -> MessageType {
         let mt = (self.data[0] >> 28) as u8;
         MessageType::from(mt)
@@ -152,7 +155,7 @@ impl Ump {
     /// * `mt` - The `MessageType` to set.
     pub fn set_message_type(&mut self, mt: MessageType) {
         self.data[0] &= 0x0FFFFFFF;
-        self.data[0] |= (mt as u8 as u32) << 28;
+        self.data[0] |= u32::from(mt as u8) << 28;
     }
 
     /// Gets the Group number (0-15) of the UMP.
@@ -162,6 +165,7 @@ impl Ump {
     /// # Returns
     ///
     /// The group number.
+    #[must_use]
     pub fn group(&self) -> u8 {
         ((self.data[0] >> 24) & 0xF) as u8
     }
@@ -173,7 +177,7 @@ impl Ump {
     /// * `group` - The group number to set (0-15). The value is masked to 4 bits.
     pub fn set_group(&mut self, group: u8) {
         self.data[0] &= 0xF0FFFFFF;
-        self.data[0] |= ((group as u32) & 0xF) << 24;
+        self.data[0] |= ((u32::from(group)) & 0xF) << 24;
     }
 
     /// Gets the Status byte of the UMP.
@@ -185,6 +189,7 @@ impl Ump {
     /// # Returns
     ///
     /// The status byte (with lower nibble zeroed out).
+    #[must_use]
     pub fn status(&self) -> u8 {
         ((self.data[0] >> 16) & 0xF0) as u8
     }
@@ -196,6 +201,7 @@ impl Ump {
     /// # Returns
     ///
     /// The channel number.
+    #[must_use]
     pub fn channel(&self) -> u8 {
         ((self.data[0] >> 16) & 0x0F) as u8
     }

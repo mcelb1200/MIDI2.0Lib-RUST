@@ -10,6 +10,48 @@ mod tests {
     use alloc::vec;
 
     #[test]
+    fn test_noop() {
+        let noop = UmpFactory::noop();
+        assert_eq!(noop.data, [0, 0, 0, 0]);
+        assert_eq!(noop.message_type(), MessageType::Utility);
+    }
+
+    #[test]
+    fn test_ump_group_getter_setter() {
+        // Test getter
+        let mut ump = crate::ump::Ump::new();
+        // Set bits [24:27] to 0xA (group 10)
+        ump.data[0] = 0x0A000000;
+        assert_eq!(ump.group(), 10);
+
+        // Test setter
+        let mut ump = crate::ump::Ump::new();
+        ump.set_group(5);
+        assert_eq!(ump.group(), 5);
+        assert_eq!(ump.data[0], 0x05000000);
+
+        // Test setter edge case (values > 15 should be masked to 4 bits)
+        let mut ump = crate::ump::Ump::new();
+        // 255 (0xFF) should be masked to 15 (0xF)
+        ump.set_group(255);
+        assert_eq!(ump.group(), 15);
+        assert_eq!(ump.data[0], 0x0F000000);
+
+        // 16 (0x10) should be masked to 0 (0x0)
+        let mut ump = crate::ump::Ump::new();
+        ump.set_group(16);
+        assert_eq!(ump.group(), 0);
+        assert_eq!(ump.data[0], 0x00000000);
+
+        // Ensure setting group doesn't overwrite other bits
+        let mut ump = crate::ump::Ump::new();
+        ump.data[0] = 0xF0FFFFFF; // Set all other bits
+        ump.set_group(3);
+        assert_eq!(ump.group(), 3);
+        assert_eq!(ump.data[0], 0xF3FFFFFF); // Only bits [24:27] should change
+    }
+
+    #[test]
     fn test_message_creation_midi1() {
         let note_on = UmpFactory::midi1_note_on(0, 1, 60, 100);
         let w = note_on.data[0];
@@ -41,6 +83,60 @@ mod tests {
         assert_eq!(w2 >> 16, 12345); // Velocity
 
         assert_eq!(note_on.message_type(), MessageType::Midi2ChannelVoice);
+    }
+
+    #[test]
+    fn test_midi2_pitch_bend() {
+        let group = 2;
+        let channel = 5;
+        let value: u32 = 0x12345678;
+        let pb = UmpFactory::midi2_pitch_bend(group, channel, value);
+
+        assert_eq!(pb.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(pb.group(), group);
+        assert_eq!(pb.channel(), channel);
+        assert_eq!(pb.status(), PITCH_BEND);
+        assert_eq!(pb.data[1], value);
+
+        // Explicit check of the first word
+        let w1 = pb.data[0];
+        assert_eq!((w1 >> 28) & 0xF, 0x4); // MT=4
+        assert_eq!((w1 >> 24) & 0xF, u32::from(group));
+        assert_eq!((w1 >> 16) & 0xF0, 0xE0); // Status=PitchBend
+        assert_eq!((w1 >> 16) & 0x0F, u32::from(channel));
+    }
+
+    #[test]
+    fn test_midi2_channel_pressure() {
+        let group = 3;
+        let channel = 7;
+        let pressure: u32 = 0x87654321;
+        let cp = UmpFactory::midi2_channel_pressure(group, channel, pressure);
+
+        // Validate basic properties
+        assert_eq!(cp.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(cp.group(), group);
+        assert_eq!(cp.channel(), channel);
+        assert_eq!(cp.status(), CHANNEL_PRESSURE);
+        assert_eq!(cp.data[1], pressure);
+
+        // Explicit check of the first word layout
+        let w1 = cp.data[0];
+        assert_eq!((w1 >> 28) & 0xF, 0x4); // MT=4
+        assert_eq!((w1 >> 24) & 0xF, group as u32);
+        assert_eq!((w1 >> 16) & 0xF0, 0xD0); // Status=Channel Pressure
+        assert_eq!((w1 >> 16) & 0x0F, channel as u32);
+
+        // Edge case: Test out-of-bounds group and channel
+        // Values should be masked to 4 bits (e.g. 17 & 0xF = 1)
+        let oob_group = 17; // 10001 in binary -> masks to 0001 (1)
+        let oob_channel = 18; // 10010 in binary -> masks to 0010 (2)
+        let max_pressure = u32::MAX;
+        let cp_edge = UmpFactory::midi2_channel_pressure(oob_group, oob_channel, max_pressure);
+
+        assert_eq!(cp_edge.group(), 1);
+        assert_eq!(cp_edge.channel(), 2);
+        assert_eq!(cp_edge.data[1], max_pressure);
     }
 
     #[test]
@@ -102,5 +198,43 @@ mod tests {
         // This should not panic
         let res = scale_up(1, 1, 32);
         assert_eq!(res, 0xFFFFFFFF);
+    }
+
+    #[test]
+    fn test_message_type_from_u8_valid() {
+        assert_eq!(MessageType::from_u8(0x0), MessageType::Utility);
+        assert_eq!(MessageType::from_u8(0x1), MessageType::System);
+        assert_eq!(MessageType::from_u8(0x2), MessageType::Midi1ChannelVoice);
+        assert_eq!(MessageType::from_u8(0x3), MessageType::SysEx7);
+        assert_eq!(MessageType::from_u8(0x4), MessageType::Midi2ChannelVoice);
+        assert_eq!(MessageType::from_u8(0x5), MessageType::Data);
+        assert_eq!(MessageType::from_u8(0x6), MessageType::Reserved6);
+        assert_eq!(MessageType::from_u8(0x7), MessageType::Reserved7);
+        assert_eq!(MessageType::from_u8(0x8), MessageType::Reserved8);
+        assert_eq!(MessageType::from_u8(0x9), MessageType::Reserved9);
+        assert_eq!(MessageType::from_u8(0xA), MessageType::ReservedA);
+        assert_eq!(MessageType::from_u8(0xB), MessageType::ReservedB);
+        assert_eq!(MessageType::from_u8(0xC), MessageType::ReservedC);
+        assert_eq!(MessageType::from_u8(0xD), MessageType::FlexData);
+        assert_eq!(MessageType::from_u8(0xE), MessageType::ReservedE);
+        assert_eq!(MessageType::from_u8(0xF), MessageType::Stream);
+    }
+
+    #[test]
+    fn test_message_type_from_u8_out_of_bounds() {
+        // Because `from_u8` uses `val & 0xF`, values outside the 0-15 range
+        // should wrap around and still return valid message types instead of panicking.
+
+        // 16 (0x10) -> 0x10 & 0xF = 0x0
+        assert_eq!(MessageType::from_u8(16), MessageType::Utility);
+
+        // 31 (0x1F) -> 0x1F & 0xF = 0xF
+        assert_eq!(MessageType::from_u8(31), MessageType::Stream);
+
+        // 100 (0x64) -> 0x64 & 0xF = 0x4
+        assert_eq!(MessageType::from_u8(100), MessageType::Midi2ChannelVoice);
+
+        // 255 (0xFF) -> 0xFF & 0xF = 0xF
+        assert_eq!(MessageType::from_u8(255), MessageType::Stream);
     }
 }

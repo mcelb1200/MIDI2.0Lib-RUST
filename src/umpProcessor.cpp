@@ -122,7 +122,7 @@ void umpProcessor::processUMP(uint32_t UMP){
                 mess.messageType = mt;
                 mess.form = (umpMess[0] >> 20) & 0xF;
                 mess.dataLength  = std::min((uint8_t)(umpMess[0] >> 16) & 0xF, 6);
-                uint8_t sysex[6];
+                uint8_t sysex[6] = {0};
 
                 if(mess.dataLength > 0)sysex[0] =  (umpMess[0] >> 8) & 0x7F;
                 if(mess.dataLength > 1)sysex[1] =  umpMess[0] & 0x7F;
@@ -273,14 +273,20 @@ void umpProcessor::processUMP(uint32_t UMP){
 
                         if ((umpMess[0] >> 8) & 0xFF) text[mess.dataLength++] = (umpMess[0] >> 8) & 0xFF;
                         if (umpMess[0] & 0xFF) text[mess.dataLength++] = umpMess[0]  & 0xFF;
-                        for(uint8_t i = 1; i<=3; i++){
-                            for(int j = 24; j>=0; j-=8){
-                                uint8_t c = (umpMess[i] >> j) & 0xFF;
-                                if(c){
-                                        text[mess.dataLength++]=c;
-                                }
-                            }
-                         }
+
+                        uint8_t c;
+                        c = (umpMess[1] >> 24) & 0xFF; if (c) text[mess.dataLength++] = c;
+                        c = (umpMess[1] >> 16) & 0xFF; if (c) text[mess.dataLength++] = c;
+                        c = (umpMess[1] >> 8) & 0xFF;  if (c) text[mess.dataLength++] = c;
+                        c = umpMess[1] & 0xFF;         if (c) text[mess.dataLength++] = c;
+                        c = (umpMess[2] >> 24) & 0xFF; if (c) text[mess.dataLength++] = c;
+                        c = (umpMess[2] >> 16) & 0xFF; if (c) text[mess.dataLength++] = c;
+                        c = (umpMess[2] >> 8) & 0xFF;  if (c) text[mess.dataLength++] = c;
+                        c = umpMess[2] & 0xFF;         if (c) text[mess.dataLength++] = c;
+                        c = (umpMess[3] >> 24) & 0xFF; if (c) text[mess.dataLength++] = c;
+                        c = (umpMess[3] >> 16) & 0xFF; if (c) text[mess.dataLength++] = c;
+                        c = (umpMess[3] >> 8) & 0xFF;  if (c) text[mess.dataLength++] = c;
+                        c = umpMess[3] & 0xFF;         if (c) text[mess.dataLength++] = c;
                         mess.data = text;
                         if(status == MIDIENDPOINT_NAME_NOTIFICATION && midiEndpointName != nullptr) midiEndpointName(mess);
                         if(status == MIDIENDPOINT_PRODID_NOTIFICATION && midiEndpointProdId != nullptr) midiEndpointProdId(mess);
@@ -337,14 +343,20 @@ void umpProcessor::processUMP(uint32_t UMP){
                     uint8_t text[13];
 
                     if (umpMess[0] & 0xFF) text[mess.dataLength++] = umpMess[0]  & 0xFF;
-                    for(uint8_t i = 1; i<=3; i++){
-                        for(int j = 24; j>=0; j-=8){
-                            uint8_t c = (umpMess[i] >> j) & 0xFF;
-                            if(c){
-                                text[mess.dataLength++]=c;
-                            }
-                        }
-                    }
+
+                    uint8_t c;
+                    c = (umpMess[1] >> 24) & 0xFF; if (c) text[mess.dataLength++] = c;
+                    c = (umpMess[1] >> 16) & 0xFF; if (c) text[mess.dataLength++] = c;
+                    c = (umpMess[1] >> 8) & 0xFF;  if (c) text[mess.dataLength++] = c;
+                    c = umpMess[1] & 0xFF;         if (c) text[mess.dataLength++] = c;
+                    c = (umpMess[2] >> 24) & 0xFF; if (c) text[mess.dataLength++] = c;
+                    c = (umpMess[2] >> 16) & 0xFF; if (c) text[mess.dataLength++] = c;
+                    c = (umpMess[2] >> 8) & 0xFF;  if (c) text[mess.dataLength++] = c;
+                    c = umpMess[2] & 0xFF;         if (c) text[mess.dataLength++] = c;
+                    c = (umpMess[3] >> 24) & 0xFF; if (c) text[mess.dataLength++] = c;
+                    c = (umpMess[3] >> 16) & 0xFF; if (c) text[mess.dataLength++] = c;
+                    c = (umpMess[3] >> 8) & 0xFF;  if (c) text[mess.dataLength++] = c;
+                    c = umpMess[3] & 0xFF;         if (c) text[mess.dataLength++] = c;
                     mess.data = text;
 
                     if(functionBlockName != nullptr) functionBlockName(mess,fbIdx);
@@ -376,7 +388,7 @@ void umpProcessor::processUMP(uint32_t UMP){
                 mess.streamId  = (umpMess[0] >> 8) & 0xFF;
                 mess.form = status;
                 mess.dataLength  = (uint8_t)std::min((uint8_t)(umpMess[0] >> 16) & 0xF, 13);
-                uint8_t sysex[13];
+                uint8_t sysex[13] = {0};
 
                 if(mess.dataLength >= 1)sysex[0] =  umpMess[0] & 0xFF;
                 if(mess.dataLength >= 2)sysex[1] =  (umpMess[1] >> 24) & 0xFF;
@@ -409,7 +421,7 @@ void umpProcessor::processUMP(uint32_t UMP){
                     umpMess[3] & 0xFFFF
                     );
             }else if(status == 9){ //MDS Payload
-                uint8_t sysex[14];
+                uint8_t sysex[14] = {0};
                 sysex[0] =  (umpMess[0] >> 8) & 0xFF;
                 sysex[1] =  umpMess[0] & 0xFF;
                 sysex[2] =  (umpMess[1] >> 24) & 0xFF;
@@ -522,14 +534,19 @@ void umpProcessor::processUMP(uint32_t UMP){
                         uint8_t dataLength  = 0;
                         uint8_t text[12];
 
-                        for(uint8_t i = 1; i<=3; i++){
-                            for(int j = 24; j>=0; j-=8){
-                                uint8_t c = (umpMess[i] >> j) & 0xFF;
-                                if(c){
-                                    text[dataLength++]=c;
-                                }
-                            }
-                        }
+                        uint8_t c;
+                        c = (umpMess[1] >> 24) & 0xFF; if (c) text[dataLength++] = c;
+                        c = (umpMess[1] >> 16) & 0xFF; if (c) text[dataLength++] = c;
+                        c = (umpMess[1] >> 8) & 0xFF;  if (c) text[dataLength++] = c;
+                        c = umpMess[1] & 0xFF;         if (c) text[dataLength++] = c;
+                        c = (umpMess[2] >> 24) & 0xFF; if (c) text[dataLength++] = c;
+                        c = (umpMess[2] >> 16) & 0xFF; if (c) text[dataLength++] = c;
+                        c = (umpMess[2] >> 8) & 0xFF;  if (c) text[dataLength++] = c;
+                        c = umpMess[2] & 0xFF;         if (c) text[dataLength++] = c;
+                        c = (umpMess[3] >> 24) & 0xFF; if (c) text[dataLength++] = c;
+                        c = (umpMess[3] >> 16) & 0xFF; if (c) text[dataLength++] = c;
+                        c = (umpMess[3] >> 8) & 0xFF;  if (c) text[dataLength++] = c;
+                        c = umpMess[3] & 0xFF;         if (c) text[dataLength++] = c;
 
                         if(mess.statusBank== FLEXDATA_LYRIC && flexLyric != nullptr) flexLyric(mess, text,dataLength);
                         else if(mess.statusBank== FLEXDATA_PERFORMANCE && flexPerformance != nullptr) flexPerformance(mess,text,dataLength);
