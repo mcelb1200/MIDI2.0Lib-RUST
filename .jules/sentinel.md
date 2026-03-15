@@ -1,8 +1,4 @@
-## 2024-05-18 - Trusting SysEx length fields for fixed internal buffers
-**Vulnerability:** Out-of-bounds Read
-**Learning:** In C++ specifically, passing a pointer to an internal buffer, and an unsanitized length variable into a user callback provides an opportunity for malicious devices to dictate the buffer length being read by the client application. In this case, `intTemp[1]` which dictated the length could exceed the internal bounds of `buffer` (which is size 256), leading an out-of-bounds read vulnerability.
-**Prevention:** Bound `intTemp[X]` parameters to the length of the actual array provided to the user callback (`buffer`) since we already bounds check inserting data into `buffer`.## 2024-03-02 - Unsafe sprintf buffer overflow risk
-
-**Vulnerability:** The `hirezRepresentation` function in `include/utils.h` used `sprintf` to format high-resolution output strings. Since `sprintf` does not know the size of the target buffer, this could potentially lead to a buffer overflow if the generated string exceeds the buffer size.
-**Learning:** Legacy C++ code often uses unsafe string functions like `sprintf`, `strcpy`, and `strcat` which are prone to buffer overflows. These should always be replaced with safer, bounds-checked equivalents.
-**Prevention:** Replace `sprintf` with `snprintf` by modifying the function signature to accept a buffer length parameter (`size_t outputLen`). Always pass the correct buffer size to `snprintf` to ensure the buffer is never overrun.
+## 2024-03-03 - Missing Input Masking in UMP Construction and Scaling
+**Vulnerability:** MIDI 2.0 message fields (like `note`, `index`, `bank`, `program`) and values passed to `scale_up` / `scale_down` were not properly masked to their required bit depths.
+**Learning:** In the Rust port, user-provided inputs to `u8` arguments (e.g. Note Number, natively 7 bits) were directly shifted and combined into the 32-bit UMP packet header or scaling functions without `& 0x7F` or bit-depth masks. This allowed out-of-bounds input to overwrite reserved header bits or corrupt scaled values, potentially causing unpredictable behavior or exploiting parsers down the line.
+**Prevention:** Always sanitize inputs to their valid bit-ranges before shifting and composing bitwise message structures or performing mathematical bit scaling. In `am_midi2`, this means explicitly masking 7-bit parameters (`note & 0x7F`) when constructing MT=4 packets, and masking `src_val` against `src_bits` in scaling functions.
