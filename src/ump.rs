@@ -132,7 +132,7 @@ impl Ump {
     /// A new `Ump` instance with all data set to 0.
     #[must_use]
     pub fn new() -> Self {
-        Ump { data: [0; 4] }
+        Self { data: [0; 4] }
     }
 
     /// Gets the Message Type of the UMP.
