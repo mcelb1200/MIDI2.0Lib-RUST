@@ -385,8 +385,9 @@ impl UmpFactory {
         velocity: u16,
         attribute_data: u16,
     ) -> Ump {
-        let word1 = Self::mt4_create_first_word(group, NOTE_OFF, channel, note, attribute_type);
-        let word2 = ((u32::from(velocity)) << 16) | (u32::from(attribute_data));
+        let word1 =
+            Self::mt4_create_first_word(group, NOTE_OFF, channel, note & 0x7F, attribute_type);
+        let word2 = ((velocity as u32) << 16) | (attribute_data as u32);
         Ump {
             data: [word1, word2, 0, 0],
         }
@@ -415,8 +416,9 @@ impl UmpFactory {
         velocity: u16,
         attribute_data: u16,
     ) -> Ump {
-        let word1 = Self::mt4_create_first_word(group, NOTE_ON, channel, note, attribute_type);
-        let word2 = ((u32::from(velocity)) << 16) | (u32::from(attribute_data));
+        let word1 =
+            Self::mt4_create_first_word(group, NOTE_ON, channel, note & 0x7F, attribute_type);
+        let word2 = ((velocity as u32) << 16) | (attribute_data as u32);
         Ump {
             data: [word1, word2, 0, 0],
         }
@@ -436,7 +438,7 @@ impl UmpFactory {
     /// A `Ump` representing a Polyphonic Key Pressure message.
     #[must_use]
     pub fn midi2_poly_pressure(group: u8, channel: u8, note: u8, pressure: u32) -> Ump {
-        let word1 = Self::mt4_create_first_word(group, KEY_PRESSURE, channel, note, 0);
+        let word1 = Self::mt4_create_first_word(group, KEY_PRESSURE, channel, note & 0x7F, 0);
         Ump {
             data: [word1, pressure, 0, 0],
         }
@@ -456,7 +458,7 @@ impl UmpFactory {
     /// A `Ump` representing a Control Change message.
     #[must_use]
     pub fn midi2_control_change(group: u8, channel: u8, index: u8, value: u32) -> Ump {
-        let word1 = Self::mt4_create_first_word(group, CC, channel, index, 0);
+        let word1 = Self::mt4_create_first_word(group, CC, channel, index & 0x7F, 0);
         Ump {
             data: [word1, value, 0, 0],
         }
@@ -477,7 +479,7 @@ impl UmpFactory {
     /// A `Ump` representing an RPN message.
     #[must_use]
     pub fn midi2_rpn(group: u8, channel: u8, bank: u8, index: u8, value: u32) -> Ump {
-        let word1 = Self::mt4_create_first_word(group, RPN, channel, bank, index);
+        let word1 = Self::mt4_create_first_word(group, RPN, channel, bank & 0x7F, index & 0x7F);
         Ump {
             data: [word1, value, 0, 0],
         }
@@ -498,7 +500,7 @@ impl UmpFactory {
     /// A `Ump` representing an NRPN message.
     #[must_use]
     pub fn midi2_nrpn(group: u8, channel: u8, bank: u8, index: u8, value: u32) -> Ump {
-        let word1 = Self::mt4_create_first_word(group, NRPN, channel, bank, index);
+        let word1 = Self::mt4_create_first_word(group, NRPN, channel, bank & 0x7F, index & 0x7F);
         Ump {
             data: [word1, value, 0, 0],
         }
@@ -519,7 +521,8 @@ impl UmpFactory {
     /// A `Ump` representing a Relative RPN message.
     #[must_use]
     pub fn midi2_relative_rpn(group: u8, channel: u8, bank: u8, index: u8, value: i32) -> Ump {
-        let word1 = Self::mt4_create_first_word(group, RPN_RELATIVE, channel, bank, index);
+        let word1 =
+            Self::mt4_create_first_word(group, RPN_RELATIVE, channel, bank & 0x7F, index & 0x7F);
         Ump {
             data: [word1, value as u32, 0, 0],
         }
@@ -540,7 +543,8 @@ impl UmpFactory {
     /// A `Ump` representing a Relative NRPN message.
     #[must_use]
     pub fn midi2_relative_nrpn(group: u8, channel: u8, bank: u8, index: u8, value: i32) -> Ump {
-        let word1 = Self::mt4_create_first_word(group, NRPN_RELATIVE, channel, bank, index);
+        let word1 =
+            Self::mt4_create_first_word(group, NRPN_RELATIVE, channel, bank & 0x7F, index & 0x7F);
         Ump {
             data: [word1, value as u32, 0, 0],
         }
@@ -576,9 +580,9 @@ impl UmpFactory {
             0,
             if bank_valid { 1 } else { 0 },
         );
-        let word2 = ((u32::from(program)) << 24)
+        let word2 = (((program & 0x7F) as u32) << 24)
             + if bank_valid {
-                ((u32::from(bank)) << 8) + (u32::from(index))
+                (((bank & 0x7F) as u32) << 8) + ((index & 0x7F) as u32)
             } else {
                 0
             };
@@ -639,7 +643,7 @@ impl UmpFactory {
     /// A `Ump` representing a Per-Note Pitch Bend message.
     #[must_use]
     pub fn midi2_per_note_pitch_bend(group: u8, channel: u8, note: u8, value: u32) -> Ump {
-        let word1 = Self::mt4_create_first_word(group, PITCH_BEND_PERNOTE, channel, note, 0);
+        let word1 = Self::mt4_create_first_word(group, PITCH_BEND_PERNOTE, channel, note & 0x7F, 0);
         Ump {
             data: [word1, value, 0, 0],
         }

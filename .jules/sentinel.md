@@ -1,3 +1,7 @@
+## 2024-03-03 - Missing Input Masking in UMP Construction and Scaling
+**Vulnerability:** MIDI 2.0 message fields (like `note`, `index`, `bank`, `program`) and values passed to `scale_up` / `scale_down` were not properly masked to their required bit depths.
+**Learning:** In the Rust port, user-provided inputs to `u8` arguments (e.g. Note Number, natively 7 bits) were directly shifted and combined into the 32-bit UMP packet header or scaling functions without `& 0x7F` or bit-depth masks. This allowed out-of-bounds input to overwrite reserved header bits or corrupt scaled values, potentially causing unpredictable behavior or exploiting parsers down the line.
+**Prevention:** Always sanitize inputs to their valid bit-ranges before shifting and composing bitwise message structures or performing mathematical bit scaling. In `am_midi2`, this means explicitly masking 7-bit parameters (`note & 0x7F`) when constructing MT=4 packets, and masking `src_val` against `src_bits` in scaling functions.
 ## 2024-05-18 - Trusting SysEx length fields for fixed internal buffers
 **Vulnerability:** Out-of-bounds Read
 **Learning:** In C++ specifically, passing a pointer to an internal buffer, and an unsanitized length variable into a user callback provides an opportunity for malicious devices to dictate the buffer length being read by the client application. In this case, `intTemp[1]` which dictated the length could exceed the internal bounds of `buffer` (which is size 256), leading an out-of-bounds read vulnerability.

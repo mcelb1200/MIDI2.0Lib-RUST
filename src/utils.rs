@@ -107,6 +107,13 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
         return 0;
     }
 
+    // Sanitize input: mask out any bits beyond src_bits
+    let src_val = if src_bits == 32 {
+        src_val
+    } else {
+        src_val & ((1u64 << src_bits) - 1) as u32
+    };
+
     // Handle value of 0 - skip processing
     if src_val == 0 {
         return 0;
@@ -194,6 +201,18 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
 /// The scaled down value.
 #[must_use]
 pub fn scale_down(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
+    // Prevent panic on invalid input
+    if src_bits == 0 || src_bits > 32 || dst_bits > 32 {
+        return 0;
+    }
+
+    // Sanitize input: mask out any bits beyond src_bits
+    let src_val = if src_bits == 32 {
+        src_val
+    } else {
+        src_val & ((1u64 << src_bits) - 1) as u32
+    };
+
     let scale_bits = src_bits.saturating_sub(dst_bits);
     // ⚡ Bolt Optimization: Consolidate bounds checking into a single branch
     // after calculating `scale_bits`. This prevents duplicate branching
