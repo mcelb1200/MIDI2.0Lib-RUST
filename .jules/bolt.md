@@ -40,3 +40,7 @@
 ## 2024-05-24 - [Avoid Double Memory Lookups for Enum Properties]
 **Learning:** In hot paths, calling an enum property method that relies on a static array lookup (like `self.message_type().word_count()`) can result in a double memory lookup: one to convert the raw bit value to the enum via a static array, and a second to get the property via another static array.
 **Action:** When a property maps directly from a raw bit value (e.g., extracting word count directly from the Message Type nibble), implement a direct array lookup from the raw value to bypass the intermediate enum conversion overhead.
+
+## 2025-10-24 - [Optimized Bit Scaling Edge Cases]
+**Learning:** The C++ `M2Utils::scaleDown` implementation lacked an early return for `srcBits <= dstBits`, causing it to execute scaling math with `scaleBits` equal to 0 or negative (large positive unsigned numbers), adding unnecessary execution time and creating an edge case that could fail or underflow. Similarly, the 16-bit to 32-bit `scaleUp` path was missing an unrolled logic block, forcing it to fall back to a generic while loop for a very common MIDI value mapping operation.
+**Action:** Always add early exits for base cases (like scaling down to a larger or equal depth). Check parity between C++ and Rust bit scaling utilities to ensure fast paths match across both codebases.
