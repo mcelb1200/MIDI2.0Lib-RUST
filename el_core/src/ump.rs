@@ -90,6 +90,11 @@ impl Ump {
         ((self.data[0] >> 24) & 0xF) as u8
     }
 
+    pub fn set_group(&mut self, group: u8) {
+        self.data[0] &= 0xF0FFFFFF;
+        self.data[0] |= ((group as u32) & 0xF) << 24;
+    }
+
     #[must_use]
     pub fn word_count(&self) -> usize {
         let mt_val = ((self.data[0] >> 28) & 0xF) as usize;
