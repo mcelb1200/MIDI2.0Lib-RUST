@@ -576,7 +576,9 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
                     (sysexPos >= 22 && sysexPos <= 21 + dataLength)
                     || 	(dataLength == 0 && sysexPos == 21)
                     ){
-                if(dataLength != 0 )buffer[charOffset] = s7Byte;
+                // Security: Explicit bounds check to prevent potential buffer overflow
+                // even though charOffset is bounded by modulo operation above.
+                if(dataLength != 0 && charOffset < sizeof(buffer)) buffer[charOffset] = s7Byte;
 
                 bool lastByteOfSet = (sysexPos == 21 + dataLength);
 
@@ -729,7 +731,9 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
                     (sysexPos >= initPos && sysexPos <= initPos - 1 + bodyLength)
                     || (bodyLength == 0 && sysexPos == initPos - 1)
                     ) {
-                if (bodyLength != 0)buffer[charOffset] = s7Byte;
+                // Security: Explicit bounds check to prevent potential buffer overflow
+                // even though charOffset is bounded by modulo operation above.
+                if (bodyLength != 0 && charOffset < sizeof(buffer)) buffer[charOffset] = s7Byte;
 
                 bool lastByteOfSet = (
                         midici.numChunk == midici.totalChunks &&

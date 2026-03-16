@@ -20,6 +20,10 @@
 **Vulnerability:** In C++, fixed-size arrays were used to store both fixed header components and variable-length payload components, but overlapping index limits allowed payload data to overwrite header data, leading to a buffer overwrite.
 **Learning:** Even if the bounds of the array as a whole are checked to prevent out-of-bounds writes, the logic inside a single array may overwrite other variables stored in the array if the indices used for variable-length payload storage are not correctly offset from the header field indices.
 **Prevention:** Explicitly subtract the header storage size from the maximum allowed payload write length when bounds-checking, and explicitly offset the write indices by the header storage size.
+## 2024-05-18 - [Explicit Bounds Checking for Buffer Writes]
+**Vulnerability:** In `src/midiCIProcessor.cpp`, array indices derived from modulo operations (`charOffset`) were used to write to the internal `buffer` array without explicit bounds checking prior to the assignment.
+**Learning:** While mathematical operations like modulo technically restrict the output range to fall within the allocated buffer size, relying solely on preceding logic for memory safety is a fragile pattern. If the modulo logic or buffer size ever changes independently, it could silently introduce an out-of-bounds write vulnerability.
+**Prevention:** Always implement explicit bounds checks (e.g., `index < sizeof(buffer)`) immediately before the array assignment operation, establishing defense-in-depth regardless of prior index constraints.
 
 ## 2024-05-24 - Edge cases omitted by early length byte accumulation returns
 **Vulnerability:** Out-of-bounds Read / Data integrity
