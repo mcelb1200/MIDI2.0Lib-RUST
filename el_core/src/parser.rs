@@ -29,27 +29,20 @@ impl<'a> Iterator for UmpStreamParser<'a> {
             0x0 | 0x1 | 0x2 | 0x6 | 0x7 => Some(Ump {
                 data: [w1, 0, 0, 0],
             }),
-            0x3 | 0x4 | 0x8 | 0x9 | 0xA => {
-                let w2 = *self.stream.next()?;
-                Some(Ump {
-                    data: [w1, w2, 0, 0],
-                })
-            }
-            0xB | 0xC => {
-                let w2 = *self.stream.next()?;
-                let w3 = *self.stream.next()?;
-                Some(Ump {
-                    data: [w1, w2, w3, 0],
-                })
-            }
-            0x5 | 0xD | 0xE | 0xF => {
-                let w2 = *self.stream.next()?;
-                let w3 = *self.stream.next()?;
-                let w4 = *self.stream.next()?;
-                Some(Ump {
-                    data: [w1, w2, w3, w4],
-                })
-            }
+            0x3 | 0x4 | 0x8 | 0x9 | 0xA => Some(Ump {
+                data: [w1, *self.stream.next()?, 0, 0],
+            }),
+            0xB | 0xC => Some(Ump {
+                data: [w1, *self.stream.next()?, *self.stream.next()?, 0],
+            }),
+            0x5 | 0xD | 0xE | 0xF => Some(Ump {
+                data: [
+                    w1,
+                    *self.stream.next()?,
+                    *self.stream.next()?,
+                    *self.stream.next()?,
+                ],
+            }),
             _ => None, // Unreachable due to 4-bit bitmask constraint
         }
     }
