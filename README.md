@@ -1,17 +1,25 @@
-# am_midi2
+# el_midi2
 
 A Rust library for MIDI 2.0.
 
-`am_midi2` is a general-purpose, `no_std` compatible library for building MIDI 2.0 Devices and Applications. It aims to work on everything from embedded devices to large-scale applications, providing the building blocks, processing, and translations needed for MIDI 2.0.
+`el_midi2` is a general-purpose, `no_std` compatible library for building MIDI 2.0 Devices and Applications. It aims to work on everything from embedded devices to large-scale applications, providing the building blocks, processing, and translations needed for MIDI 2.0.
 
-This library is a Rust port of an existing C++ MIDI 2.0 library, focusing on safety and ergonomics while maintaining a small footprint.
+This library is a Rust port of an existing C++ MIDI 2.0 library, focusing on safety and ergonomics while maintaining a small footprint. It implements the core primitives, Universal MIDI Packets (UMP), stream parsing, and bit manipulation utilities according to the Phase 1 and Phase 2 roadmap goals.
+
+## State of the Port
+
+Currently, `am_midi2` has completed:
+- **Phase 1 (The Foundation)**: UMP containers, core bit-manipulation, and utility primitives.
+- **Phase 2 (Protocol Logic)**: Creation of MIDI 1.0 and 2.0 Channel Voice messages, System Common/Realtime messages, Utility messages, and parameter messages (CC, RPN, NRPN, Pitch Bend).
+
+Future phases will address **Phase 3 (MIDI-CI)** and **Phase 4 (Stream & Transport)** to fully implement the specification.
 
 ## Features
 
 - **UMP (Universal MIDI Packet) Support**: Full support for all defined UMP message types (32, 64, 96, 128-bit).
 - **Message Factory**: Easy-to-use factory methods for creating MIDI 1.0 and MIDI 2.0 Channel Voice messages, System messages, and more.
 - **Stream Parsing**: Efficient iterator-based parser for converting streams of `u32` words into valid UMPs.
-- **Utilities**: Helper functions for bit scaling (up/down) and constant definitions for MIDI status bytes.
+- **Utilities**: Helper functions for optimized bit scaling (up/down) and constant definitions for MIDI status bytes.
 - **`no_std` Compatible**: Designed for embedded use cases with no dependency on the standard library (though `alloc` may be used for specific features in the future).
 
 ## Usage
@@ -56,6 +64,7 @@ fn main() {
 
 - **User Guide**: See [USER_GUIDE.md](USER_GUIDE.md) for detailed usage instructions.
 - **API Documentation**: Run `cargo doc --open` to view the generated API documentation.
+- **Development Roadmap**: Check out [MIDI2_ROADMAP.md](MIDI2_ROADMAP.md) to see where the project is heading.
 
 ## Contributing
 

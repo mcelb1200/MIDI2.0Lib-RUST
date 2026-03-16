@@ -23,4 +23,4 @@ midi2: $(OBJECTS)
 
 clean:
 	rm -rf build
-	rm test
+	rm test bench_clear
