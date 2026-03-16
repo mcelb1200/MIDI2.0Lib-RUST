@@ -652,7 +652,7 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
 
             if (sysexPos == 16 && midici.numChunk == 0){
                 peHeaderStr[midici._peReqIdx] = "";
-                peHeaderStr[midici._peReqIdx].reserve(headerLength);
+                peHeaderStr[midici._peReqIdx].reserve(headerLength < 1024 ? headerLength : 1024);
             }
 
             if (sysexPos >= 16 && sysexPos <= 15 + headerLength) {
