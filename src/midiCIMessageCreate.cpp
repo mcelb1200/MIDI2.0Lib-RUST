@@ -254,9 +254,9 @@ CIMessage::sendProfileListResponse(uint8_t *sysex, uint8_t midiCIVer, uint32_t s
     createCIHeader(sysex, destination, MIDICI_PROFILE_INQUIRYREPLY, midiCIVer, srcMUID, destMUID);
     uint16_t length = 13;
     setBytesFromNumbers(sysex, profilesEnabledLen, &length, 2);
-    concatSysexArray(sysex, &length, profilesEnabled, profilesEnabledLen * 5);
+    concatSysexArray(sysex, &length, profilesEnabled, profilesEnabledLen);
     setBytesFromNumbers(sysex, profilesDisabledLen, &length, 2);
-    concatSysexArray(sysex, &length, profilesDisabled, profilesDisabledLen * 5);
+    concatSysexArray(sysex, &length, profilesDisabled, profilesDisabledLen);
     return length;
 }
 
