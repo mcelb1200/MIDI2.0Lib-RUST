@@ -19,16 +19,24 @@
  * ********************************************************/
 
 #include "midiCIProcessor.h"
+#include <cstring>
+#include <cstdio>
+
+const uint16_t midiCIProcessor::MAX_PE_HEADER_SIZE;
 
 void midiCIProcessor::endSysex7(){
     if(midici._reqTupleSet){
         cleanupRequest(midici._peReqIdx);
     }
+    // Security enhancement: Clear buffer to prevent sensitive data lingering
+    memset(buffer, 0, sizeof(buffer));
 }
 
 void midiCIProcessor::startSysex7(uint8_t group, uint8_t deviceId){
 
     sysexPos = 0;
+    // Security enhancement: Ensure entire buffer is zeroed out
+    memset(buffer, 0, sizeof(buffer));
     M2Utils::clear(buffer, 0, sizeof(buffer));
     intTemp[0]=0;
     intTemp[1]=0;
@@ -414,7 +422,7 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             }
 
             //Disabled Profile Length
-            int enabledProfileOffset = intTemp[0] * 5 + 15;
+            int enabledProfileOffset = intTemp[0] + 15;
             if (
                     sysexPos == enabledProfileOffset
                     || sysexPos == 1 + enabledProfileOffset
@@ -434,7 +442,7 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             }
 
             if (sysexPos >= 2 + enabledProfileOffset &&
-                sysexPos < enabledProfileOffset + 2 + intTemp[1] * 5) {
+                sysexPos < enabledProfileOffset + 2 + intTemp[1]) {
                 uint8_t pos = (sysexPos - (enabledProfileOffset + 2)) % 5;
                 buffer[pos] = s7Byte;
                 if (pos == 4 && recvSetProfileDisabled != nullptr) {
@@ -568,7 +576,9 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
                     (sysexPos >= 22 && sysexPos <= 21 + dataLength)
                     || 	(dataLength == 0 && sysexPos == 21)
                     ){
-                if(dataLength != 0 )buffer[charOffset] = s7Byte;
+                // Security: Explicit bounds check to prevent potential buffer overflow
+                // even though charOffset is bounded by modulo operation above.
+                if(dataLength != 0 && charOffset < sizeof(buffer)) buffer[charOffset] = s7Byte;
 
                 bool lastByteOfSet = (sysexPos == 21 + dataLength);
 
@@ -652,7 +662,7 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
 
             if (sysexPos == 16 && midici.numChunk == 0){
                 peHeaderStr[midici._peReqIdx] = "";
-                peHeaderStr[midici._peReqIdx].reserve(headerLength < 1024 ? headerLength : 1024);
+                peHeaderStr[midici._peReqIdx].reserve(std::min<uint16_t>(headerLength, midiCIProcessor::MAX_PE_HEADER_SIZE));
             }
 
             if (sysexPos >= 16 && sysexPos <= 15 + headerLength) {
@@ -660,8 +670,10 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
                 if (charOffset < sizeof(buffer)) {
                     buffer[charOffset] = s7Byte;
                 }
-                if (peHeaderStr[midici._peReqIdx].length() < 1024) {
+                if (peHeaderStr[midici._peReqIdx].length() < midiCIProcessor::MAX_PE_HEADER_SIZE) {
                     peHeaderStr[midici._peReqIdx].push_back(s7Byte);
+                } else if (charOffset == midiCIProcessor::MAX_PE_HEADER_SIZE) {
+                    printf("Warning: PE Header string exceeded MAX_PE_HEADER_SIZE (%d bytes). Truncating.\n", midiCIProcessor::MAX_PE_HEADER_SIZE);
                 }
             }
 
@@ -719,7 +731,9 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
                     (sysexPos >= initPos && sysexPos <= initPos - 1 + bodyLength)
                     || (bodyLength == 0 && sysexPos == initPos - 1)
                     ) {
-                if (bodyLength != 0)buffer[charOffset] = s7Byte;
+                // Security: Explicit bounds check to prevent potential buffer overflow
+                // even though charOffset is bounded by modulo operation above.
+                if (bodyLength != 0 && charOffset < sizeof(buffer)) buffer[charOffset] = s7Byte;
 
                 bool lastByteOfSet = (
                         midici.numChunk == midici.totalChunks &&

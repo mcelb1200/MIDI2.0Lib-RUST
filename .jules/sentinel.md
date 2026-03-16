@@ -1,3 +1,11 @@
+## 2024-03-04 - [Defense in Depth: Zeroing Internal Buffers]
+**Vulnerability:** The internal parsing `buffer[256]` in `midiCIProcessor.cpp` was only partially cleared (`buffer[0] = '\0'`) during `startSysex7()`. Previously parsed payload bytes from sensitive Property Exchange requests, Endpoint Info, Profile details, etc., could persist in memory across parsing sessions.
+**Learning:** Even though index bounds checking prevented direct overflow exploits, leftover buffer data poses a secondary risk of memory disclosure or logic errors if uninitialized parts of the buffer are later copied or reused. Security is defense in depth.
+**Prevention:** Explicitly `memset` fixed-size internal buffers to zero at the start and end of processing lifecycles (e.g., `startSysex7` and `endSysex7`).
+## 2024-03-03 - Missing Input Masking in UMP Construction and Scaling
+**Vulnerability:** MIDI 2.0 message fields (like `note`, `index`, `bank`, `program`) and values passed to `scale_up` / `scale_down` were not properly masked to their required bit depths.
+**Learning:** In the Rust port, user-provided inputs to `u8` arguments (e.g. Note Number, natively 7 bits) were directly shifted and combined into the 32-bit UMP packet header or scaling functions without `& 0x7F` or bit-depth masks. This allowed out-of-bounds input to overwrite reserved header bits or corrupt scaled values, potentially causing unpredictable behavior or exploiting parsers down the line.
+**Prevention:** Always sanitize inputs to their valid bit-ranges before shifting and composing bitwise message structures or performing mathematical bit scaling. In `am_midi2`, this means explicitly masking 7-bit parameters (`note & 0x7F`) when constructing MT=4 packets, and masking `src_val` against `src_bits` in scaling functions.
 ## 2024-05-18 - Trusting SysEx length fields for fixed internal buffers
 **Vulnerability:** Out-of-bounds Read
 **Learning:** In C++ specifically, passing a pointer to an internal buffer, and an unsanitized length variable into a user callback provides an opportunity for malicious devices to dictate the buffer length being read by the client application. In this case, `intTemp[1]` which dictated the length could exceed the internal bounds of `buffer` (which is size 256), leading an out-of-bounds read vulnerability.
@@ -12,6 +20,10 @@
 **Vulnerability:** In C++, fixed-size arrays were used to store both fixed header components and variable-length payload components, but overlapping index limits allowed payload data to overwrite header data, leading to a buffer overwrite.
 **Learning:** Even if the bounds of the array as a whole are checked to prevent out-of-bounds writes, the logic inside a single array may overwrite other variables stored in the array if the indices used for variable-length payload storage are not correctly offset from the header field indices.
 **Prevention:** Explicitly subtract the header storage size from the maximum allowed payload write length when bounds-checking, and explicitly offset the write indices by the header storage size.
+## 2024-05-18 - [Explicit Bounds Checking for Buffer Writes]
+**Vulnerability:** In `src/midiCIProcessor.cpp`, array indices derived from modulo operations (`charOffset`) were used to write to the internal `buffer` array without explicit bounds checking prior to the assignment.
+**Learning:** While mathematical operations like modulo technically restrict the output range to fall within the allocated buffer size, relying solely on preceding logic for memory safety is a fragile pattern. If the modulo logic or buffer size ever changes independently, it could silently introduce an out-of-bounds write vulnerability.
+**Prevention:** Always implement explicit bounds checks (e.g., `index < sizeof(buffer)`) immediately before the array assignment operation, establishing defense-in-depth regardless of prior index constraints.
 
 ## 2024-05-24 - Edge cases omitted by early length byte accumulation returns
 **Vulnerability:** Out-of-bounds Read / Data integrity
@@ -38,3 +50,12 @@
 **Vulnerability:** Denial of Service (Memory Exhaustion)
 **Learning:** In C++, accepting externally controlled length parameters (like `headerLength` from incoming SysEx chunks) and using them to immediately allocate dynamic memory via `std::string::reserve()` can allow an attacker to send small packets with huge lengths, instantly exhausting device memory and causing crashes. This is especially critical in embedded environments.
 **Prevention:** Always clamp or bound requested allocation sizes against the maximum allowable size that the application will actually parse or utilize, such as capping `reserve(length)` to the 1024-byte limit already enforced by the string appending logic.
+## Unbounded String Allocation in MIDI-CI Header Parsing
+**Vulnerability:** The code used an unverified network-provided length field (`headerLength`) directly in a `std::string::reserve()` call, opening the door to malicious actors sending oversized length fields to exhaust system memory and trigger OOM crashes on embedded systems.
+**Learning:** Always bound `reserve()` or memory allocation requests that are derived from externally provided variable-length fields using a maximum defined limit or constant.
+**Prevention:** Introduce and enforce named constants like `MAX_PE_HEADER_SIZE` and apply `std::min` when allocating memory dynamically, ensuring any excess bytes are dropped and potentially logged to avoid unbounded resource consumption.
+
+## 2026-03-24 - Out-of-bounds read via incorrectly scaled length fields in Profile Inquiry
+**Vulnerability:** In MIDI-CI Profile Inquiry Reply messages, the length fields (`profilesEnabledLen` and `profilesDisabledLen`) specify the total length in bytes, not the number of items. Multiplying these length values by the item size (e.g., 5 bytes per profile) before calling `concatSysexArray` caused the sender to read far beyond the bounds of the provided arrays, leading to a severe out-of-bounds read (OOB read) and potentially leaking uninitialized memory or causing a crash.
+**Learning:** High-level MIDI-CI messages often use lengths in bytes rather than item counts. When handling these length parameters provided by user callbacks or functions, assuming they represent the number of items and multiplying them by the item size will cause out-of-bounds access. The Protocol Mapping specifies `MIDICI_PROFILE_INQUIRYREPLY` lengths as total bytes.
+**Prevention:** Always verify parsing and encoding offsets and length semantics against the official MIDI-CI specification. Use lengths exactly as specified by the standard (in bytes) without applying implicit item-size scaling unless the specification defines the field as an item count (like Protocol Negotiation).
