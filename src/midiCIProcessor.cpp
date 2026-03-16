@@ -19,17 +19,21 @@
  * ********************************************************/
 
 #include "midiCIProcessor.h"
+#include <cstring>
 
 void midiCIProcessor::endSysex7(){
     if(midici._reqTupleSet){
         cleanupRequest(midici._peReqIdx);
     }
+    // Security enhancement: Clear buffer to prevent sensitive data lingering
+    memset(buffer, 0, sizeof(buffer));
 }
 
 void midiCIProcessor::startSysex7(uint8_t group, uint8_t deviceId){
 
     sysexPos = 0;
-    buffer[0]='\0';
+    // Security enhancement: Ensure entire buffer is zeroed out
+    memset(buffer, 0, sizeof(buffer));
     intTemp[0]=0;
     intTemp[1]=0;
     intTemp[2]=0;
