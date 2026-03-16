@@ -49,3 +49,7 @@ install(FILES ${LIBMIDI2_HEADERS} DESTINATION "include/${PROJECT_NAME}")
 add_executable(test tests/tests.cpp)
 target_link_libraries(test PRIVATE libmidi2)
 setupTarget(test)
+
+add_executable(bench_clear tests/bench_clear.cpp)
+target_link_libraries(bench_clear PRIVATE libmidi2)
+setupTarget(bench_clear)

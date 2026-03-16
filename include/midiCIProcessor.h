@@ -54,6 +54,9 @@ struct MIDICI{
 
 
 class midiCIProcessor{
+public:
+    static const uint16_t MAX_PE_HEADER_SIZE = 1024;
+
 private:
     MIDICI midici;
     uint8_t buffer[256];

@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <tuple>
 #include <cstdio>
+#include <cstring>
 
 
 #define NOTE_OFF 0x80
@@ -191,9 +192,7 @@
 
 namespace M2Utils {
  inline void clear(uint8_t * const dest, uint8_t const c, std::size_t const n) {
-  for (auto i = std::size_t{0}; i < n; i++) {
-   dest[i] = c;
-  }
+  std::memset(dest, c, n);
  }
 
  inline uint32_t scaleUp(uint32_t srcVal, uint8_t srcBits, uint8_t dstBits){
@@ -204,7 +203,37 @@ namespace M2Utils {
 
   //handle 1-bit (bool) scaling
   if(srcBits == 1){
+   if (dstBits == 32) return 0xFFFFFFFF;
    return (1 << dstBits) - 1L;
+  }
+
+  // Specialized optimizations for common MIDI conversions
+  if (dstBits == 32) {
+      if (srcBits == 7) {
+          // Fast path for 7-bit to 32-bit (e.g., Velocity, CC)
+          uint32_t shifted = srcVal << 25;
+          if (srcVal <= 64) return shifted;
+          uint32_t v = srcVal & 0x3F;
+          return shifted | (v << 19) | (v << 13) | (v << 7) | (v << 1) | (v >> 5);
+      } else if (srcBits == 8) {
+          // Fast path for 8-bit to 32-bit (e.g., some SysEx data mappings)
+          uint32_t shifted = srcVal << 24;
+          if (srcVal <= 128) return shifted;
+          uint32_t v = srcVal & 0x7F;
+          return shifted | (v << 17) | (v << 10) | (v << 3) | (v >> 4);
+      } else if (srcBits == 14) {
+          // Fast path for 14-bit to 32-bit (e.g., Pitch Bend, High Res Velocity)
+          uint32_t shifted = srcVal << 18;
+          if (srcVal <= 8192) return shifted;
+          uint32_t v = srcVal & 0x1FFF;
+          return shifted | (v << 5) | (v >> 8);
+      } else if (srcBits == 16) {
+          // Fast path for 16-bit to 32-bit
+          uint32_t shifted = srcVal << 16;
+          if (srcVal <= 32768) return shifted;
+          uint32_t v = srcVal & 0x7FFF;
+          return shifted | (v << 1) | (v >> 14);
+      }
   }
 
   // simple bit shift
@@ -233,6 +262,9 @@ namespace M2Utils {
  }
 
  inline uint32_t scaleDown(uint32_t srcVal, uint8_t srcBits, uint8_t dstBits){
+  if (srcBits <= dstBits) {
+      return srcVal;
+  }
   // simple bit shift
   uint8_t scaleBits = (srcBits - dstBits);
   return srcVal >> scaleBits;

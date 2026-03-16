@@ -1,0 +1,11 @@
+[package]
+name = "el_bridge"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+el_core = { path = "../el_core" }
+midir = "0.9" # Cross-platform MIDI backend
+ringbuf = "0.3" # Lock-free queues for SPSC threading
+heapless = "0.8"
+clap = { version = "4.4", features = ["derive"] }

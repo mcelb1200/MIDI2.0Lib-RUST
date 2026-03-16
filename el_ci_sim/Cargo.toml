@@ -1,0 +1,9 @@
+[package]
+name = "el_ci_sim"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+el_core = { path = "../el_core" }
+heapless = "0.8"
+clap = { version = "4.4", features = ["derive"] }
