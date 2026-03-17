@@ -265,6 +265,16 @@ int main(){
     uint32_t outUmp2[] = {0x18f80000};
     testRun_umpToump(" UMP Timing Clock : ", inUmp2,  1, outUmp2);
 
+    std::array<uint8_t, 13> sxData = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D};
+    auto inUmp3 = UMPMessage::mt5Sysex8(1, 0, 13, 0xAA, sxData);
+    uint32_t outUmp3[] = {
+        (uint32_t)0x510EAA01,
+        0x02030405,
+        0x06070809,
+        0x0A0B0C0D
+    };
+    testRun_umpToump(" UMP Sysex8 : ", inUmp3.data(),  4, outUmp3);
+
     ///****************************
     printf("Tests Passed: %d    Failed : %d\n",testPassed, testFailed);
 
