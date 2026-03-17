@@ -230,7 +230,44 @@ inline std::array<uint32_t, 2> mt4ProgramChange(uint8_t group, uint8_t channel, 
 	return umpMess;
 }
 
-    //TODO mt5 Sysex8
+inline std::array<uint32_t, 4> mt5Sysex8(uint8_t group, uint8_t status, uint8_t numBytes, uint8_t streamId, std::array<uint8_t, 13> sx){
+    std::array<uint32_t, 4> umpMess = {0,0,0,0};
+    uint8_t n = std::min(numBytes, (uint8_t)13);
+    uint8_t totalBytes = n + 1;
+    umpMess[0] = (uint32_t)(0x5 << 28) + (((group & 0xF) + 0L) << 24) + (((status & 0xF) + 0L) << 20)+ ((totalBytes + 0L) << 16) + ((streamId + 0L) << 8);
+    if(n > 0 ) umpMess[0] += sx[0];
+    if(n > 1 ) umpMess[1] += ((uint32_t)sx[1] << 24);
+    if(n > 2 ) umpMess[1] += ((uint32_t)sx[2] << 16);
+    if(n > 3 ) umpMess[1] += ((uint32_t)sx[3] << 8);
+    if(n > 4 ) umpMess[1] += sx[4];
+    if(n > 5 ) umpMess[2] += ((uint32_t)sx[5] << 24);
+    if(n > 6 ) umpMess[2] += ((uint32_t)sx[6] << 16);
+    if(n > 7 ) umpMess[2] += ((uint32_t)sx[7] << 8);
+    if(n > 8 ) umpMess[2] += sx[8];
+    if(n > 9 ) umpMess[3] += ((uint32_t)sx[9] << 24);
+    if(n > 10 ) umpMess[3] += ((uint32_t)sx[10] << 16);
+    if(n > 11 ) umpMess[3] += ((uint32_t)sx[11] << 8);
+    if(n > 12 ) umpMess[3] += sx[12];
+
+    return umpMess;
+}
+
+inline std::array<uint32_t, 4> mt5Sysex8(uint8_t group, uint8_t status, uint8_t numBytes, uint8_t streamId, uint8_t * data){
+    std::array<uint32_t, 4> umpMess  = {0,0,0,0};
+    uint8_t n = std::min(numBytes, (uint8_t)13);
+    uint8_t totalBytes = n + 1;
+    umpMess[0] = (uint32_t)(0x5 << 28) + (((group & 0xF) + 0L) << 24) + (((status & 0xF) + 0L) << 20) + ((totalBytes + 0L) << 16) + ((streamId + 0L) << 8);
+    int offset=0;
+    if(offset < n)umpMess[0] += data[offset++];
+    for(uint8_t i=1;i<4;i++){
+        if(offset < n)umpMess[i] += ((uint32_t)data[offset++] << 24);
+        if(offset < n)umpMess[i] += ((uint32_t)data[offset++] << 16);
+        if(offset < n)umpMess[i] += ((uint32_t)data[offset++] << 8);
+        if(offset < n)umpMess[i] += data[offset++];
+    }
+    return umpMess;
+}
+
 inline std::array<uint32_t, 4> mt5MDSHeader(uint8_t group, uint8_t mds, uint16_t numberOfBytes, uint16_t totalChunks, uint16_t chunkNumber,
                                             uint16_t manuId, uint16_t deviceId, uint16_t subId1, uint16_t subId2){
     std::array<uint32_t, 4> umpMess  = {0,0,0,0};
