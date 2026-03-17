@@ -15,13 +15,13 @@ struct Args {
 fn main() -> io::Result<()> {
     let args = Args::parse();
 
-    let mut buffer = Vec::new();
-    if let Some(filepath) = args.file {
-        let mut f = File::open(filepath)?;
-        f.read_to_end(&mut buffer)?;
+    let buffer = if let Some(filepath) = args.file {
+        std::fs::read(filepath)?
     } else {
+        let mut buffer = Vec::new();
         io::stdin().read_to_end(&mut buffer)?;
-    }
+        buffer
+    };
 
     if buffer.len() % 4 != 0 {
         eprintln!(
