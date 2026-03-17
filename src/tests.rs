@@ -42,7 +42,8 @@ mod tests {
         let bank_lsb = 0x34;
 
         // Test with bank valid
-        let pc = UmpFactory::midi2_program_change(group, channel, program, true, bank_msb, bank_lsb);
+        let pc =
+            UmpFactory::midi2_program_change(group, channel, program, true, bank_msb, bank_lsb);
         assert_eq!(pc.message_type(), MessageType::Midi2ChannelVoice);
         assert_eq!(pc.group(), group);
         assert_eq!(pc.channel(), channel);
