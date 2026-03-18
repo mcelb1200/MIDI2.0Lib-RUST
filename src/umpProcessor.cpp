@@ -269,7 +269,7 @@ void umpProcessor::processUMP(uint32_t UMP){
                         mess.status = (uint8_t) status;
                         mess.form = umpMess[0] >> 24 & 0x3;
                         mess.dataLength  = 0;
-                        uint8_t text[14];
+                        uint8_t text[14] = {0};
 
                         if ((umpMess[0] >> 8) & 0xFF) text[mess.dataLength++] = (umpMess[0] >> 8) & 0xFF;
                         if (umpMess[0] & 0xFF) text[mess.dataLength++] = umpMess[0]  & 0xFF;
@@ -340,7 +340,7 @@ void umpProcessor::processUMP(uint32_t UMP){
                     mess.status = (uint8_t) status;
                     mess.form = umpMess[0] >> 24 & 0x3;
                     mess.dataLength  = 0;
-                    uint8_t text[13];
+                    uint8_t text[13] = {0};
 
                     if (umpMess[0] & 0xFF) text[mess.dataLength++] = umpMess[0]  & 0xFF;
 
@@ -532,7 +532,7 @@ void umpProcessor::processUMP(uint32_t UMP){
                 case FLEXDATA_PERFORMANCE: //Performance Events
                 case FLEXDATA_LYRIC:{ //Lyric Events
                         uint8_t dataLength  = 0;
-                        uint8_t text[12];
+                        uint8_t text[12] = {0};
 
                         uint8_t c;
                         c = (umpMess[1] >> 24) & 0xFF; if (c) text[dataLength++] = c;
