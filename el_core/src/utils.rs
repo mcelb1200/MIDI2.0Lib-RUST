@@ -47,17 +47,33 @@ pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
     // Explicit optimized fast-paths for hot operations (no-loop)
     if dst_bits == 32 {
         if src_bits == 7 {
-            let left = val << 25;
-            return left | (left >> 7) | (left >> 14) | (left >> 21) | (left >> 28);
+            let shifted = val << 25;
+            if val <= 64 {
+                return shifted;
+            }
+            let v = val & 0x3F;
+            return shifted | (v << 19) | (v << 13) | (v << 7) | (v << 1) | (v >> 5);
         } else if src_bits == 8 {
-            let left = val << 24;
-            return left | (left >> 8) | (left >> 16) | (left >> 24);
+            let shifted = val << 24;
+            if val <= 128 {
+                return shifted;
+            }
+            let v = val & 0x7F;
+            return shifted | (v << 17) | (v << 10) | (v << 3) | (v >> 4);
         } else if src_bits == 14 {
-            let left = val << 18;
-            return left | (left >> 14) | (left >> 28);
+            let shifted = val << 18;
+            if val <= 8192 {
+                return shifted;
+            }
+            let v = val & 0x1FFF;
+            return shifted | (v << 5) | (v >> 8);
         } else if src_bits == 16 {
-            let left = val << 16;
-            return left | (left >> 16);
+            let shifted = val << 16;
+            if val <= 32768 {
+                return shifted;
+            }
+            let v = val & 0x7FFF;
+            return shifted | (v << 1) | (v >> 14);
         }
     }
 

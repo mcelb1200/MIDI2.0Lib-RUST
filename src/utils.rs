@@ -154,6 +154,14 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
             }
             let v = src_val & 0x1FFF;
             return shifted | (v << 5) | (v >> 8);
+        } else if src_bits == 16 {
+            // Fast path for 16-bit to 32-bit
+            let shifted = src_val << 16;
+            if src_val <= 32768 {
+                return shifted;
+            }
+            let v = src_val & 0x7FFF;
+            return shifted | (v << 1) | (v >> 14);
         }
     }
 
