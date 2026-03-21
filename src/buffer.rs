@@ -49,43 +49,30 @@ where
     /// * `None` - If the stream ends or is truncated.
     fn next(&mut self) -> Option<Self::Item> {
         let w1 = self.iter.next()?;
-        let message_type_val = ((w1 >> 28) & 0xF) as usize;
 
-        const WORD_COUNTS: [u8; 16] = [
-            1, // Utility
-            1, // System
-            1, // Midi1ChannelVoice
-            2, // SysEx7
-            2, // Midi2ChannelVoice
-            4, // Data
-            1, // Reserved6
-            1, // Reserved7
-            2, // Reserved8
-            2, // Reserved9
-            2, // ReservedA
-            3, // ReservedB
-            3, // ReservedC
-            4, // FlexData
-            4, // ReservedE
-            4, // Stream
-        ];
-
-        // Fast path: unroll the loop for common sizes to avoid branching overhead
-        // Benchmarks show this direct match approach saves ~10% execution time
-        match WORD_COUNTS[message_type_val] {
-            1 => Some(Ump {
+        // Fast-path MessageType extraction without branching or enum conversion overhead
+        // Grouping matching directly on the MT bounds limits memory lookup overhead
+        // and enables the compiler to generate an optimized branch table.
+        // We explicitly return None if the stream truncates mid-packet.
+        match (w1 >> 28) & 0xF {
+            0x0 | 0x1 | 0x2 | 0x6 | 0x7 => Some(Ump {
                 data: [w1, 0, 0, 0],
             }),
-            2 => Some(Ump {
+            0x3 | 0x4 | 0x8 | 0x9 | 0xA => Some(Ump {
                 data: [w1, self.iter.next()?, 0, 0],
             }),
-            3 => Some(Ump {
+            0xB | 0xC => Some(Ump {
                 data: [w1, self.iter.next()?, self.iter.next()?, 0],
             }),
-            4 => Some(Ump {
-                data: [w1, self.iter.next()?, self.iter.next()?, self.iter.next()?],
+            0x5 | 0xD | 0xE | 0xF => Some(Ump {
+                data: [
+                    w1,
+                    self.iter.next()?,
+                    self.iter.next()?,
+                    self.iter.next()?,
+                ],
             }),
-            _ => None, // Safe fallback for truncated streams or invalid counts
+            _ => None, // Unreachable due to 4-bit bitmask constraint
         }
     }
 }
