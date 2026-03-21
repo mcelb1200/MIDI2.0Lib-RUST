@@ -65,12 +65,7 @@ where
                 data: [w1, self.iter.next()?, self.iter.next()?, 0],
             }),
             0x5 | 0xD | 0xE | 0xF => Some(Ump {
-                data: [
-                    w1,
-                    self.iter.next()?,
-                    self.iter.next()?,
-                    self.iter.next()?,
-                ],
+                data: [w1, self.iter.next()?, self.iter.next()?, self.iter.next()?],
             }),
             _ => None, // Unreachable due to 4-bit bitmask constraint
         }
