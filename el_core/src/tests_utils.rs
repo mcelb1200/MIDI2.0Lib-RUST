@@ -43,7 +43,7 @@ mod tests {
         // E.g., src_bits = 14, but value has bit 15 set.
         let val: u32 = 0x8000; // Bit 15 set, but max for 14 bits is 0x3FFF
         let masked_val = val & 0x3FFF; // which is 0
-        // Expected scale_down to mask out bit 15, resulting in scaling down 0
+                                       // Expected scale_down to mask out bit 15, resulting in scaling down 0
         assert_eq!(scale_down(val, 14, 7), scale_down(masked_val, 14, 7));
 
         // Let's also test a case where valid bits are set along with out-of-bounds bits
