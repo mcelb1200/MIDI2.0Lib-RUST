@@ -39,4 +39,14 @@ mod tests {
         assert_eq!(ump.message_type(), MessageType::Utility);
         assert_eq!(ump.data, [0, 0, 0, 0]);
     }
+
+    #[test]
+    fn test_midi1_note_on_out_of_bounds() {
+        // Group and Channel should be masked to 4 bits, Note and Velocity to 7 bits
+        let ump = VoiceBuilder::midi1_note_on(255, 255, 255, 255);
+        assert_eq!(ump.message_type(), MessageType::Midi1ChannelVoice);
+        // MT=0x2, Grp=0xF, Status=0x9, Ch=0xF, Note=0x7F, Vel=0x7F
+        assert_eq!(ump.data[0], 0x2F9F7F7F);
+        assert_eq!(ump.data[1], 0);
+    }
 }

@@ -101,6 +101,12 @@ pub fn scale_down(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
     if src_bits <= dst_bits || dst_bits == 0 {
         return value;
     }
+    let src_max = if src_bits == 32 {
+        u32::MAX
+    } else {
+        (1_u32 << src_bits) - 1
+    };
+    let val = value & src_max;
     let shift = src_bits - dst_bits;
-    value >> shift
+    val >> shift
 }

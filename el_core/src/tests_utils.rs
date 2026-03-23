@@ -36,4 +36,18 @@ mod tests {
         assert_eq!(scale_down(0x80808080, 32, 7), 64);
         assert_eq!(scale_down(0, 32, 7), 0);
     }
+
+    #[test]
+    fn test_scale_down_out_of_bounds() {
+        // Value has bits outside the source bit width
+        // E.g., src_bits = 14, but value has bit 15 set.
+        let val: u32 = 0x8000; // Bit 15 set, but max for 14 bits is 0x3FFF
+        let masked_val = val & 0x3FFF; // which is 0
+        // Expected scale_down to mask out bit 15, resulting in scaling down 0
+        assert_eq!(scale_down(val, 14, 7), scale_down(masked_val, 14, 7));
+
+        // Let's also test a case where valid bits are set along with out-of-bounds bits
+        let val2: u32 = 0x8000 | 0x2000; // Bit 15 set, Bit 13 set (8192)
+        assert_eq!(scale_down(val2, 14, 7), scale_down(0x2000, 14, 7)); // 8192 scaled down from 14 to 7
+    }
 }
