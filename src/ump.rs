@@ -82,24 +82,24 @@ impl MessageType {
     ///
     /// The number of words (1, 2, 3, or 4).
     #[must_use]
-    pub fn word_count(&self) -> usize {
+    pub const fn word_count(&self) -> usize {
         const WORD_COUNTS: [u8; 16] = [
-            1, // Utility
-            1, // System
-            1, // Midi1ChannelVoice
-            2, // SysEx7
-            2, // Midi2ChannelVoice
-            4, // Data
-            1, // Reserved6
-            1, // Reserved7
-            2, // Reserved8
-            2, // Reserved9
-            2, // ReservedA
-            3, // ReservedB
-            3, // ReservedC
-            4, // FlexData
-            4, // ReservedE
-            4, // Stream
+            1, // 0x0 Utility
+            1, // 0x1 System
+            1, // 0x2 MIDI 1.0 Voice
+            2, // 0x3 SysEx7
+            2, // 0x4 MIDI 2.0 Voice
+            4, // 0x5 Data 128-bit
+            1, // 0x6 Reserved
+            1, // 0x7 Reserved
+            2, // 0x8 Reserved
+            2, // 0x9 Reserved
+            2, // 0xA Reserved
+            3, // 0xB Reserved
+            3, // 0xC Reserved
+            4, // 0xD Flex Data
+            4, // 0xE Reserved
+            4, // 0xF Stream
         ];
         WORD_COUNTS[*self as usize] as usize
     }
@@ -116,7 +116,7 @@ impl From<u8> for MessageType {
 ///
 /// This struct holds up to 128 bits (4 x 32-bit words) of data, which is the maximum size of a UMP.
 /// It provides helper methods to access and modify common fields like Message Type, Group, Status, and Channel.
-/// Note that not all messages use all 4 words; check `message_type().word_count()` to see how many are valid.
+/// Note that not all messages use all 4 words; check `word_count()` to see how many are valid.
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub struct Ump {
@@ -142,8 +142,28 @@ impl Ump {
     /// The `MessageType` derived from the high 4 bits of the first word.
     #[must_use]
     pub fn message_type(&self) -> MessageType {
-        let mt = (self.data[0] >> 28) as u8;
-        MessageType::from(mt)
+        let mt_val = ((self.data[0] >> 28) & 0xF) as usize;
+        // Safety constraint: MT is bounded to 4 bits (0x0 - 0xF),
+        // so we use a direct array lookup without branch overhead.
+        const TYPES: [MessageType; 16] = [
+            MessageType::Utility,
+            MessageType::System,
+            MessageType::Midi1ChannelVoice,
+            MessageType::SysEx7,
+            MessageType::Midi2ChannelVoice,
+            MessageType::Data,
+            MessageType::Reserved6,
+            MessageType::Reserved7,
+            MessageType::Reserved8,
+            MessageType::Reserved9,
+            MessageType::ReservedA,
+            MessageType::ReservedB,
+            MessageType::ReservedC,
+            MessageType::FlexData,
+            MessageType::ReservedE,
+            MessageType::Stream,
+        ];
+        TYPES[mt_val]
     }
 
     /// Sets the Message Type of the UMP.
@@ -204,6 +224,30 @@ impl Ump {
     #[must_use]
     pub fn channel(&self) -> u8 {
         ((self.data[0] >> 16) & 0x0F) as u8
+    }
+
+    pub fn word_count(&self) -> usize {
+        let mt_val = ((self.data[0] >> 28) & 0xF) as usize;
+        // Direct array lookup without branch or enum conversion overhead
+        const WORD_COUNTS: [u8; 16] = [
+            1, // 0x0 Utility
+            1, // 0x1 System
+            1, // 0x2 MIDI 1.0 Voice
+            2, // 0x3 SysEx7
+            2, // 0x4 MIDI 2.0 Voice
+            4, // 0x5 Data 128-bit
+            1, // 0x6 Reserved
+            1, // 0x7 Reserved
+            2, // 0x8 Reserved
+            2, // 0x9 Reserved
+            2, // 0xA Reserved
+            3, // 0xB Reserved
+            3, // 0xC Reserved
+            4, // 0xD Flex Data
+            4, // 0xE Reserved
+            4, // 0xF Stream
+        ];
+        WORD_COUNTS[mt_val] as usize
     }
 }
 

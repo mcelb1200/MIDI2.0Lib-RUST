@@ -1,6 +1,5 @@
 use clap::Parser;
 use el_core::parser::UmpStreamParser;
-use std::fs::File;
 use std::io::{self, Read};
 
 /// el_dump: A CLI tool to parse and dump raw Universal MIDI Packets (UMP) from a file or stdin.
