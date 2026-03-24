@@ -49,7 +49,6 @@ where
     /// * `None` - If the stream ends or is truncated.
     fn next(&mut self) -> Option<Self::Item> {
         let w1 = self.iter.next()?;
-
         // Fast-path MessageType extraction without branching or enum conversion overhead
         // Grouping matching directly on the MT bounds limits memory lookup overhead
         // and enables the compiler to generate an optimized branch table.
