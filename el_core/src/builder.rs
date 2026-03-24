@@ -118,13 +118,13 @@ impl UtilityBuilder {
 
     #[must_use]
     pub fn jitter_reduction_clock(group: u8, timestamp: u16) -> Ump {
-        let w1 = 0x00100000 | (u32::from(group) << 24) | u32::from(timestamp);
+        let w1 = 0x00100000 | ((u32::from(group) & 0xF) << 24) | u32::from(timestamp);
         Ump::new(w1, 0, 0, 0)
     }
 
     #[must_use]
     pub fn jitter_reduction_timestamp(group: u8, timestamp: u16) -> Ump {
-        let w1 = 0x00200000 | (u32::from(group) << 24) | u32::from(timestamp);
+        let w1 = 0x00200000 | ((u32::from(group) & 0xF) << 24) | u32::from(timestamp);
         Ump::new(w1, 0, 0, 0)
     }
 }

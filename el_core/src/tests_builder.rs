@@ -39,4 +39,32 @@ mod tests {
         assert_eq!(ump.message_type(), MessageType::Utility);
         assert_eq!(ump.data, [0, 0, 0, 0]);
     }
+
+    #[test]
+    fn test_jr_clock() {
+        let ump = UtilityBuilder::jitter_reduction_clock(3, 0x1234);
+        assert_eq!(ump.message_type(), MessageType::Utility);
+        assert_eq!(ump.group(), 3);
+        // MT=0x0, Grp=0x3, Status=0x1, Timestamp=0x1234
+        assert_eq!(ump.data[0], 0x03101234);
+
+        // Test max timestamp and out-of-bounds group
+        let ump_max = UtilityBuilder::jitter_reduction_clock(0xFF, 0xFFFF);
+        assert_eq!(ump_max.group(), 0xF); // Masked to 4 bits
+        assert_eq!(ump_max.data[0], 0x0F10FFFF);
+    }
+
+    #[test]
+    fn test_jr_timestamp() {
+        let ump = UtilityBuilder::jitter_reduction_timestamp(7, 0xABCD);
+        assert_eq!(ump.message_type(), MessageType::Utility);
+        assert_eq!(ump.group(), 7);
+        // MT=0x0, Grp=0x7, Status=0x2, Timestamp=0xABCD
+        assert_eq!(ump.data[0], 0x0720ABCD);
+
+        // Test max timestamp and out-of-bounds group
+        let ump_max = UtilityBuilder::jitter_reduction_timestamp(0x12, 0xFFFF);
+        assert_eq!(ump_max.group(), 0x2); // Masked to 4 bits (0x12 & 0xF = 0x2)
+        assert_eq!(ump_max.data[0], 0x0220FFFF);
+    }
 }
