@@ -20,8 +20,8 @@ mod tests {
         assert_eq!(scale_up(0, 7, 32), 0);
         // Correct MIDI 2.0 scaling logic for 64 (0x40):
         // 64 is 1000000 in binary.
-        // With scale_up logic returning 2164392968 (0x81040808).
-        assert_eq!(scale_up(64, 7, 32), 2164392968);
+        // With scale_up logic returning 2147483648 (0x80000000).
+        assert_eq!(scale_up(64, 7, 32), 2147483648);
         assert_eq!(scale_up(127, 7, 32), u32::MAX); // Max
 
         // 1-bit to 32-bit fallback explicit check
