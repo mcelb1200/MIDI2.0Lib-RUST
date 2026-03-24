@@ -1,7 +1,7 @@
 use clap::Parser;
 use el_core::parser::UmpStreamParser;
 use std::fs::File;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 
 /// el_dump: A CLI tool to parse and dump raw Universal MIDI Packets (UMP) from a file or stdin.
 #[derive(Parser, Debug)]
@@ -39,18 +39,27 @@ fn main() -> io::Result<()> {
 
     let parser = UmpStreamParser::new(&words);
 
-    println!("--- el_dump: UMP Stream Analyzer ---");
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+
+    writeln!(handle, "--- el_dump: UMP Stream Analyzer ---")?;
     for ump in parser {
         let mt = ump.message_type();
         let grp = ump.group();
         let wc = ump.word_count();
 
-        print!("MT: {:?}, Grp: {:2}, Len: {} words | Data: ", mt, grp, wc);
+        write!(
+            handle,
+            "MT: {:?}, Grp: {:2}, Len: {} words | Data: ",
+            mt, grp, wc
+        )?;
         for i in 0..wc {
-            print!("{:08X} ", ump.data[i]);
+            write!(handle, "{:08X} ", ump.data[i])?;
         }
-        println!();
+        writeln!(handle)?;
     }
+
+    handle.flush()?;
 
     Ok(())
 }
