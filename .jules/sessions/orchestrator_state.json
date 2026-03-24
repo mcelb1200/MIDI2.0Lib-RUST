@@ -1,0 +1,97 @@
+{
+  "last_sync": "2026-03-20T14:32:01+11:00",
+  "session_count": 13,
+  "sessions": [
+    {
+      "id": "5674309273403960717",
+      "title": "Sentinel: Codebase Security Guardian",
+      "state": "AWAITING_USER_FEEDBACK",
+      "branch": "main",
+      "updated": "2026-03-20T03:16:40.174823Z"
+    },
+    {
+      "id": "18386991113211807862",
+      "title": "Bolt: Performance Optimization Agent",
+      "state": "FAILED",
+      "branch": "main",
+      "updated": "2026-03-19T16:19:37.751198Z"
+    },
+    {
+      "id": "4814617094312056010",
+      "title": "Sentinel: Security Vulnerability and Code Protection Agent",
+      "state": "COMPLETED",
+      "branch": "main",
+      "updated": "2026-03-20T02:30:05.033386Z"
+    },
+    {
+      "id": "7585013350193088926",
+      "title": "Bolt ⚡ Performance Optimization Agent",
+      "state": "COMPLETED",
+      "branch": "main",
+      "updated": "2026-03-18T17:31:39.671853Z"
+    },
+    {
+      "id": "17054418278274449770",
+      "title": "Sentinel 🛡️ - Codebase Security & Vulnerability Agent",
+      "state": "COMPLETED",
+      "branch": "main",
+      "updated": "2026-03-20T02:40:19.340231Z"
+    },
+    {
+      "id": "2145890888254868535",
+      "title": "Bolt: Performance Optimization Agent",
+      "state": "COMPLETED",
+      "branch": "main",
+      "updated": "2026-03-20T02:43:07.019647Z"
+    },
+    {
+      "id": "4018277375824459123",
+      "title": "Stack-Use-After-Return Vulnerability in functionBlockName callback",
+      "state": "COMPLETED",
+      "branch": "unknown",
+      "updated": "2026-03-17T12:37:22.867699Z"
+    },
+    {
+      "id": "14561815977450540047",
+      "title": "Implement mt5 Sysex8 Creation",
+      "state": "COMPLETED",
+      "branch": "unknown",
+      "updated": "2026-03-17T12:31:11.984876Z"
+    },
+    {
+      "id": "12656630069065788236",
+      "title": "Bug in mt5MDSPayload loop condition",
+      "state": "COMPLETED",
+      "branch": "unknown",
+      "updated": "2026-03-17T14:46:36.552268Z"
+    },
+    {
+      "id": "18244378664946058676",
+      "title": "Inefficient file reading with Vec::new()",
+      "state": "COMPLETED",
+      "branch": "unknown",
+      "updated": "2026-03-17T13:40:48.562561Z"
+    },
+    {
+      "id": "12559442694953973596",
+      "title": "Missing tests for midi2_program_change",
+      "state": "COMPLETED",
+      "branch": "unknown",
+      "updated": "2026-03-17T13:46:23.829911Z"
+    },
+    {
+      "id": "2529150644143353800",
+      "title": "Sentinel: Codebase Security Guardian",
+      "state": "COMPLETED",
+      "branch": "main",
+      "updated": "2026-03-17T03:25:30.258429Z"
+    },
+    {
+      "id": "16227586385474466619",
+      "title": "Bolt: Performance Optimization Agent",
+      "state": "COMPLETED",
+      "branch": "main",
+      "updated": "2026-03-18T12:01:35.601048Z"
+    }
+  ]
+}
