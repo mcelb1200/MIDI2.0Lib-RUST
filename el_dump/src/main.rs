@@ -30,9 +30,9 @@ fn main() -> io::Result<()> {
     }
 
     // Stream raw u8 bytes into Little-Endian u32 words lazily without intermediate allocation
-    let word_iter = buffer.chunks_exact(4).map(|chunk| {
-        u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]])
-    });
+    let word_iter = buffer
+        .chunks_exact(4)
+        .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
 
     let parser = UmpStreamParser::new(word_iter);
 
