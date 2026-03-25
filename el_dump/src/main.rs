@@ -1,6 +1,5 @@
 use clap::Parser;
 use el_core::parser::UmpStreamParser;
-use std::fs::File;
 use std::io::{self, BufWriter, Read, Write};
 
 /// el_dump: A CLI tool to parse and dump raw Universal MIDI Packets (UMP) from a file or stdin.
@@ -30,14 +29,12 @@ fn main() -> io::Result<()> {
         );
     }
 
-    // Convert raw u8 bytes into Little-Endian u32 words
-    let mut words = Vec::with_capacity(buffer.len() / 4);
-    for chunk in buffer.chunks_exact(4) {
-        let w = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-        words.push(w);
-    }
+    // Stream raw u8 bytes into Little-Endian u32 words lazily without intermediate allocation
+    let word_iter = buffer.chunks_exact(4).map(|chunk| {
+        u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]])
+    });
 
-    let parser = UmpStreamParser::new(&words);
+    let parser = UmpStreamParser::new(word_iter);
 
     let stdout = io::stdout().lock();
     let mut writer = BufWriter::new(stdout);
