@@ -47,3 +47,7 @@
 ## 2025-10-24 - [Optimize UmpStreamParser Array Initialization]
 **Learning:** In hot parser loops reading from an iterator (like `UmpStreamParser::next`), allocating intermediate local variables (e.g. `let w2 = *iter.next()?;`) before placing them into a struct array increases execution overhead by preventing the compiler from optimally generating instructions for struct initialization directly.
 **Action:** Replace intermediate variable assignments with explicitly unrolled direct array initialization (`[w1, *iter.next()?, *iter.next()?, ...]`). This maintains the strict left-to-right evaluation order for `?` operators while enabling the compiler to omit intermediate variable allocation, measurably improving speed in tight parsing loops.
+
+## 2024-05-24 - [Avoid Intermediate Allocations in Streaming Parsers]
+**Learning:** The `UmpStreamParser` previously took a strict `&[u32]` slice. This forced caller applications (like `el_dump`) to allocate a `Vec<u32>` simply to convert a raw byte buffer (such as from a file) into `u32` words, resulting in an expensive O(n) memory allocation and copy before parsing even started. By refactoring `UmpStreamParser` to accept a generic `Iterator<Item = u32>`, callers can lazily stream transformations directly into the parser without any intermediate allocation overhead.
+**Action:** When designing stream parsers in Rust, avoid restricting the input to concrete slice references (`&[T]`) if an `Iterator<Item = T>` provides the required functionality. This enables callers to utilize zero-allocation lazy mapping functions.

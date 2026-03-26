@@ -2,24 +2,31 @@ use crate::ump::Ump;
 
 /// Zero-allocation Iterator-based parser that consumes a stream of u32 words
 /// and yields correctly aligned `Ump` packets.
-pub struct UmpStreamParser<'a> {
-    stream: core::slice::Iter<'a, u32>,
+pub struct UmpStreamParser<I>
+where
+    I: Iterator<Item = u32>,
+{
+    stream: I,
 }
 
-impl<'a> UmpStreamParser<'a> {
+impl<I> UmpStreamParser<I>
+where
+    I: Iterator<Item = u32>,
+{
     #[must_use]
-    pub fn new(data: &'a [u32]) -> Self {
-        Self {
-            stream: data.iter(),
-        }
+    pub fn new(stream: I) -> Self {
+        Self { stream }
     }
 }
 
-impl<'a> Iterator for UmpStreamParser<'a> {
+impl<I> Iterator for UmpStreamParser<I>
+where
+    I: Iterator<Item = u32>,
+{
     type Item = Ump;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let w1 = *self.stream.next()?;
+        let w1 = self.stream.next()?;
 
         // Fast-path MessageType extraction without branching or enum conversion overhead
         // Grouping matching directly on the MT bounds limits memory lookup overhead
@@ -30,17 +37,17 @@ impl<'a> Iterator for UmpStreamParser<'a> {
                 data: [w1, 0, 0, 0],
             }),
             0x3 | 0x4 | 0x8 | 0x9 | 0xA => Some(Ump {
-                data: [w1, *self.stream.next()?, 0, 0],
+                data: [w1, self.stream.next()?, 0, 0],
             }),
             0xB | 0xC => Some(Ump {
-                data: [w1, *self.stream.next()?, *self.stream.next()?, 0],
+                data: [w1, self.stream.next()?, self.stream.next()?, 0],
             }),
             0x5 | 0xD | 0xE | 0xF => Some(Ump {
                 data: [
                     w1,
-                    *self.stream.next()?,
-                    *self.stream.next()?,
-                    *self.stream.next()?,
+                    self.stream.next()?,
+                    self.stream.next()?,
+                    self.stream.next()?,
                 ],
             }),
             _ => None, // Unreachable due to 4-bit bitmask constraint
