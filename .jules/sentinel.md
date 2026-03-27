@@ -67,3 +67,8 @@
 **Vulnerability:** In `src/umpProcessor.cpp`, the `processUMP` function implements a state machine to parse Universal MIDI Packets (UMPs). When parsing malformed or out-of-sync streams containing unexpected message types, the `messPos` index was repeatedly incremented without bounds checking. This allowed an attacker to overwrite the `umpMess[4]` array and adjacent memory, leading to a critical buffer overflow vulnerability.
 **Learning:** In C++ stream parsers, even if the primary logic assumes the state index (e.g. `messPos`) will reset when a complete message is formed, unexpected edge cases or corrupted input can cause the state machine to fall through to default increment blocks indefinitely.
 **Prevention:** Always implement an explicit, unconditional bounds check for state indices (e.g., `if (messPos >= 4) clearUMP();`) at the beginning of stream processing functions before assigning data to fixed-size buffers, establishing defense-in-depth against malformed inputs.
+
+## 2024-03-27 - Missing explicit length fields in MIDI-CI Protocol Negotiation
+**Vulnerability:** When generating Protocol Negotiation messages, omitting the `numProtocols` length field shifts the payload data. This causes the receiving parser to incorrectly interpret the first byte of attacker-controlled payload data as a length field, potentially triggering out-of-bounds reads.
+**Learning:** In MIDI-CI messages like Protocol Negotiation, all count/length header fields must be explicitly serialized before concatenating the variable-length payloads.
+**Prevention:** Always verify message serialization against the specification to ensure all count and length fields are correctly written into the byte stream before any variable length payload.
