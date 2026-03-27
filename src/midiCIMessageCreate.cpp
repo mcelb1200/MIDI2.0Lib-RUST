@@ -186,7 +186,8 @@ uint16_t CIMessage::sendProtocolNegotiation(uint8_t *sysex, uint8_t midiCIVer, u
                                             uint8_t *currentProtocol) {
     createCIHeader(sysex, 0x7F, MIDICI_PROTOCOL_NEGOTIATION, midiCIVer, srcMUID, destMUID);
     sysex[13] = authorityLevel;
-    uint16_t length = 14;
+    sysex[14] = numProtocols;
+    uint16_t length = 15;
     concatSysexArray(sysex, &length, protocols, numProtocols * 5);
     if (midiCIVer < 2) {
         return length;
@@ -200,7 +201,8 @@ uint16_t CIMessage::sendProtocolNegotiationReply(uint8_t *sysex, uint8_t midiCIV
                                                  uint8_t authorityLevel, uint8_t numProtocols, uint8_t *protocols) {
     createCIHeader(sysex, 0x7F, MIDICI_PROTOCOL_NEGOTIATION_REPLY, midiCIVer, srcMUID, destMUID);
     sysex[13] = authorityLevel;
-    uint16_t length = 14;
+    sysex[14] = numProtocols;
+    uint16_t length = 15;
     concatSysexArray(sysex, &length, protocols, numProtocols * 5);
     return length;
 }
