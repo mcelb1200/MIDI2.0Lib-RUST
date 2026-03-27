@@ -23,25 +23,15 @@ impl MessageType {
     /// Bypasses branching for packet length lookups, using the exact bounds mapped in our memory.
     #[must_use]
     pub const fn word_count(&self) -> usize {
-        const WORD_COUNTS: [u8; 16] = [
-            1, // 0x0 Utility
-            1, // 0x1 System
-            1, // 0x2 MIDI 1.0 Voice
-            2, // 0x3 Data 64-bit
-            2, // 0x4 MIDI 2.0 Voice
-            4, // 0x5 Data 128-bit
-            1, // 0x6 Reserved
-            1, // 0x7 Reserved
-            2, // 0x8 Reserved
-            2, // 0x9 Reserved
-            2, // 0xA Reserved
-            3, // 0xB Reserved
-            3, // 0xC Reserved
-            4, // 0xD Reserved
-            4, // 0xE Reserved
-            4, // 0xF Stream
-        ];
-        WORD_COUNTS[*self as usize] as usize
+        // Direct match grouped logically allows the compiler to generate an
+        // optimized branch table that is faster than a secondary array lookup.
+        match *self as u8 {
+            0x0 | 0x1 | 0x2 | 0x6 | 0x7 => 1,
+            0x3 | 0x4 | 0x8 | 0x9 | 0xA => 2,
+            0xB | 0xC => 3,
+            0x5 | 0xD | 0xE | 0xF => 4,
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -97,26 +87,15 @@ impl Ump {
 
     #[must_use]
     pub fn word_count(&self) -> usize {
-        let mt_val = ((self.data[0] >> 28) & 0xF) as usize;
-        // Direct array lookup without branch or enum conversion overhead
-        const WORD_COUNTS: [u8; 16] = [
-            1, // 0x0 Utility
-            1, // 0x1 System
-            1, // 0x2 MIDI 1.0 Voice
-            2, // 0x3 Data 64-bit
-            2, // 0x4 MIDI 2.0 Voice
-            4, // 0x5 Data 128-bit
-            1, // 0x6 Reserved
-            1, // 0x7 Reserved
-            2, // 0x8 Reserved
-            2, // 0x9 Reserved
-            2, // 0xA Reserved
-            3, // 0xB Reserved
-            3, // 0xC Reserved
-            4, // 0xD Reserved
-            4, // 0xE Reserved
-            4, // 0xF Stream
-        ];
-        WORD_COUNTS[mt_val] as usize
+        let mt_val = ((self.data[0] >> 28) & 0xF) as u8;
+        // Direct match grouped logically allows the compiler to generate an
+        // optimized branch table that is faster than a secondary array lookup.
+        match mt_val {
+            0x0 | 0x1 | 0x2 | 0x6 | 0x7 => 1,
+            0x3 | 0x4 | 0x8 | 0x9 | 0xA => 2,
+            0xB | 0xC => 3,
+            0x5 | 0xD | 0xE | 0xF => 4,
+            _ => unreachable!(),
+        }
     }
 }
