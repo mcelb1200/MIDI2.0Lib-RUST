@@ -26,6 +26,7 @@ void umpProcessor::clearUMP(){
     umpMess[1]=0;
     umpMess[2]=0;
     umpMess[3]=0;
+    M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
 }
 
 void umpProcessor::processUMP(uint32_t UMP){
@@ -122,17 +123,18 @@ void umpProcessor::processUMP(uint32_t UMP){
                 mess.messageType = mt;
                 mess.form = (umpMess[0] >> 20) & 0xF;
                 mess.dataLength  = std::min((uint8_t)(umpMess[0] >> 16) & 0xF, 6);
-                uint8_t sysex[6] = {0};
+                M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
 
-                if(mess.dataLength > 0)sysex[0] =  (umpMess[0] >> 8) & 0x7F;
-                if(mess.dataLength > 1)sysex[1] =  umpMess[0] & 0x7F;
-                if(mess.dataLength > 2)sysex[2] =  (umpMess[1] >> 24) & 0x7F;
-                if(mess.dataLength > 3)sysex[3] =  (umpMess[1] >> 16) & 0x7F;
-                if(mess.dataLength > 4)sysex[4] =  (umpMess[1] >> 8) & 0x7F;
-                if(mess.dataLength > 5)sysex[5] =  umpMess[1] & 0x7F;
+                if(mess.dataLength > 0)callbackBuffer[0] =  (umpMess[0] >> 8) & 0x7F;
+                if(mess.dataLength > 1)callbackBuffer[1] =  umpMess[0] & 0x7F;
+                if(mess.dataLength > 2)callbackBuffer[2] =  (umpMess[1] >> 24) & 0x7F;
+                if(mess.dataLength > 3)callbackBuffer[3] =  (umpMess[1] >> 16) & 0x7F;
+                if(mess.dataLength > 4)callbackBuffer[4] =  (umpMess[1] >> 8) & 0x7F;
+                if(mess.dataLength > 5)callbackBuffer[5] =  umpMess[1] & 0x7F;
 
-                mess.data = sysex;
+                mess.data = callbackBuffer;
                 sendOutSysex(mess);
+                M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
 
 		} else 
             if(mt == UMP_M2CVM && channelVoiceMessage != nullptr){//64 bits MIDI 2.0 Channel Voice Messages
@@ -269,27 +271,28 @@ void umpProcessor::processUMP(uint32_t UMP){
                         mess.status = (uint8_t) status;
                         mess.form = umpMess[0] >> 24 & 0x3;
                         mess.dataLength  = 0;
-                        uint8_t text[14];
+                        M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
 
-                        if ((umpMess[0] >> 8) & 0xFF) text[mess.dataLength++] = (umpMess[0] >> 8) & 0xFF;
-                        if (umpMess[0] & 0xFF) text[mess.dataLength++] = umpMess[0]  & 0xFF;
+                        if ((umpMess[0] >> 8) & 0xFF) callbackBuffer[mess.dataLength++] = (umpMess[0] >> 8) & 0xFF;
+                        if (umpMess[0] & 0xFF) callbackBuffer[mess.dataLength++] = umpMess[0]  & 0xFF;
 
                         uint8_t c;
-                        c = (umpMess[1] >> 24) & 0xFF; if (c) text[mess.dataLength++] = c;
-                        c = (umpMess[1] >> 16) & 0xFF; if (c) text[mess.dataLength++] = c;
-                        c = (umpMess[1] >> 8) & 0xFF;  if (c) text[mess.dataLength++] = c;
-                        c = umpMess[1] & 0xFF;         if (c) text[mess.dataLength++] = c;
-                        c = (umpMess[2] >> 24) & 0xFF; if (c) text[mess.dataLength++] = c;
-                        c = (umpMess[2] >> 16) & 0xFF; if (c) text[mess.dataLength++] = c;
-                        c = (umpMess[2] >> 8) & 0xFF;  if (c) text[mess.dataLength++] = c;
-                        c = umpMess[2] & 0xFF;         if (c) text[mess.dataLength++] = c;
-                        c = (umpMess[3] >> 24) & 0xFF; if (c) text[mess.dataLength++] = c;
-                        c = (umpMess[3] >> 16) & 0xFF; if (c) text[mess.dataLength++] = c;
-                        c = (umpMess[3] >> 8) & 0xFF;  if (c) text[mess.dataLength++] = c;
-                        c = umpMess[3] & 0xFF;         if (c) text[mess.dataLength++] = c;
-                        mess.data = text;
+                        c = (umpMess[1] >> 24) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
+                        c = (umpMess[1] >> 16) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
+                        c = (umpMess[1] >> 8) & 0xFF;  if (c) callbackBuffer[mess.dataLength++] = c;
+                        c = umpMess[1] & 0xFF;         if (c) callbackBuffer[mess.dataLength++] = c;
+                        c = (umpMess[2] >> 24) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
+                        c = (umpMess[2] >> 16) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
+                        c = (umpMess[2] >> 8) & 0xFF;  if (c) callbackBuffer[mess.dataLength++] = c;
+                        c = umpMess[2] & 0xFF;         if (c) callbackBuffer[mess.dataLength++] = c;
+                        c = (umpMess[3] >> 24) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
+                        c = (umpMess[3] >> 16) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
+                        c = (umpMess[3] >> 8) & 0xFF;  if (c) callbackBuffer[mess.dataLength++] = c;
+                        c = umpMess[3] & 0xFF;         if (c) callbackBuffer[mess.dataLength++] = c;
+                        mess.data = callbackBuffer;
                         if(status == MIDIENDPOINT_NAME_NOTIFICATION && midiEndpointName != nullptr) midiEndpointName(mess);
                         if(status == MIDIENDPOINT_PRODID_NOTIFICATION && midiEndpointProdId != nullptr) midiEndpointProdId(mess);
+                        M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
                     break;
                 }
 
@@ -340,26 +343,27 @@ void umpProcessor::processUMP(uint32_t UMP){
                     mess.status = (uint8_t) status;
                     mess.form = umpMess[0] >> 24 & 0x3;
                     mess.dataLength  = 0;
-                    uint8_t text[13];
+                    M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
 
-                    if (umpMess[0] & 0xFF) text[mess.dataLength++] = umpMess[0]  & 0xFF;
+                    if (umpMess[0] & 0xFF) callbackBuffer[mess.dataLength++] = umpMess[0]  & 0xFF;
 
                     uint8_t c;
-                    c = (umpMess[1] >> 24) & 0xFF; if (c) text[mess.dataLength++] = c;
-                    c = (umpMess[1] >> 16) & 0xFF; if (c) text[mess.dataLength++] = c;
-                    c = (umpMess[1] >> 8) & 0xFF;  if (c) text[mess.dataLength++] = c;
-                    c = umpMess[1] & 0xFF;         if (c) text[mess.dataLength++] = c;
-                    c = (umpMess[2] >> 24) & 0xFF; if (c) text[mess.dataLength++] = c;
-                    c = (umpMess[2] >> 16) & 0xFF; if (c) text[mess.dataLength++] = c;
-                    c = (umpMess[2] >> 8) & 0xFF;  if (c) text[mess.dataLength++] = c;
-                    c = umpMess[2] & 0xFF;         if (c) text[mess.dataLength++] = c;
-                    c = (umpMess[3] >> 24) & 0xFF; if (c) text[mess.dataLength++] = c;
-                    c = (umpMess[3] >> 16) & 0xFF; if (c) text[mess.dataLength++] = c;
-                    c = (umpMess[3] >> 8) & 0xFF;  if (c) text[mess.dataLength++] = c;
-                    c = umpMess[3] & 0xFF;         if (c) text[mess.dataLength++] = c;
-                    mess.data = text;
+                    c = (umpMess[1] >> 24) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
+                    c = (umpMess[1] >> 16) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
+                    c = (umpMess[1] >> 8) & 0xFF;  if (c) callbackBuffer[mess.dataLength++] = c;
+                    c = umpMess[1] & 0xFF;         if (c) callbackBuffer[mess.dataLength++] = c;
+                    c = (umpMess[2] >> 24) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
+                    c = (umpMess[2] >> 16) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
+                    c = (umpMess[2] >> 8) & 0xFF;  if (c) callbackBuffer[mess.dataLength++] = c;
+                    c = umpMess[2] & 0xFF;         if (c) callbackBuffer[mess.dataLength++] = c;
+                    c = (umpMess[3] >> 24) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
+                    c = (umpMess[3] >> 16) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
+                    c = (umpMess[3] >> 8) & 0xFF;  if (c) callbackBuffer[mess.dataLength++] = c;
+                    c = umpMess[3] & 0xFF;         if (c) callbackBuffer[mess.dataLength++] = c;
+                    mess.data = callbackBuffer;
 
                     if(functionBlockName != nullptr) functionBlockName(mess,fbIdx);
+                    M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
                     break;
                 }
                 case STARTOFSEQ: {
@@ -388,24 +392,25 @@ void umpProcessor::processUMP(uint32_t UMP){
                 mess.streamId  = (umpMess[0] >> 8) & 0xFF;
                 mess.form = status;
                 mess.dataLength  = (uint8_t)std::min((uint8_t)(umpMess[0] >> 16) & 0xF, 13);
-                uint8_t sysex[13] = {0};
+                M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
 
-                if(mess.dataLength >= 1)sysex[0] =  umpMess[0] & 0xFF;
-                if(mess.dataLength >= 2)sysex[1] =  (umpMess[1] >> 24) & 0xFF;
-                if(mess.dataLength >= 3)sysex[2] =  (umpMess[1] >> 16) & 0xFF;
-                if(mess.dataLength >= 4)sysex[3] =  (umpMess[1] >> 8) & 0xFF;
-                if(mess.dataLength >= 5)sysex[4] =  umpMess[1] & 0xFF;
-                if(mess.dataLength >= 6)sysex[5] =  (umpMess[2] >> 24) & 0xFF;
-                if(mess.dataLength >= 7)sysex[6] =  (umpMess[2] >> 16) & 0xFF;
-                if(mess.dataLength >= 8)sysex[7] =  (umpMess[2] >> 8) & 0xFF;
-                if(mess.dataLength >= 9)sysex[8] =  umpMess[2] & 0xFF;
-                if(mess.dataLength >= 10)sysex[9] =  (umpMess[3] >> 24) & 0xFF;
-                if(mess.dataLength >= 11)sysex[10] =  (umpMess[3] >> 16) & 0xFF;
-                if(mess.dataLength >= 12)sysex[11] =  (umpMess[3] >> 8) & 0xFF;
-                if(mess.dataLength >= 13)sysex[12] =  umpMess[3] & 0xFF;
+                if(mess.dataLength >= 1)callbackBuffer[0] =  umpMess[0] & 0xFF;
+                if(mess.dataLength >= 2)callbackBuffer[1] =  (umpMess[1] >> 24) & 0xFF;
+                if(mess.dataLength >= 3)callbackBuffer[2] =  (umpMess[1] >> 16) & 0xFF;
+                if(mess.dataLength >= 4)callbackBuffer[3] =  (umpMess[1] >> 8) & 0xFF;
+                if(mess.dataLength >= 5)callbackBuffer[4] =  umpMess[1] & 0xFF;
+                if(mess.dataLength >= 6)callbackBuffer[5] =  (umpMess[2] >> 24) & 0xFF;
+                if(mess.dataLength >= 7)callbackBuffer[6] =  (umpMess[2] >> 16) & 0xFF;
+                if(mess.dataLength >= 8)callbackBuffer[7] =  (umpMess[2] >> 8) & 0xFF;
+                if(mess.dataLength >= 9)callbackBuffer[8] =  umpMess[2] & 0xFF;
+                if(mess.dataLength >= 10)callbackBuffer[9] =  (umpMess[3] >> 24) & 0xFF;
+                if(mess.dataLength >= 11)callbackBuffer[10] =  (umpMess[3] >> 16) & 0xFF;
+                if(mess.dataLength >= 12)callbackBuffer[11] =  (umpMess[3] >> 8) & 0xFF;
+                if(mess.dataLength >= 13)callbackBuffer[12] =  umpMess[3] & 0xFF;
 
-                mess.data = sysex;
+                mess.data = callbackBuffer;
                 sendOutSysex(mess);
+                M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
 
             }else if(status == 8){ //MDS Header
 
@@ -421,26 +426,27 @@ void umpProcessor::processUMP(uint32_t UMP){
                     umpMess[3] & 0xFFFF
                     );
             }else if(status == 9){ //MDS Payload
-                uint8_t sysex[14] = {0};
-                sysex[0] =  (umpMess[0] >> 8) & 0xFF;
-                sysex[1] =  umpMess[0] & 0xFF;
-                sysex[2] =  (umpMess[1] >> 24) & 0xFF;
-                sysex[3] =  (umpMess[1] >> 16) & 0xFF;
-                sysex[4] =  (umpMess[1] >> 8) & 0xFF;
-                sysex[5] =  umpMess[1] & 0xFF;
-                sysex[6] =  (umpMess[2] >> 24) & 0xFF;
-                sysex[7] =  (umpMess[2] >> 16) & 0xFF;
-                sysex[8] =  (umpMess[2] >> 8) & 0xFF;
-                sysex[9] =  umpMess[2] & 0xFF;
-                sysex[10] =  (umpMess[3] >> 24) & 0xFF;
-                sysex[11] =  (umpMess[3] >> 16) & 0xFF;
-                sysex[12] =  (umpMess[3] >> 8) & 0xFF;
-                sysex[13] =  umpMess[3] & 0xFF;
+                M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
+                callbackBuffer[0] =  (umpMess[0] >> 8) & 0xFF;
+                callbackBuffer[1] =  umpMess[0] & 0xFF;
+                callbackBuffer[2] =  (umpMess[1] >> 24) & 0xFF;
+                callbackBuffer[3] =  (umpMess[1] >> 16) & 0xFF;
+                callbackBuffer[4] =  (umpMess[1] >> 8) & 0xFF;
+                callbackBuffer[5] =  umpMess[1] & 0xFF;
+                callbackBuffer[6] =  (umpMess[2] >> 24) & 0xFF;
+                callbackBuffer[7] =  (umpMess[2] >> 16) & 0xFF;
+                callbackBuffer[8] =  (umpMess[2] >> 8) & 0xFF;
+                callbackBuffer[9] =  umpMess[2] & 0xFF;
+                callbackBuffer[10] =  (umpMess[3] >> 24) & 0xFF;
+                callbackBuffer[11] =  (umpMess[3] >> 16) & 0xFF;
+                callbackBuffer[12] =  (umpMess[3] >> 8) & 0xFF;
+                callbackBuffer[13] =  umpMess[3] & 0xFF;
                 if(mds5Header)mds5Payload(
                     group,
                     (umpMess[1] >> 16) & 0xF,
-                    sysex, 14
+                    callbackBuffer, 14
                     );
+                M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
             }else {
                 if(unknownUMPMessage)unknownUMPMessage(umpMess, 4);
             }
@@ -532,25 +538,26 @@ void umpProcessor::processUMP(uint32_t UMP){
                 case FLEXDATA_PERFORMANCE: //Performance Events
                 case FLEXDATA_LYRIC:{ //Lyric Events
                         uint8_t dataLength  = 0;
-                        uint8_t text[12];
+                        M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
 
                         uint8_t c;
-                        c = (umpMess[1] >> 24) & 0xFF; if (c) text[dataLength++] = c;
-                        c = (umpMess[1] >> 16) & 0xFF; if (c) text[dataLength++] = c;
-                        c = (umpMess[1] >> 8) & 0xFF;  if (c) text[dataLength++] = c;
-                        c = umpMess[1] & 0xFF;         if (c) text[dataLength++] = c;
-                        c = (umpMess[2] >> 24) & 0xFF; if (c) text[dataLength++] = c;
-                        c = (umpMess[2] >> 16) & 0xFF; if (c) text[dataLength++] = c;
-                        c = (umpMess[2] >> 8) & 0xFF;  if (c) text[dataLength++] = c;
-                        c = umpMess[2] & 0xFF;         if (c) text[dataLength++] = c;
-                        c = (umpMess[3] >> 24) & 0xFF; if (c) text[dataLength++] = c;
-                        c = (umpMess[3] >> 16) & 0xFF; if (c) text[dataLength++] = c;
-                        c = (umpMess[3] >> 8) & 0xFF;  if (c) text[dataLength++] = c;
-                        c = umpMess[3] & 0xFF;         if (c) text[dataLength++] = c;
+                        c = (umpMess[1] >> 24) & 0xFF; if (c) callbackBuffer[dataLength++] = c;
+                        c = (umpMess[1] >> 16) & 0xFF; if (c) callbackBuffer[dataLength++] = c;
+                        c = (umpMess[1] >> 8) & 0xFF;  if (c) callbackBuffer[dataLength++] = c;
+                        c = umpMess[1] & 0xFF;         if (c) callbackBuffer[dataLength++] = c;
+                        c = (umpMess[2] >> 24) & 0xFF; if (c) callbackBuffer[dataLength++] = c;
+                        c = (umpMess[2] >> 16) & 0xFF; if (c) callbackBuffer[dataLength++] = c;
+                        c = (umpMess[2] >> 8) & 0xFF;  if (c) callbackBuffer[dataLength++] = c;
+                        c = umpMess[2] & 0xFF;         if (c) callbackBuffer[dataLength++] = c;
+                        c = (umpMess[3] >> 24) & 0xFF; if (c) callbackBuffer[dataLength++] = c;
+                        c = (umpMess[3] >> 16) & 0xFF; if (c) callbackBuffer[dataLength++] = c;
+                        c = (umpMess[3] >> 8) & 0xFF;  if (c) callbackBuffer[dataLength++] = c;
+                        c = umpMess[3] & 0xFF;         if (c) callbackBuffer[dataLength++] = c;
 
-                        if(mess.statusBank== FLEXDATA_LYRIC && flexLyric != nullptr) flexLyric(mess, text,dataLength);
-                        else if(mess.statusBank== FLEXDATA_PERFORMANCE && flexPerformance != nullptr) flexPerformance(mess,text,dataLength);
+                        if(mess.statusBank== FLEXDATA_LYRIC && flexLyric != nullptr) flexLyric(mess, callbackBuffer, dataLength);
+                        else if(mess.statusBank== FLEXDATA_PERFORMANCE && flexPerformance != nullptr) flexPerformance(mess, callbackBuffer, dataLength);
                         else if (flexData != nullptr) flexData(mess);
+                        M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
                     break;
                 }
                 default:
