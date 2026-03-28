@@ -1,7 +1,6 @@
 use clap::Parser;
 use el_core::parser::UmpStreamParser;
-use std::fs::File;
-use std::io::{self, Read};
+use std::io::{self, BufWriter, Read, Write};
 
 /// el_dump: A CLI tool to parse and dump raw Universal MIDI Packets (UMP) from a file or stdin.
 #[derive(Parser, Debug)]
@@ -15,13 +14,13 @@ struct Args {
 fn main() -> io::Result<()> {
     let args = Args::parse();
 
-    let mut buffer = Vec::new();
-    if let Some(filepath) = args.file {
-        let mut f = File::open(filepath)?;
-        f.read_to_end(&mut buffer)?;
+    let buffer = if let Some(filepath) = args.file {
+        std::fs::read(filepath)?
     } else {
+        let mut buffer = Vec::new();
         io::stdin().read_to_end(&mut buffer)?;
-    }
+        buffer
+    };
 
     if buffer.len() % 4 != 0 {
         eprintln!(
@@ -30,27 +29,33 @@ fn main() -> io::Result<()> {
         );
     }
 
-    // Convert raw u8 bytes into Little-Endian u32 words
-    let mut words = Vec::with_capacity(buffer.len() / 4);
-    for chunk in buffer.chunks_exact(4) {
-        let w = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-        words.push(w);
-    }
+    // Stream raw u8 bytes into Little-Endian u32 words lazily without intermediate allocation
+    let word_iter = buffer
+        .chunks_exact(4)
+        .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
 
-    let parser = UmpStreamParser::new(&words);
+    let parser = UmpStreamParser::new(word_iter);
 
-    println!("--- el_dump: UMP Stream Analyzer ---");
+    let stdout = io::stdout().lock();
+    let mut writer = BufWriter::new(stdout);
+
+    writeln!(writer, "--- el_dump: UMP Stream Analyzer ---")?;
     for ump in parser {
         let mt = ump.message_type();
         let grp = ump.group();
         let wc = ump.word_count();
 
-        print!("MT: {:?}, Grp: {:2}, Len: {} words | Data: ", mt, grp, wc);
+        write!(
+            writer,
+            "MT: {:?}, Grp: {:2}, Len: {} words | Data: ",
+            mt, grp, wc
+        )?;
         for i in 0..wc {
-            print!("{:08X} ", ump.data[i]);
+            write!(writer, "{:08X} ", ump.data[i])?;
         }
-        println!();
+        writeln!(writer)?;
     }
+    writer.flush()?;
 
     Ok(())
 }
