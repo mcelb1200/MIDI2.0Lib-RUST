@@ -25,6 +25,18 @@
 #include "utils.h"
 
 namespace UMPMessage {
+    namespace Internal {
+        inline void packPayload(std::array<uint32_t, 4>& ump, const uint8_t* data, uint8_t dataLen, uint8_t& offset, int startWordByteCount) {
+            for (int i = 0; i < 4; ++i) {
+                int byteCount = (i == 0) ? startWordByteCount : 4;
+                for (int b = byteCount - 1; b >= 0; --b) {
+                    if (offset < dataLen) {
+                        ump[i] |= (static_cast<uint32_t>(data[offset++]) << (b * 8));
+                    }
+                }
+            }
+        }
+    }
 
     inline uint32_t m1Create(uint8_t group, uint8_t status, uint8_t val1, uint8_t val2){
         return (((UMP_SYSTEM << 4) + (group & 0xF) + 0L) << 24)
@@ -279,18 +291,11 @@ inline std::array<uint32_t, 4> mt5MDSHeader(uint8_t group, uint8_t mds, uint16_t
     return umpMess;
 }
 
-inline std::array<uint32_t, 4> mt5MDSPayload(uint8_t group, uint8_t mds, uint8_t * data, uint8_t dataLength){
+inline std::array<uint32_t, 4> mt5MDSPayload(uint8_t group, uint8_t mds, const uint8_t* data, uint8_t dataLength){
         std::array<uint32_t, 4> umpMess  = {0,0,0,0};
         umpMess[0] = (uint32_t) (0x5 << 28) + (((group & 0xF) + 0L) << 24) +  (0x9 << 20) + ((mds & 0xF) << 16);
-        int offset=0;
-        if(offset < dataLength)umpMess[0] += (data[offset++] << 8);
-        if(offset < dataLength)umpMess[0] += data[offset++];
-        for(uint8_t i=1;i<4;i++){
-            if(offset < dataLength)umpMess[i] += (data[offset++] << 24);
-            if(offset < dataLength)umpMess[i] += (data[offset++] << 16);
-            if(offset < dataLength)umpMess[i] += (data[offset++] << 8);
-            if(offset < dataLength)umpMess[i] += data[offset++];
-        }
+        uint8_t offset=0;
+        Internal::packPayload(umpMess, data, dataLength, offset, 2);
         return umpMess;
     }
 
@@ -333,7 +338,7 @@ inline std::array<uint32_t, 4> mtFMidiEndpointDeviceInfoNotify(std::array<uint8_
     return umpMess;
 }
 
-inline std::array<uint32_t, 4> mtFMidiEndpointTextNotify(uint16_t replyType, uint8_t offset, uint8_t* text, uint8_t textLen){
+inline std::array<uint32_t, 4> mtFMidiEndpointTextNotify(uint16_t replyType, uint8_t offset, const uint8_t* text, uint8_t textLen){
     std::array<uint32_t, 4> umpMess = {0,0,0,0};
     uint8_t form = 0;
     if(offset==0){
@@ -346,14 +351,7 @@ inline std::array<uint32_t, 4> mtFMidiEndpointTextNotify(uint16_t replyType, uin
         }
     }
     umpMess[0] = (0xF << 28) + (form << 26) + (replyType << 16);
-    if(offset < textLen)umpMess[0] += (text[offset++] << 8);
-    if(offset < textLen)umpMess[0] += text[offset++];
-    for(uint8_t i=1;i<4;i++){
-        if(offset < textLen)umpMess[i] += (text[offset++] << 24);
-        if(offset < textLen)umpMess[i] += (text[offset++] << 16);
-        if(offset < textLen)umpMess[i] += (text[offset++] << 8);
-        if(offset < textLen)umpMess[i] += text[offset++];
-    }
+    Internal::packPayload(umpMess, text, textLen, offset, 2);
     return umpMess;
 }
 
@@ -381,7 +379,7 @@ inline std::array<uint32_t, 4> mtFFunctionBlockInfoNotify(uint8_t fbIdx, bool ac
     return umpMess;
 }
 
-inline std::array<uint32_t, 4> mtFFunctionBlockNameNotify(uint8_t fbIdx, uint8_t offset, uint8_t* text, uint8_t textLen){
+inline std::array<uint32_t, 4> mtFFunctionBlockNameNotify(uint8_t fbIdx, uint8_t offset, const uint8_t* text, uint8_t textLen){
     std::array<uint32_t, 4> umpMess = {0,0,0,0};
     uint8_t form = 0;
     if(offset==0){
@@ -394,13 +392,7 @@ inline std::array<uint32_t, 4> mtFFunctionBlockNameNotify(uint8_t fbIdx, uint8_t
         }
     }
     umpMess[0] = (0xF << 28) + (form << 26) + (FUNCTIONBLOCK_NAME_NOTIFICATION << 16)+ (fbIdx << 8);
-    if(offset < textLen)umpMess[0] += text[offset++];
-    for(uint8_t i=1;i<4;i++){
-        if(offset < textLen)umpMess[i] += (text[offset++] << 24);
-        if(offset < textLen)umpMess[i] += (text[offset++] << 16);
-        if(offset < textLen)umpMess[i] += (text[offset++] << 8);
-        if(offset < textLen)umpMess[i] += text[offset++];
-    }
+    Internal::packPayload(umpMess, text, textLen, offset, 1);
     return umpMess;
 }
 
