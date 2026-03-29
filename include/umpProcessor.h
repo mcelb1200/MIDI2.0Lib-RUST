@@ -82,6 +82,7 @@ class umpProcessor{
   
 	uint32_t umpMess[4]{};
 	uint8_t messPos=0;
+    uint8_t callbackBuffer[16]{0};
 
     // Message type 0x0  callbacks
     std::function<void(struct umpGeneric mess)> utilityMessage = nullptr;
