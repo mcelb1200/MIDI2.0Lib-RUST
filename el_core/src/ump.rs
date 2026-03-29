@@ -51,28 +51,29 @@ impl Ump {
 
     #[must_use]
     pub fn message_type(&self) -> MessageType {
-        let mt_val = ((self.data[0] >> 28) & 0xF) as usize;
-        // Safety constraint: MT is bounded to 4 bits (0x0 - 0xF),
-        // so we use a direct array lookup without branch overhead.
-        const TYPES: [MessageType; 16] = [
-            MessageType::Utility,
-            MessageType::System,
-            MessageType::Midi1ChannelVoice,
-            MessageType::Data64,
-            MessageType::Midi2ChannelVoice,
-            MessageType::Data128,
-            MessageType::Reserved6,
-            MessageType::Reserved7,
-            MessageType::Reserved8,
-            MessageType::Reserved9,
-            MessageType::ReservedA,
-            MessageType::ReservedB,
-            MessageType::ReservedC,
-            MessageType::ReservedD,
-            MessageType::ReservedE,
-            MessageType::UmpStream,
-        ];
-        TYPES[mt_val]
+        let mt_val = ((self.data[0] >> 28) & 0xF) as u8;
+        // ⚡ Bolt Optimization: Replacing the array lookup with a direct match allows the compiler
+        // to generate an optimized branch/jump table that skips the memory load operation entirely.
+        // Safety constraint: MT is masked to 4 bits (0x0 - 0xF), exhaustively covered here.
+        match mt_val {
+            0x0 => MessageType::Utility,
+            0x1 => MessageType::System,
+            0x2 => MessageType::Midi1ChannelVoice,
+            0x3 => MessageType::Data64,
+            0x4 => MessageType::Midi2ChannelVoice,
+            0x5 => MessageType::Data128,
+            0x6 => MessageType::Reserved6,
+            0x7 => MessageType::Reserved7,
+            0x8 => MessageType::Reserved8,
+            0x9 => MessageType::Reserved9,
+            0xA => MessageType::ReservedA,
+            0xB => MessageType::ReservedB,
+            0xC => MessageType::ReservedC,
+            0xD => MessageType::ReservedD,
+            0xE => MessageType::ReservedE,
+            0xF => MessageType::UmpStream,
+            _ => unreachable!(),
+        }
     }
 
     #[must_use]
