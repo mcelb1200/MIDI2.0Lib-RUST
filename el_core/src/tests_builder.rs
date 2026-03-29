@@ -39,4 +39,23 @@ mod tests {
         assert_eq!(ump.message_type(), MessageType::Utility);
         assert_eq!(ump.data, [0, 0, 0, 0]);
     }
+
+    #[test]
+    fn test_input_masking() {
+        // Pass out-of-bounds values (e.g., 0xFF where only 7 or 4 bits are expected)
+        let ump = VoiceBuilder::midi1_note_on(0xFF, 0xFF, 0xFF, 0xFF);
+        // group should be masked to 0xF, channel to 0xF, note to 0x7F, velocity to 0x7F
+        // group 0xF << 24 = 0x0F000000
+        // channel 0xF << 16 = 0x000F0000
+        // note 0x7F << 8 = 0x00007F00
+        // velocity 0x7F = 0x0000007F
+        // Base MT1 note on w1 is 0x20900000
+        // Combined: 0x2F9F7F7F
+        assert_eq!(ump.data[0], 0x2F9F7F7F);
+
+        let ump2 = VoiceBuilder::midi2_note_on(0xFF, 0xFF, 0xFF, 0xFF, 0xFFFF, 0xFFFF);
+        // MT=0x4, group=0xF, status=0x9, channel=0xF, note=0x7F, attr_type=0xFF
+        // Combined w1: 0x4F9F7FFF
+        assert_eq!(ump2.data[0], 0x4F9F7FFF);
+    }
 }

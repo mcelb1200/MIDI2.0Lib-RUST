@@ -17,6 +17,68 @@ mod tests {
     }
 
     #[test]
+    fn test_midi1_program_change() {
+        let group = 3;
+        let channel = 10;
+        let program = 42;
+        let pc = UmpFactory::midi1_program_change(group, channel, program);
+
+        assert_eq!(pc.message_type(), MessageType::Midi1ChannelVoice);
+        assert_eq!(pc.group(), group);
+        assert_eq!(pc.channel(), channel);
+        assert_eq!(pc.status(), PROGRAM_CHANGE);
+
+        let w1 = pc.data[0];
+        assert_eq!((w1 >> 28) & 0xF, 0x2); // MT=2
+        assert_eq!((w1 >> 8) & 0x7F, program as u32);
+    }
+
+    #[test]
+    fn test_midi2_program_change() {
+        let group = 1;
+        let channel = 2;
+        let program = 64;
+        let bank_msb = 0x12;
+        let bank_lsb = 0x34;
+
+        // Test with bank valid
+        let pc =
+            UmpFactory::midi2_program_change(group, channel, program, true, bank_msb, bank_lsb);
+        assert_eq!(pc.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(pc.group(), group);
+        assert_eq!(pc.channel(), channel);
+        assert_eq!(pc.status(), PROGRAM_CHANGE);
+
+        let w1 = pc.data[0];
+        let w2 = pc.data[1];
+
+        assert_eq!((w1 >> 28) & 0xF, 0x4); // MT=4
+        assert_eq!((w1 >> 16) & 0xF0, 0xC0); // Status=0xC0
+        assert_eq!(w1 & 0x1, 1); // Bank Valid bit
+
+        assert_eq!((w2 >> 24) & 0x7F, program as u32);
+        assert_eq!((w2 >> 8) & 0x7F, bank_msb as u32);
+        assert_eq!(w2 & 0x7F, bank_lsb as u32);
+
+        // Test without bank valid
+        let pc_no_bank =
+            UmpFactory::midi2_program_change(group, channel, program, false, bank_msb, bank_lsb);
+        let w1_no = pc_no_bank.data[0];
+        let w2_no = pc_no_bank.data[1];
+
+        assert_eq!(w1_no & 0x1, 0); // Bank Valid bit should be 0
+        assert_eq!((w2_no >> 24) & 0x7F, program as u32);
+        assert_eq!(w2_no & 0xFFFFFF, 0); // Bank and index should be 0
+
+        // Test masking
+        let pc_masked = UmpFactory::midi2_program_change(0, 0, 0xFF, true, 0xFF, 0xFF);
+        let w2_masked = pc_masked.data[1];
+        assert_eq!((w2_masked >> 24) & 0x7F, 0x7F);
+        assert_eq!((w2_masked >> 8) & 0x7F, 0x7F);
+        assert_eq!(w2_masked & 0x7F, 0x7F);
+    }
+
+    #[test]
     fn test_ump_group_getter_setter() {
         // Test getter
         let mut ump = crate::ump::Ump::new();

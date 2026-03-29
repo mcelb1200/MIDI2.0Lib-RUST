@@ -30,6 +30,11 @@ void umpProcessor::clearUMP(){
 }
 
 void umpProcessor::processUMP(uint32_t UMP){
+    // Security: Prevent buffer overflow from malformed UMP streams
+    if(messPos >= 4){
+        clearUMP();
+    }
+
 	umpMess[messPos] = UMP;
 		
 	uint8_t mt = (umpMess[0] >> 28)  & 0xF;
