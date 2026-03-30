@@ -25,7 +25,7 @@ pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
     }
 
     // Bound the value to its original bit width max. Use wrapping_shl to prevent overflow on `1 << 32`.
-    let src_max = if src_bits == 32 {
+    let src_max = if src_bits >= 32 {
         u32::MAX
     } else {
         (1_u32 << src_bits) - 1
@@ -37,7 +37,7 @@ pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
         return 0;
     }
     if val == src_max {
-        return if dst_bits == 32 {
+        return if dst_bits >= 32 {
             u32::MAX
         } else {
             (1_u32 << dst_bits) - 1
@@ -79,8 +79,17 @@ pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
 
     // Generic fallback for other bit depths
     let mut out = 0_u32;
-    let mut bits_left = i32::from(dst_bits);
-    let left_aligned = val << (32 - src_bits);
+    let mut bits_left = i32::from(if dst_bits > 32 { 32 } else { dst_bits });
+
+    // Prevent underflow panic if src_bits > 32
+    let shift_amount = 32_i32 - i32::from(src_bits);
+    let left_aligned = if shift_amount <= -32 {
+        0
+    } else if shift_amount < 0 {
+        val >> (-shift_amount)
+    } else {
+        val << shift_amount
+    };
 
     while bits_left > 0 {
         let shift = 32 - bits_left;
@@ -102,5 +111,9 @@ pub fn scale_down(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
         return value;
     }
     let shift = src_bits - dst_bits;
-    value >> shift
+    if shift >= 32 {
+        0
+    } else {
+        value >> shift
+    }
 }
