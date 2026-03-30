@@ -21,3 +21,6 @@ mod tests_parser;
 
 #[cfg(test)]
 mod tests_builder;
+
+#[cfg(test)]
+mod tests_utils2;
