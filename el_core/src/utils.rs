@@ -7,8 +7,8 @@ pub fn join_14bit(msb: u8, lsb: u8) -> u16 {
 /// Splits a 14-bit u16 value into MSB and LSB
 #[must_use]
 pub fn split_14bit(value: u16) -> (u8, u8) {
-    let msb = ((value >> 7) & 0x7F) as u8;
-    let lsb = (value & 0x7F) as u8;
+    let msb = ((value >> 7) as u8) & 0x7F;
+    let lsb = (value as u8) & 0x7F;
     (msb, lsb)
 }
 
@@ -107,13 +107,14 @@ pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
 /// Scales a value down from a higher bit depth
 #[must_use]
 pub fn scale_down(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
-    if src_bits <= dst_bits || dst_bits == 0 {
-        return value;
-    }
-    let shift = src_bits - dst_bits;
-    if shift >= 32 {
+    let scale_bits = src_bits.saturating_sub(dst_bits);
+    if scale_bits == 0 || dst_bits == 0 {
+        // ⚡ Bolt Optimization: Calculate scale_bits early with saturating_sub
+        // to consolidate base case bounds checks, reducing branching overhead.
+        value
+    } else if scale_bits >= 32 {
         0
     } else {
-        value >> shift
+        value >> scale_bits
     }
 }
