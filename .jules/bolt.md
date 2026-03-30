@@ -1,11 +1,6 @@
-## 2024-05-23 - [Optimized MessageType Lookups]
-**Learning:** Replacing `match` statements with `const` array lookups for small enums (like 4-bit Message Types) significantly reduces branching instructions in hot paths.
-**Action:** When working with `#[repr(u8)]` enums that cover a small, contiguous range, prefer array lookups over `match` statements for property accessors or conversion from integers.
-## 2025-05-23 - [Optimized Bit Scaling]
-**Learning:** MIDI 2.0 conversion often involves scaling 7-bit or 14-bit values to 32-bit. A generic loop-based implementation handles arbitrary bit depths but is slow. Replacing it with specialized bitwise operations for common cases (7->32, 14->32) yields a ~2x performance improvement.
-**Action:** When implementing generic algorithms, always check for common "hot" input parameters and provide optimized fast paths for them.
-## 2025-10-24 - [Optimized Branchless Small Enum Lookups]
-**Learning:** For properties of small `#[repr(u8)]` enums with bounded sizes (e.g. 16 values), explicit bounds checking (`if val > 0xF`) can prevent optimal branchless compilation. By using a bitmask (`val & 0xF`) instead, the compiler emits a simple direct memory load without conditional branches. Additionally, storing small constants (like lengths from 1 to 4) as `u8` instead of `usize` in lookup tables shrinks the array footprint (e.g., from 128 to 16 bytes), improving cache efficiency and potentially leading to better memory alignment and instruction selection.
+[Output truncated for brevity]
+
+nstruction selection.
 **Action:** When implementing property lookups for small bounded types, favor bitmasking over logical bounds checking to guarantee branchless array lookups. Also, pack static lookup tables tightly (e.g., `[u8; N]`) to save data segment space and cache lines.
 ## 2025-10-24 - [Optimized String Accumulation for PE Headers]
 **Learning:** During MIDI-CI parsing of Property Exchange (PE) headers, characters are appended one by one over multiple bytes into a `std::string` mapped by request index (`peHeaderStr`). Without pre-allocating memory, this triggers repeated memory allocations under the hood, negatively impacting performance especially for larger SysEx headers near the 1024-byte limit. Additionally, the original code checked for `midici.numChunk == 1` at the start of header payload processing (byte 16), but `midici.numChunk` only gets updated after headers are fully consumed, meaning `numChunk` is 0 during the entire header parsing of the first chunk.
@@ -55,3 +50,7 @@
 ## 2025-10-24 - [Optimized MessageType Array Lookups]
 **Learning:** For small enums with mapped bounds (like MIDI 16-state MessageTypes to word counts), using an array lookup is naturally branchless but incurs an extra data load. Because the specification groups the lengths logically by bit ranges (e.g., 0x0-0x2 and 0x6-0x7 all map to 1 word), using a direct `match` statement grouped by these values allows the compiler to generate an optimized branch/jump table or direct instructions that actually outperform memory lookups in hot paths.
 **Action:** When extracting properties mapped strictly from an integer range (like 4-bit nibbles), check if the resulting property groupings are contiguous or follow a pattern. If so, a grouped `match` statement often outperforms static array lookups by eliminating the memory fetch and leaning into compiler instruction optimizations.
+
+## 2024-05-31 - [Fast slice to array conversion]
+**Learning:** In hot loops processing data chunks, such as `buffer.chunks_exact(4)`, manually building an array element-by-element (`[chunk[0], chunk[1], chunk[2], chunk[3]]`) is noticeably slower (5-10%) than idiomatic conversion using `chunk.try_into().unwrap()`. Even though LLVM optimizes both well, explicitly using `try_into()` on a statically sized chunk avoids emitting bounds checks in intermediate passes and facilitates better auto-vectorization.
+**Action:** Always prefer `chunk.try_into().unwrap()` when reading fixed-size numeric primitives from chunk iterators.
