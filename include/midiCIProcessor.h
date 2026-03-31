@@ -76,9 +76,6 @@ private:
 
     //MIDI-CI  callbacks
 
-    // EB: update callbacks step1 - update pointer definitions to:
-    // std::function<void(..params..)> name = nullptr;
-
     std::function<bool(uint8_t group, uint32_t muid, void * refpoint)>
                         checkMUID = nullptr;
     std::function<void(MIDICI ciDetails,
@@ -158,11 +155,6 @@ private:
 
 public:
 
-    // EB: update callbacks step2 - update setCallback functions:
-    // inline void setCallback(std::function<void(params)> fptr){ pointerName = fptr; }
-    //
-    // Calling these functions from within a member class looks like:
-    // MIDICIHandler->setCheckMUID(std::bind(&YourClass::checkMUID, this, std::placeholders::_1, std::placeholders::_2));
     void * refpoint;
     inline void setCheckMUID(std::function<bool(uint8_t group, uint32_t muid, void * refpoint)> fptr){
         checkMUID = fptr; }
