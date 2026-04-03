@@ -350,10 +350,10 @@ void midiCIProcessor::processProtocolSysex(uint8_t s7Byte){
                 }
             }
             if(midici.ciVer > 1){
-                if (sysexPos >= protocolOffset && sysexPos <= protocolOffset+5 && sysexPos - protocolOffset < (int)sizeof(buffer)){
+                if (sysexPos >= protocolOffset && sysexPos <= protocolOffset+4 && sysexPos - protocolOffset < (int)sizeof(buffer)){
                     buffer[sysexPos-protocolOffset] = s7Byte;
                 }
-                if (sysexPos == protocolOffset+5){
+                if (sysexPos == protocolOffset+4){
 //                    uint8_t protocol[5] = {buffer[0], buffer[1],
 //                                           buffer[2], buffer[3],
 //                                           buffer[4]};
