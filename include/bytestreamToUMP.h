@@ -169,6 +169,7 @@ class bytestreamToUMP{
                     M2Utils::clear(sysex, 0, sizeof(sysex));
                 }
 			} else if(sysex7State >= 1){
+				// Security Pattern: Replace modulo with threshold check
 				if(sysex7Pos >= 6){
                     umpMess[writeIndex] = ((UMP_SYSEX7 << 4) + defaultGroup + 0L) << 24;
 					umpMess[writeIndex] +=  (sysex7State + 0L) << 20;
@@ -181,6 +182,7 @@ class bytestreamToUMP{
 					sysex7State=2;
 					sysex7Pos=0;
 				}
+                // Security Pattern: Explicit bounds guard before array write
                 if (sysex7Pos < 6) {
                     sysex[sysex7Pos++] = midi1Byte;
                 }
