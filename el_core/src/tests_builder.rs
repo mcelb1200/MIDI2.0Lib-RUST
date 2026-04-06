@@ -24,6 +24,23 @@ mod tests {
     }
 
     #[test]
+    fn test_midi1_pitch_bend() {
+        // Center pitch bend in MIDI 1 is 8192 (MSB=0x40, LSB=0x00)
+        let ump = VoiceBuilder::midi1_pitch_bend(0, 0, 8192);
+        assert_eq!(ump.message_type(), MessageType::Midi1ChannelVoice);
+        assert_eq!(ump.group(), 0);
+        assert_eq!(ump.data[0], 0x20E00040);
+
+        // Min
+        let ump2 = VoiceBuilder::midi1_pitch_bend(1, 2, 0);
+        assert_eq!(ump2.data[0], 0x21E20000);
+
+        // Max (14-bit)
+        let ump3 = VoiceBuilder::midi1_pitch_bend(15, 15, 16383);
+        assert_eq!(ump3.data[0], 0x2FEF7F7F);
+    }
+
+    #[test]
     fn test_midi2_pitch_bend() {
         // Center pitch bend in MIDI 2 is 0x8000_0000
         let ump = VoiceBuilder::midi2_pitch_bend(0, 1, 0x8000_0000);
@@ -57,5 +74,10 @@ mod tests {
         // MT=0x4, group=0xF, status=0x9, channel=0xF, note=0x7F, attr_type=0xFF
         // Combined w1: 0x4F9F7FFF
         assert_eq!(ump2.data[0], 0x4F9F7FFF);
+
+        let ump3 = VoiceBuilder::midi1_pitch_bend(0xFF, 0xFF, 0xFFFF);
+        // group -> 0xF, channel -> 0xF, value -> split to 0x7F, 0x7F
+        // MT=0x2, Status=0xE, w1 = 0x2FEF7F7F
+        assert_eq!(ump3.data[0], 0x2FEF7F7F);
     }
 }

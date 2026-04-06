@@ -118,9 +118,10 @@ class bytestreamToUMP{
 		void dumpSysex7State(bool reset) {
 			if (sysex7State > 0 && sysex7Pos > 0) {
 				//Then dump current bytes
+				uint8_t len = sysex7Pos > 6 ? 6 : sysex7Pos;
 				umpMess[writeIndex] = ((UMP_SYSEX7 << 4) + defaultGroup + 0L) << 24;
 				umpMess[writeIndex] +=  (sysex7State + 0L) << 20;
-				umpMess[writeIndex] +=  ((sysex7Pos + 0L) << 16);
+				umpMess[writeIndex] +=  ((len + 0L) << 16);
 				umpMess[writeIndex] += (sysex[0] << 8) + sysex[1];
 				increaseWrite();
 				umpMess[writeIndex] = ((sysex[2] + 0L) << 24) + ((sysex[3] + 0L)<< 16) + (sysex[4] << 8) + sysex[5] + 0L;
@@ -153,14 +154,18 @@ class bytestreamToUMP{
 					dumpSysex7State(true);
 				}
                 else if (midi1Byte == SYSEX_STOP){
-                    umpMess[writeIndex] = ((UMP_SYSEX7 << 4) + defaultGroup + 0L) << 24;
-                    umpMess[writeIndex] +=  ((sysex7State == 1?0:3) + 0L) << 20;
-                    umpMess[writeIndex] +=  ((sysex7Pos + 0L) << 16) ;
-                    umpMess[writeIndex] += (sysex[0] << 8) + sysex[1];
-                    increaseWrite();
-                    umpMess[writeIndex] = ((sysex[2] + 0L) << 24) + ((sysex[3] + 0L)<< 16) + (sysex[4] << 8) + sysex[5];
-                    increaseWrite();
+                    if (sysex7State > 0) {
+                        uint8_t len = sysex7Pos > 6 ? 6 : sysex7Pos;
+                        umpMess[writeIndex] = ((UMP_SYSEX7 << 4) + defaultGroup + 0L) << 24;
+                        umpMess[writeIndex] += ((sysex7State == 1 ? 0 : 3) + 0L) << 20;
+                        umpMess[writeIndex] += ((len + 0L) << 16);
+                        umpMess[writeIndex] += (sysex[0] << 8) + sysex[1];
+                        increaseWrite();
+                        umpMess[writeIndex] = ((sysex[2] + 0L) << 24) + ((sysex[3] + 0L) << 16) + (sysex[4] << 8) + sysex[5];
+                        increaseWrite();
+                    }
                     sysex7State = 0;
+                    sysex7Pos = 0;
                     M2Utils::clear(sysex, 0, sizeof(sysex));
                 }
 			} else if(sysex7State >= 1){
