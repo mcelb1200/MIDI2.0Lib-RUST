@@ -47,10 +47,11 @@ impl Ump {
 
     #[must_use]
     pub fn message_type(&self) -> MessageType {
-        let mt_val = ((self.data[0] >> 28) & 0xF) as u8;
+        // ⚡ Bolt Optimization: Removed redundant `& 0xF` mask. Right shifting a u32 by 28 bounds the value to 0-15.
+        let mt_val = (self.data[0] >> 28) as u8;
         // ⚡ Bolt Optimization: Replacing the array lookup with a direct match allows the compiler
         // to generate an optimized branch/jump table that skips the memory load operation entirely.
-        // Safety constraint: MT is masked to 4 bits (0x0 - 0xF), exhaustively covered here.
+        // Safety constraint: MT is intrinsically bounded to 4 bits (0x0 - 0xF), exhaustively covered here.
         match mt_val {
             0x0 => MessageType::Utility,
             0x1 => MessageType::System,
@@ -84,7 +85,8 @@ impl Ump {
 
     #[must_use]
     pub fn word_count(&self) -> usize {
-        let mt_val = ((self.data[0] >> 28) & 0xF) as usize;
+        // ⚡ Bolt Optimization: Removed redundant `& 0xF` mask. Right shifting a u32 by 28 bounds the value to 0-15.
+        let mt_val = (self.data[0] >> 28) as usize;
         // ⚡ Bolt Optimization: Array lookup is faster than match and avoids branching
         WORD_COUNTS[mt_val]
     }
