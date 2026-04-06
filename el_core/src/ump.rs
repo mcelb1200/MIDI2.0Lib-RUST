@@ -19,15 +19,19 @@ pub enum MessageType {
     UmpStream = 0xF,
 }
 
-// ⚡ Bolt Optimization: Replace branch match with lookup array to avoid branching.
-const WORD_COUNTS: [usize; 16] = [1, 1, 1, 2, 2, 4, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4];
-
 impl MessageType {
     /// Bypasses branching for packet length lookups, using the exact bounds mapped in our memory.
     #[must_use]
     pub const fn word_count(&self) -> usize {
-        // ⚡ Bolt Optimization: Array lookup is faster than match and avoids branching
-        WORD_COUNTS[*self as usize]
+        // ⚡ Bolt Optimization: Grouped match statement outperforms static array lookups
+        // by eliminating the memory fetch and leaning into compiler instruction optimizations.
+        match *self as u8 {
+            0x0..=0x2 | 0x6..=0x7 => 1,
+            0x3..=0x4 | 0x8..=0xA => 2,
+            0xB..=0xC => 3,
+            0x5 | 0xD..=0xF => 4,
+            _ => unreachable!(), // Enums are mapped 0-15
+        }
     }
 }
 
@@ -86,8 +90,15 @@ impl Ump {
     #[must_use]
     pub fn word_count(&self) -> usize {
         // ⚡ Bolt Optimization: Removed redundant `& 0xF` mask. Right shifting a u32 by 28 bounds the value to 0-15.
-        let mt_val = (self.data[0] >> 28) as usize;
-        // ⚡ Bolt Optimization: Array lookup is faster than match and avoids branching
-        WORD_COUNTS[mt_val]
+        let mt_val = (self.data[0] >> 28) as u8;
+        // ⚡ Bolt Optimization: Grouped match statement outperforms static array lookups
+        // by eliminating the memory fetch and leaning into compiler instruction optimizations.
+        match mt_val {
+            0x0..=0x2 | 0x6..=0x7 => 1,
+            0x3..=0x4 | 0x8..=0xA => 2,
+            0xB..=0xC => 3,
+            0x5 | 0xD..=0xF => 4,
+            _ => unreachable!(), // Right shifting u32 by 28 limits max value to 15
+        }
     }
 }
