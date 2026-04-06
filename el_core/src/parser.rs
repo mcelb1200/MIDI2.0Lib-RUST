@@ -32,17 +32,17 @@ where
         // Grouping matching directly on the MT bounds limits memory lookup overhead
         // and enables the compiler to generate an optimized branch table.
         // We explicitly return None if the stream truncates mid-packet.
-        match (w1 >> 28) & 0xF {
-            0x0 | 0x1 | 0x2 | 0x6 | 0x7 => Some(Ump {
+        match w1 >> 28 {
+            0x0..=0x2 | 0x6..=0x7 => Some(Ump {
                 data: [w1, 0, 0, 0],
             }),
-            0x3 | 0x4 | 0x8 | 0x9 | 0xA => Some(Ump {
+            0x3..=0x4 | 0x8..=0xA => Some(Ump {
                 data: [w1, self.stream.next()?, 0, 0],
             }),
-            0xB | 0xC => Some(Ump {
+            0xB..=0xC => Some(Ump {
                 data: [w1, self.stream.next()?, self.stream.next()?, 0],
             }),
-            0x5 | 0xD | 0xE | 0xF => Some(Ump {
+            0x5 | 0xD..=0xF => Some(Ump {
                 data: [
                     w1,
                     self.stream.next()?,
@@ -50,7 +50,7 @@ where
                     self.stream.next()?,
                 ],
             }),
-            _ => None, // Unreachable due to 4-bit bitmask constraint
+            _ => None,
         }
     }
 }
