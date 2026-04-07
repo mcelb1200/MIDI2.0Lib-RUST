@@ -71,3 +71,7 @@ nstruction selection.
 ## 2025-10-24 - [Optimize Stream Parsing Range Matching]
 **Learning:** In the core `UmpStreamParser`, replacing a `match` statement on individual explicitly piped numbers (`0x0 | 0x1 | 0x2`) with inclusive range bounds (`0x0..=0x2`) allows the compiler to evaluate bounds checking differently, reducing branch generation and leading to faster stream evaluation times (~10-15%). Additionally, masking a `u32` that is right-shifted by 28 bits with `& 0xF` is mathematically redundant and removing it eliminates an unnecessary bitwise instruction in a highly critical loop.
 **Action:** Use logical range boundaries in `match` statements over long sequences of explicit ORs. Always review bitwise expressions for mathematical redundancy (e.g., shifting off the bounds of the type).
+
+## 2025-05-24 - [Avoid saturating_sub overhead in scale_down]
+**Learning:** Using `saturating_sub` in hot bitwise functions like `scale_down` introduces unnecessary max clamp operations. We can replace it with a direct conditional branch `if src_bits <= dst_bits` followed by simple subtraction to bypass clamping and improve speed.
+**Action:** Consolidate bounds checks and use explicit branching rather than `saturating_sub` for basic math where the inputs are already logically constrained. Ensure that optimizations maintain readability and do not duplicate required sanitization logic unnecessarily.
