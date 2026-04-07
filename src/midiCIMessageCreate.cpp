@@ -21,7 +21,7 @@
 #include "midiCIMessageCreate.h"
 
 void setBytesFromNumbers(uint8_t *message, uint32_t number, uint16_t *start, uint8_t amount) {
-    for (int amountC = amount; amountC > 0; amountC--) {
+    for (int amountC = amount; amountC > 0; --amountC) {
         message[(*start)++] = number & 127;
         number = number >> 7;
     }
@@ -29,7 +29,7 @@ void setBytesFromNumbers(uint8_t *message, uint32_t number, uint16_t *start, uin
 
 void concatSysexArray(uint8_t *sysex, uint16_t *start, uint8_t *add, uint16_t len) {
     uint16_t i;
-    for (i = 0; i < len; i++) {
+    for (i = 0; i < len; ++i) {
         sysex[(*start)++] = add[i];
     }
 }
