@@ -34,7 +34,7 @@ where
         // We explicitly return None if the stream truncates mid-packet.
         // ⚡ Bolt Optimization: removed redundant `& 0xF` mask and grouped pattern match ranges
         match w1 >> 28 {
-            0x0..=0x2 | 0x6 | 0x7 => Some(Ump {
+            0x0..=0x2 | 0x6..=0x7 => Some(Ump {
                 data: [w1, 0, 0, 0],
             }),
             0x3..=0x4 | 0x8..=0xA => Some(Ump {
