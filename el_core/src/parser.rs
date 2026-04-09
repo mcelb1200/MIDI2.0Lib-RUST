@@ -29,21 +29,24 @@ where
         let w1 = self.stream.next()?;
 
         // Fast-path MessageType extraction without branching or enum conversion overhead
-        // Grouping matching directly on the MT bounds limits memory lookup overhead
-        // and enables the compiler to generate an optimized branch table.
+        // ⚡ Bolt Optimization: Replaced match statement with a static array lookup.
+        // Array lookups are significantly faster because they avoid branch mispredictions
+        // and jump tables, directly fetching the word count from a small, cache-friendly array.
+        const WORD_COUNTS: [usize; 16] = [1, 1, 1, 2, 2, 4, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4];
+        let count = WORD_COUNTS[(w1 >> 28) as usize];
+
         // We explicitly return None if the stream truncates mid-packet.
-        // ⚡ Bolt Optimization: removed redundant `& 0xF` mask and grouped pattern match ranges
-        match w1 >> 28 {
-            0x0..=0x2 | 0x6 | 0x7 => Some(Ump {
+        match count {
+            1 => Some(Ump {
                 data: [w1, 0, 0, 0],
             }),
-            0x3..=0x4 | 0x8..=0xA => Some(Ump {
+            2 => Some(Ump {
                 data: [w1, self.stream.next()?, 0, 0],
             }),
-            0xB..=0xC => Some(Ump {
+            3 => Some(Ump {
                 data: [w1, self.stream.next()?, self.stream.next()?, 0],
             }),
-            0x5 | 0xD..=0xF => Some(Ump {
+            4 => Some(Ump {
                 data: [
                     w1,
                     self.stream.next()?,
@@ -51,7 +54,7 @@ where
                     self.stream.next()?,
                 ],
             }),
-            _ => None, // Unreachable as max value of w1 >> 28 is 15 (0xF)
+            _ => unreachable!(),
         }
     }
 }
