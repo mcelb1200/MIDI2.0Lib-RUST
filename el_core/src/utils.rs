@@ -92,12 +92,10 @@ pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
     };
 
     while bits_left > 0 {
-        let shift = 32 - bits_left;
-        if shift > 0 {
-            out |= left_aligned >> shift;
-        } else {
-            out |= left_aligned.wrapping_shl((-shift) as u32);
-        }
+        // ⚡ Bolt Optimization: Eliminated branch logic here. `bits_left` is strictly > 0 and
+        // initially bounded to <= 32, meaning `32 - bits_left` is strictly between `0..=31`.
+        // This makes `left_aligned >> (32 - bits_left)` safe and logically equivalent without the if/else block.
+        out |= left_aligned >> (32 - bits_left);
         bits_left -= i32::from(src_bits);
     }
 
