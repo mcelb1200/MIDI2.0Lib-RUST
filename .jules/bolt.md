@@ -78,3 +78,6 @@ nstruction selection.
 ## 2024-04-10 - [Branchless Loop Optimization in bit scaling]
 **Learning:** In fallback loops that shift variables based on iteration bounds (e.g., `bits_left` strictly decreasing from a maximum of 32 down to 0), `32 - bits_left` is mathematically guaranteed to fall strictly between `0..=31`.
 **Action:** Remove conditional `if shift > 0 { ... } else { wrapping_shl(...) }` branch blocks inside hot loops when mathematical guarantees ensure shift amounts are safely bounded. A direct bitwise shift (e.g., `val >> (32 - bits_left)`) works equivalently and eliminates branching, improving execution speed and reducing code size without risking panic.
+## 2025-10-24 - [Avoid saturating_sub overhead in scale_up fallback]
+**Learning:** Using `saturating_sub` in hot bitwise functions like the generic fallback in `scale_up` introduces unnecessary max clamp operations. We can safely add an early return `if src_bits >= dst_bits { return src_val; }` and replace `saturating_sub` with a direct subtraction `dst_bits - src_bits` to bypass clamping and improve speed.
+**Action:** Consolidate bounds checks and use explicit branching rather than `saturating_sub` for basic math where the inputs are already logically constrained. Ensure that optimizations maintain readability and do not duplicate required sanitization logic unnecessarily.
