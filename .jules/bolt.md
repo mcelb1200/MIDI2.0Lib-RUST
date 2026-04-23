@@ -81,3 +81,7 @@ nstruction selection.
 ## 2024-04-19 - UMP Stream Parser Branch Prediction Optimization
 **Learning:** In the `el_core` Rust crate, attempting to optimize the generic `Iterator`-based UMP stream parser by unrolling the array initialization via a `match` statement on the expected word count actually introduces a severe performance bottleneck. On a mixed-length stream (simulating real-world UMP streams with mixed 32, 64, and 128-bit packets), the branch misprediction penalty from the `match` statement jumping between the 4 arms is extremely high, stalling the pipeline.
 **Action:** Replace the `match` statement unrolling with a direct zero-initialization of the fixed `[u32; 4]` array followed by a simple `for i in 1..count` loop to pull from the stream. This loop logic is heavily optimized by the compiler and completely bypasses the branch predictor thrashing, resulting in an almost ~70% speedup on mixed UMP streams.
+
+## 2024-04-23 - Unrolled Match vs Loop in Iterators
+**Learning:** In Rust iterator parsers handling unpredictable mixed streams (like `UmpStreamParser`), unrolling the length bounds into a `match` statement (e.g., matching length `1..=4` to yield different array constructors) can cause severe branch prediction overhead.
+**Action:** For mixed streams with small bounded lengths, replacing the length `match` with a static array lookup (for the count) and sequentially populating a zero-initialized fixed-size array using a simple `for` loop is often significantly faster (~70% improvement observed).
