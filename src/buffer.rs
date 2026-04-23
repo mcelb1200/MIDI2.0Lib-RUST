@@ -64,6 +64,7 @@ where
         let mut data = [w1, 0, 0, 0];
 
         // We explicitly return None if the stream truncates mid-packet.
+        #[allow(clippy::needless_range_loop)]
         for i in 1..count {
             data[i] = self.iter.next()?;
         }
