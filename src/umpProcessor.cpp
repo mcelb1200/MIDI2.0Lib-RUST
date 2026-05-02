@@ -452,7 +452,7 @@ void umpProcessor::processUMP(uint32_t UMP){
                 callbackBuffer[11] =  (umpMess[3] >> 16) & 0xFF;
                 callbackBuffer[12] =  (umpMess[3] >> 8) & 0xFF;
                 callbackBuffer[13] =  umpMess[3] & 0xFF;
-                if(mds5Header)mds5Payload(
+                if(mds5Payload)mds5Payload(
                     group,
                     (umpMess[1] >> 16) & 0xF,
                     callbackBuffer, 14
