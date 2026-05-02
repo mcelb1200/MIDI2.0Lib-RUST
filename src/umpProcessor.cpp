@@ -278,22 +278,25 @@ void umpProcessor::processUMP(uint32_t UMP){
                         mess.dataLength  = 0;
                         M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
 
-                        if ((umpMess[0] >> 8) & 0xFF) callbackBuffer[mess.dataLength++] = (umpMess[0] >> 8) & 0xFF;
-                        if (umpMess[0] & 0xFF) callbackBuffer[mess.dataLength++] = umpMess[0]  & 0xFF;
+                        auto push_byte = [&](uint8_t c) {
+                            if (c && mess.dataLength < sizeof(callbackBuffer)) callbackBuffer[mess.dataLength++] = c;
+                        };
 
-                        uint8_t c;
-                        c = (umpMess[1] >> 24) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
-                        c = (umpMess[1] >> 16) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
-                        c = (umpMess[1] >> 8) & 0xFF;  if (c) callbackBuffer[mess.dataLength++] = c;
-                        c = umpMess[1] & 0xFF;         if (c) callbackBuffer[mess.dataLength++] = c;
-                        c = (umpMess[2] >> 24) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
-                        c = (umpMess[2] >> 16) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
-                        c = (umpMess[2] >> 8) & 0xFF;  if (c) callbackBuffer[mess.dataLength++] = c;
-                        c = umpMess[2] & 0xFF;         if (c) callbackBuffer[mess.dataLength++] = c;
-                        c = (umpMess[3] >> 24) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
-                        c = (umpMess[3] >> 16) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
-                        c = (umpMess[3] >> 8) & 0xFF;  if (c) callbackBuffer[mess.dataLength++] = c;
-                        c = umpMess[3] & 0xFF;         if (c) callbackBuffer[mess.dataLength++] = c;
+                        push_byte((umpMess[0] >> 8) & 0xFF);
+                        push_byte(umpMess[0] & 0xFF);
+                        push_byte((umpMess[1] >> 24) & 0xFF);
+                        push_byte((umpMess[1] >> 16) & 0xFF);
+                        push_byte((umpMess[1] >> 8) & 0xFF);
+                        push_byte(umpMess[1] & 0xFF);
+                        push_byte((umpMess[2] >> 24) & 0xFF);
+                        push_byte((umpMess[2] >> 16) & 0xFF);
+                        push_byte((umpMess[2] >> 8) & 0xFF);
+                        push_byte(umpMess[2] & 0xFF);
+                        push_byte((umpMess[3] >> 24) & 0xFF);
+                        push_byte((umpMess[3] >> 16) & 0xFF);
+                        push_byte((umpMess[3] >> 8) & 0xFF);
+                        push_byte(umpMess[3] & 0xFF);
+
                         mess.data = callbackBuffer;
                         if(status == MIDIENDPOINT_NAME_NOTIFICATION && midiEndpointName != nullptr) midiEndpointName(mess);
                         if(status == MIDIENDPOINT_PRODID_NOTIFICATION && midiEndpointProdId != nullptr) midiEndpointProdId(mess);
@@ -350,21 +353,24 @@ void umpProcessor::processUMP(uint32_t UMP){
                     mess.dataLength  = 0;
                     M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
 
-                    if (umpMess[0] & 0xFF) callbackBuffer[mess.dataLength++] = umpMess[0]  & 0xFF;
+                    auto push_byte = [&](uint8_t c) {
+                        if (c && mess.dataLength < sizeof(callbackBuffer)) callbackBuffer[mess.dataLength++] = c;
+                    };
 
-                    uint8_t c;
-                    c = (umpMess[1] >> 24) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
-                    c = (umpMess[1] >> 16) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
-                    c = (umpMess[1] >> 8) & 0xFF;  if (c) callbackBuffer[mess.dataLength++] = c;
-                    c = umpMess[1] & 0xFF;         if (c) callbackBuffer[mess.dataLength++] = c;
-                    c = (umpMess[2] >> 24) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
-                    c = (umpMess[2] >> 16) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
-                    c = (umpMess[2] >> 8) & 0xFF;  if (c) callbackBuffer[mess.dataLength++] = c;
-                    c = umpMess[2] & 0xFF;         if (c) callbackBuffer[mess.dataLength++] = c;
-                    c = (umpMess[3] >> 24) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
-                    c = (umpMess[3] >> 16) & 0xFF; if (c) callbackBuffer[mess.dataLength++] = c;
-                    c = (umpMess[3] >> 8) & 0xFF;  if (c) callbackBuffer[mess.dataLength++] = c;
-                    c = umpMess[3] & 0xFF;         if (c) callbackBuffer[mess.dataLength++] = c;
+                    push_byte(umpMess[0] & 0xFF);
+                    push_byte((umpMess[1] >> 24) & 0xFF);
+                    push_byte((umpMess[1] >> 16) & 0xFF);
+                    push_byte((umpMess[1] >> 8) & 0xFF);
+                    push_byte(umpMess[1] & 0xFF);
+                    push_byte((umpMess[2] >> 24) & 0xFF);
+                    push_byte((umpMess[2] >> 16) & 0xFF);
+                    push_byte((umpMess[2] >> 8) & 0xFF);
+                    push_byte(umpMess[2] & 0xFF);
+                    push_byte((umpMess[3] >> 24) & 0xFF);
+                    push_byte((umpMess[3] >> 16) & 0xFF);
+                    push_byte((umpMess[3] >> 8) & 0xFF);
+                    push_byte(umpMess[3] & 0xFF);
+
                     mess.data = callbackBuffer;
 
                     if(functionBlockName != nullptr) functionBlockName(mess,fbIdx);
@@ -446,7 +452,7 @@ void umpProcessor::processUMP(uint32_t UMP){
                 callbackBuffer[11] =  (umpMess[3] >> 16) & 0xFF;
                 callbackBuffer[12] =  (umpMess[3] >> 8) & 0xFF;
                 callbackBuffer[13] =  umpMess[3] & 0xFF;
-                if(mds5Header)mds5Payload(
+                if(mds5Payload)mds5Payload(
                     group,
                     (umpMess[1] >> 16) & 0xF,
                     callbackBuffer, 14
@@ -545,19 +551,22 @@ void umpProcessor::processUMP(uint32_t UMP){
                         uint8_t dataLength  = 0;
                         M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
 
-                        uint8_t c;
-                        c = (umpMess[1] >> 24) & 0xFF; if (c) callbackBuffer[dataLength++] = c;
-                        c = (umpMess[1] >> 16) & 0xFF; if (c) callbackBuffer[dataLength++] = c;
-                        c = (umpMess[1] >> 8) & 0xFF;  if (c) callbackBuffer[dataLength++] = c;
-                        c = umpMess[1] & 0xFF;         if (c) callbackBuffer[dataLength++] = c;
-                        c = (umpMess[2] >> 24) & 0xFF; if (c) callbackBuffer[dataLength++] = c;
-                        c = (umpMess[2] >> 16) & 0xFF; if (c) callbackBuffer[dataLength++] = c;
-                        c = (umpMess[2] >> 8) & 0xFF;  if (c) callbackBuffer[dataLength++] = c;
-                        c = umpMess[2] & 0xFF;         if (c) callbackBuffer[dataLength++] = c;
-                        c = (umpMess[3] >> 24) & 0xFF; if (c) callbackBuffer[dataLength++] = c;
-                        c = (umpMess[3] >> 16) & 0xFF; if (c) callbackBuffer[dataLength++] = c;
-                        c = (umpMess[3] >> 8) & 0xFF;  if (c) callbackBuffer[dataLength++] = c;
-                        c = umpMess[3] & 0xFF;         if (c) callbackBuffer[dataLength++] = c;
+                        auto push_byte = [&](uint8_t c) {
+                            if (c && dataLength < sizeof(callbackBuffer)) callbackBuffer[dataLength++] = c;
+                        };
+
+                        push_byte((umpMess[1] >> 24) & 0xFF);
+                        push_byte((umpMess[1] >> 16) & 0xFF);
+                        push_byte((umpMess[1] >> 8) & 0xFF);
+                        push_byte(umpMess[1] & 0xFF);
+                        push_byte((umpMess[2] >> 24) & 0xFF);
+                        push_byte((umpMess[2] >> 16) & 0xFF);
+                        push_byte((umpMess[2] >> 8) & 0xFF);
+                        push_byte(umpMess[2] & 0xFF);
+                        push_byte((umpMess[3] >> 24) & 0xFF);
+                        push_byte((umpMess[3] >> 16) & 0xFF);
+                        push_byte((umpMess[3] >> 8) & 0xFF);
+                        push_byte(umpMess[3] & 0xFF);
 
                         if(mess.statusBank== FLEXDATA_LYRIC && flexLyric != nullptr) flexLyric(mess, callbackBuffer, dataLength);
                         else if(mess.statusBank== FLEXDATA_PERFORMANCE && flexPerformance != nullptr) flexPerformance(mess, callbackBuffer, dataLength);
