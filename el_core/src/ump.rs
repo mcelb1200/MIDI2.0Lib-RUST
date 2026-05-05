@@ -22,6 +22,7 @@ pub enum MessageType {
 impl MessageType {
     /// Bypasses branching for packet length lookups, using the exact bounds mapped in our memory.
     #[must_use]
+    #[inline]
     pub const fn word_count(&self) -> usize {
         // ⚡ Bolt Optimization: Replaced match statement with a static array lookup.
         // As per the #![forbid(unsafe_code)] constraint note, static array indexing
@@ -39,6 +40,7 @@ pub struct Ump {
 
 impl Ump {
     #[must_use]
+    #[inline]
     pub fn new(w1: u32, w2: u32, w3: u32, w4: u32) -> Self {
         Self {
             data: [w1, w2, w3, w4],
@@ -46,6 +48,7 @@ impl Ump {
     }
 
     #[must_use]
+    #[inline]
     pub fn message_type(&self) -> MessageType {
         // ⚡ Bolt Optimization: Removed redundant `& 0xF` mask. Right shifting a u32 by 28 bounds the value to 0-15.
         // ⚡ Bolt Optimization: Replaced match statement with a static array lookup.
@@ -72,16 +75,19 @@ impl Ump {
     }
 
     #[must_use]
+    #[inline]
     pub fn group(&self) -> u8 {
         ((self.data[0] >> 24) & 0xF) as u8
     }
 
+    #[inline]
     pub fn set_group(&mut self, group: u8) {
         self.data[0] &= 0xF0FFFFFF;
         self.data[0] |= ((group as u32) & 0xF) << 24;
     }
 
     #[must_use]
+    #[inline]
     pub fn word_count(&self) -> usize {
         // ⚡ Bolt Optimization: Replaced match statement with a static array lookup.
         const WORD_COUNTS: [usize; 16] = [1, 1, 1, 2, 2, 4, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4];
