@@ -631,7 +631,7 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
                                        buffer[2]
                     );
 
-                if(midici.ciType == MIDICI_PE_CAPABILITYREPLY && recvPECapabilities != nullptr)
+                if(midici.ciType == MIDICI_PE_CAPABILITYREPLY && recvPECapabilitiesReplies != nullptr)
                     recvPECapabilitiesReplies(midici,
                                               buffer[0],
                                               buffer[1],
