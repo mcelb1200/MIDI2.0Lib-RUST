@@ -24,6 +24,37 @@ mod tests {
     }
 
     #[test]
+    fn test_midi2_cc() {
+        let ump = VoiceBuilder::midi2_cc(1, 2, 0x80, 0x12345678);
+        assert_eq!(ump.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(ump.group(), 1);
+        // MT=0x4, Grp=0x1, Status=0xB, Ch=0x2, Index=0x80
+        assert_eq!(ump.data[0], 0x41B28000);
+        assert_eq!(ump.data[1], 0x12345678);
+    }
+
+    #[test]
+    fn test_midi2_note_on_8bit() {
+        // Test with note number > 127
+        let ump = VoiceBuilder::midi2_note_on(1, 0, 0x80, 0, 0x8000, 0);
+        assert_eq!(ump.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(ump.group(), 1);
+        // MT=0x4, Grp=0x1, Status=0x9, Ch=0x0, Note=0x80, AttrType=0x00
+        assert_eq!(ump.data[0], 0x41908000);
+        assert_eq!(ump.data[1], 0x80000000);
+    }
+
+    #[test]
+    fn test_midi2_nrpn() {
+        let ump = VoiceBuilder::midi2_nrpn(1, 2, 0x80, 0x81, 0x12345678);
+        assert_eq!(ump.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(ump.group(), 1);
+        // MT=0x4, Grp=0x1, Status=0x3 (NRPN), Ch=0x2, Bank=0x80, Index=0x81
+        assert_eq!(ump.data[0], 0x41328081);
+        assert_eq!(ump.data[1], 0x12345678);
+    }
+
+    #[test]
     fn test_midi1_pitch_bend() {
         // Center pitch bend in MIDI 1 is 8192 (MSB=0x40, LSB=0x00)
         let ump = VoiceBuilder::midi1_pitch_bend(0, 0, 8192);
@@ -71,9 +102,9 @@ mod tests {
         assert_eq!(ump.data[0], 0x2F9F7F7F);
 
         let ump2 = VoiceBuilder::midi2_note_on(0xFF, 0xFF, 0xFF, 0xFF, 0xFFFF, 0xFFFF);
-        // MT=0x4, group=0xF, status=0x9, channel=0xF, note=0x7F, attr_type=0xFF
-        // Combined w1: 0x4F9F7FFF
-        assert_eq!(ump2.data[0], 0x4F9F7FFF);
+        // MT=0x4, group=0xF, status=0x9, channel=0xF, note=0xFF, attr_type=0xFF
+        // Combined w1: 0x4F9FFFFF
+        assert_eq!(ump2.data[0], 0x4F9FFFFF);
 
         let ump3 = VoiceBuilder::midi1_pitch_bend(0xFF, 0xFF, 0xFFFF);
         // group -> 0xF, channel -> 0xF, value -> split to 0x7F, 0x7F

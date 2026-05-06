@@ -56,7 +56,7 @@ impl VoiceBuilder {
             | ((channel as u32) << 16)
             | ((note as u32) << 8)
             | (attr_type as u32);
-        let w1 = 0x40900000 | (combined & 0x0F0F7FFF);
+        let w1 = 0x40900000 | (combined & 0x0F0FFFFF);
         let w2 = ((velocity as u32) << 16) | (attr_data as u32);
         Ump::new(w1, w2, 0, 0)
     }
@@ -74,7 +74,7 @@ impl VoiceBuilder {
             | ((channel as u32) << 16)
             | ((note as u32) << 8)
             | (attr_type as u32);
-        let w1 = 0x40800000 | (combined & 0x0F0F7FFF);
+        let w1 = 0x40800000 | (combined & 0x0F0FFFFF);
         let w2 = ((velocity as u32) << 16) | (attr_data as u32);
         Ump::new(w1, w2, 0, 0)
     }
@@ -82,7 +82,7 @@ impl VoiceBuilder {
     #[must_use]
     pub fn midi2_cc(group: u8, channel: u8, index: u8, value: u32) -> Ump {
         let combined = ((group as u32) << 24) | ((channel as u32) << 16) | ((index as u32) << 8);
-        let w1 = 0x40B00000 | (combined & 0x0F0F7F00);
+        let w1 = 0x40B00000 | (combined & 0x0F0FFF00);
         Ump::new(w1, value, 0, 0)
     }
 
@@ -95,12 +95,12 @@ impl VoiceBuilder {
 
     #[must_use]
     pub fn midi2_nrpn(group: u8, channel: u8, bank: u8, index: u8, value: u32) -> Ump {
-        // NRPN Status = 0x02, Bank = Data Byte 1, Index = Data Byte 2
+        // NRPN Status = 0x30, Bank = Data Byte 1, Index = Data Byte 2
         let combined = ((group as u32) << 24)
             | ((channel as u32) << 16)
             | ((bank as u32) << 8)
             | (index as u32);
-        let w1 = 0x40020000 | (combined & 0x0F0F7F7F);
+        let w1 = 0x40300000 | (combined & 0x0F0FFFFF);
         Ump::new(w1, value, 0, 0)
     }
 }
