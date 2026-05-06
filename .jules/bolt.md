@@ -99,3 +99,7 @@ nstruction selection.
 ## 2024-05-18 - [Branchless Loop Optimization in scale_up]
 **Learning:** In the generic fallback block of `scale_up`, using a signed `i32` variable to count down (`bits_left`) and then dynamically calculating the shift amount (`32 - bits_left`) in the hot loop requires both arithmetic operations and cast overheads during the loop. By rewriting this loop to track an unsigned `u32` shift amount (`shift_right`) counting up from an initial offset, the compiler avoids conversion overhead and eliminates the subtraction step inside the loop, leading to a measurable ~10% performance boost in this fallback calculation path.
 **Action:** When repeatedly shifting bits in generic bitwise fallback paths, favor tracking the explicit shift value in an unsigned accumulator over using a signed countdown to calculate the shift value dynamically.
+
+## 2024-05-18 - [Cross-Crate Inlining Overhead]
+**Learning:** In multi-crate workspaces (e.g., `el_core` library consumed by `el_dump`), small, frequently called public methods and getters (like builder methods, `Iterator::next`, `scale_up`) incur function call overhead across crate boundaries unless Link Time Optimization is enabled.
+**Action:** Explicitly add the `#[inline]` attribute to hot path functions in workspace libraries to allow the Rust compiler to inline them across crate boundaries, preventing unnecessary function call overhead.
