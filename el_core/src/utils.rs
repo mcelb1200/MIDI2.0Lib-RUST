@@ -16,6 +16,7 @@ pub fn split_14bit(value: u16) -> (u8, u8) {
 
 /// Scales a value up to 32 bits using the MIDI 2.0 Bit Duplication algorithm
 #[must_use]
+#[inline]
 pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
     if src_bits == dst_bits || src_bits == 0 || dst_bits == 0 {
         return value;
