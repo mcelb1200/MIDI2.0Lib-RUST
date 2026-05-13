@@ -97,6 +97,7 @@ private:
                     uint8_t* ackNakMessage)> recvACK = nullptr;
     std::function<void(MIDICI ciDetails, uint32_t terminateMuid)> recvInvalidateMUID = nullptr;
     std::function<void(MIDICI ciDetails, uint8_t s7Byte)> recvUnknownMIDICI = nullptr;
+    std::function<void(MIDICI ciDetails, const char* msg)> recvLog = nullptr;
 
 //Protocol Negotiation
     std::function<void(MIDICI ciDetails, uint8_t authorityLevel, uint8_t* protocol)> recvProtocolAvailable = nullptr;
@@ -109,6 +110,7 @@ private:
 //Profiles
     std::function<void(MIDICI ciDetails)> recvProfileInquiry = nullptr;
     std::function<void(MIDICI ciDetails, std::array<uint8_t, 5> profile, uint8_t numberOfChannels)> recvSetProfileEnabled = nullptr;
+    std::function<void(MIDICI ciDetails, std::array<uint8_t, 5>)> recvSetProfileAdded = nullptr;
     std::function<void(MIDICI ciDetails, std::array<uint8_t, 5>)> recvSetProfileRemoved = nullptr;
     std::function<void(MIDICI ciDetails, std::array<uint8_t, 5>, uint8_t numberOfChannels)> recvSetProfileDisabled = nullptr;
     std::function<void(MIDICI ciDetails, std::array<uint8_t, 5> profile, uint8_t numberOfChannels)> recvSetProfileOn = nullptr;
@@ -196,6 +198,8 @@ public:
         recvInvalidateMUID = fptr;}
     inline void setRecvUnknownMIDICI(std::function<void(MIDICI ciDetails, uint8_t s7Bye)> fptr){
         recvUnknownMIDICI = fptr;}
+    inline void setRecvLog(std::function<void(MIDICI ciDetails, const char* msg)> fptr){
+        recvLog = fptr;}
 
 
     inline void setRecvEndpointInfo(std::function<void(MIDICI ciDetails, uint8_t status)> fptr){
@@ -217,6 +221,8 @@ public:
     inline void setRecvProfileInquiry(std::function<void(MIDICI ciDetails)> fptr){ recvProfileInquiry = fptr;}
     inline void setRecvProfileEnabled(std::function<void(MIDICI ciDetails, std::array<uint8_t, 5>, uint8_t numberOfChannels)> fptr){
         recvSetProfileEnabled = fptr;}
+    inline void setRecvSetProfileAdded(std::function<void(MIDICI ciDetails, std::array<uint8_t, 5>)> fptr){
+        recvSetProfileAdded = fptr;}
     inline void setRecvSetProfileRemoved(std::function<void(MIDICI ciDetails, std::array<uint8_t, 5>)> fptr){
         recvSetProfileRemoved = fptr;}
     inline void setRecvProfileDisabled(std::function<void(MIDICI ciDetails, std::array<uint8_t, 5>, uint8_t numberOfChannels)> fptr){

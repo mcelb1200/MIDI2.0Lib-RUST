@@ -299,4 +299,37 @@ mod tests {
         // 255 (0xFF) -> 0xFF & 0xF = 0xF
         assert_eq!(MessageType::from_u8(255), MessageType::Stream);
     }
+
+    #[test]
+    fn test_midi2_control_change() {
+        let group = 1;
+        let channel = 2;
+        let index = 70;
+        let value: u32 = 0x12345678;
+        let cc = UmpFactory::midi2_control_change(group, channel, index, value);
+
+        assert_eq!(cc.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(cc.group(), group);
+        assert_eq!(cc.channel(), channel);
+        assert_eq!(cc.status(), CC);
+        assert_eq!(cc.data[1], value);
+
+        // Explicit check of the first word layout
+        let w1 = cc.data[0];
+        assert_eq!((w1 >> 28) & 0xF, 0x4); // MT=4
+        assert_eq!((w1 >> 24) & 0xF, group as u32);
+        assert_eq!((w1 >> 16) & 0xF0, 0xB0); // Status=CC
+        assert_eq!((w1 >> 16) & 0x0F, channel as u32);
+        assert_eq!((w1 >> 8) & 0x7F, index as u32);
+
+        // Edge case: Test masking
+        let oob_group = 0xFF; // 255 -> 15
+        let oob_channel = 0xFF; // 255 -> 15
+        let oob_index = 0xFF; // 255 -> 127
+        let cc_edge = UmpFactory::midi2_control_change(oob_group, oob_channel, oob_index, 0);
+
+        assert_eq!(cc_edge.group(), 15);
+        assert_eq!(cc_edge.channel(), 15);
+        assert_eq!((cc_edge.data[0] >> 8) & 0x7F, 127);
+    }
 }

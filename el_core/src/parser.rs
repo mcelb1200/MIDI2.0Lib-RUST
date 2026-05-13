@@ -14,6 +14,7 @@ where
     I: Iterator<Item = u32>,
 {
     #[must_use]
+    #[inline]
     pub fn new(stream: I) -> Self {
         Self { stream }
     }
@@ -25,6 +26,7 @@ where
 {
     type Item = Ump;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let w1 = self.stream.next()?;
 
