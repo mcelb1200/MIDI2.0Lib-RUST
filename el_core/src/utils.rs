@@ -31,7 +31,11 @@ pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
     // ⚡ Bolt Optimization: Replaced branchless `saturating_sub` shift technique
     // with explicit conditional branching `if src_bits >= 32`.
     // This avoids trait conversion and subtraction overheads and improves execution speed by ~15-20%.
-    let src_max = if src_bits >= 32 { u32::MAX } else { u32::MAX >> (32 - src_bits) };
+    let src_max = if src_bits >= 32 {
+        u32::MAX
+    } else {
+        u32::MAX >> (32 - src_bits)
+    };
     let val = value & src_max;
 
     // If it's the exact center or below (for 8-bit, 128 is center, but scaling logic dictates shifting)
