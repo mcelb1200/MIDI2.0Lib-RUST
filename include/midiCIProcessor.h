@@ -97,6 +97,7 @@ private:
                     uint8_t* ackNakMessage)> recvACK = nullptr;
     std::function<void(MIDICI ciDetails, uint32_t terminateMuid)> recvInvalidateMUID = nullptr;
     std::function<void(MIDICI ciDetails, uint8_t s7Byte)> recvUnknownMIDICI = nullptr;
+    std::function<void(MIDICI ciDetails, const char* msg)> recvLog = nullptr;
 
 //Protocol Negotiation
     std::function<void(MIDICI ciDetails, uint8_t authorityLevel, uint8_t* protocol)> recvProtocolAvailable = nullptr;
@@ -197,6 +198,8 @@ public:
         recvInvalidateMUID = fptr;}
     inline void setRecvUnknownMIDICI(std::function<void(MIDICI ciDetails, uint8_t s7Bye)> fptr){
         recvUnknownMIDICI = fptr;}
+    inline void setRecvLog(std::function<void(MIDICI ciDetails, const char* msg)> fptr){
+        recvLog = fptr;}
 
 
     inline void setRecvEndpointInfo(std::function<void(MIDICI ciDetails, uint8_t status)> fptr){

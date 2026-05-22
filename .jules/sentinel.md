@@ -89,3 +89,8 @@
 **Vulnerability:** Denial of Service (DoS) / Logic Error
 **Learning:** In `src/midiCIProcessor.cpp` around line 481, the parser incorrectly invoked the `recvSetProfileDisabled` callback for `MIDICI_PROFILE_ADD` messages, and incorrectly guarded it with a check against `recvSetProfileDisabled != nullptr`. If an application expected to receive Profile Add messages and registered a (non-existent) callback for it, but left `recvSetProfileDisabled` uninitialized, parsing this message could have triggered a `std::bad_function_call` exception or null pointer dereference if the guard had also been mistyped, or it simply routed an "Add" event to a "Disable" handler, breaking state logic.
 **Prevention:** Always ensure that message types are routed to their semantically correct callbacks and that the guard check matches the invoked function pointer. Add missing callbacks (like `recvSetProfileAdded`) when implementing support for new message types instead of piggybacking on existing, unrelated ones.
+
+## 2026-05-12 - [security improvement] Replace printf with logging callback
+**Vulnerability:** Information Leakage via printf in Library Code.
+**Learning:** Using `printf` in library code causes information leakage to `stdout` and prevents host applications from controlling or redirecting library warnings/errors.
+**Prevention:** Always use configurable callbacks (e.g., `std::function`) or dedicated logging abstractions in library code instead of direct console output.

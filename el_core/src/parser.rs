@@ -30,14 +30,19 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let w1 = self.stream.next()?;
 
-        // Fast-path MessageType extraction without branching or enum conversion overhead
-        // ⚡ Bolt Optimization: Replaced match statement with a static array lookup.
-        // Array lookups are significantly faster because they avoid branch mispredictions
-        // and jump tables, directly fetching the word count from a small, cache-friendly array.
-        const WORD_COUNTS: [usize; 16] = [1, 1, 1, 2, 2, 4, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4];
-        let count = WORD_COUNTS[(w1 >> 28) as usize];
+        // Fast-path MessageType extraction without enum conversion overhead
+        // ⚡ Bolt Optimization: Replaced static array lookup with match statement.
+        // In safe Rust contexts, an exhaustive match statement is faster than a static array
+        // lookup because it avoids implicit array bounds-checking overhead. Masking with & 0xF
+        // guarantees safe boundaries.
+        let count = match (w1 >> 28) & 0xF {
+            0x0 | 0x1 | 0x2 | 0x6 | 0x7 => 1,
+            0x3 | 0x4 | 0x8 | 0x9 | 0xA => 2,
+            0xB | 0xC => 3,
+            _ => 4,
+        };
 
-        // ⚡ Bolt Optimization: Eliminated match statement block.
+        // ⚡ Bolt Optimization: Eliminated match statement block for array allocation.
         // Unrolling branch prediction here is often slower than a simple
         // loop allocation because the length is highly unpredictable in mixed streams.
         // Initializing the array and pulling the remaining words sequentially
