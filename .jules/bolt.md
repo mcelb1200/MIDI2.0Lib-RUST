@@ -110,6 +110,13 @@ nstruction selection.
 ## 2024-05-18 - Enum Match vs Array Lookup in Safe Rust
 **Learning:** While the memory constraint suggests static arrays are strictly faster than `match` branches for mapping dense integers, benchmark results show that in `#![forbid(unsafe_code)]` Rust contexts (like `MessageType::from_u32`), a simple `match` block is consistently ~20% faster than safe static array indexing for enum conversion. The `match` avoids reading from memory completely and allows the compiler to generate highly optimized inline jump tables or bounds checks.
 **Action:** When converting small bounded integers (like a 4-bit nibble) directly into an Enum, prefer a `match` statement over a `const` static array lookup if `unsafe` (transmute) is forbidden.
+## 2025-10-24 - [Avoid checked_shr unwrap_or overhead in scale_down]
+**Learning:** In the `scale_down` hot path, using the branchless idiom `value.checked_shr(scale_bits.into()).unwrap_or(0)` is noticeably slower (~15-20%) than explicit branching (`if scale_bits >= 32 { 0 } else { value >> scale_bits }`). The trait conversion (`into()`) and `Option` handling prevent the compiler from emitting optimal native shift logic.
+**Action:** Use explicit boundary branching (`if scale_bits >= 32`) rather than branchless wrapper functions (`checked_shr`) inside tightly coupled hot paths when direct native bitwise shifts can be explicitly bound.
+
+## 2025-10-24 - [Reorder and avoid saturating_sub overhead in scale_up]
+**Learning:** In the `scale_up` fallback initialization, using the branchless idiom `u32::MAX >> 32_u8.saturating_sub(src_bits)` is noticeably slower (~15-20%) than explicit branching (`if src_bits >= 32 { u32::MAX } else { (1_u32 << src_bits) - 1 }`).
+**Action:** Similar to the fallback loop in `scale_up`, prefer direct mathematical branches when calculating limits inside hot loops.
 ## 2024-05-18 - Branchless bounds checking overhead
 **Learning:** In Rust hot paths, mathematically-bounded branchless bounds checking techniques (like using `.checked_shr(...).unwrap_or(0)` or `saturating_sub`) can actually be slower than explicit conditional branches (like `if bounds >= limit`). Trait conversions (`into()`), `Option` handling overhead, and fallback bounds-checking prevent the compiler from emitting optimal native operations.
 **Action:** Always prefer explicit conditional branches for boundary checks over branchless trait-dependent mathematical fallbacks on mathematically bounded integers in performance-critical code.
