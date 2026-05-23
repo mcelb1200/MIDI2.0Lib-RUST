@@ -65,9 +65,11 @@ impl Ump {
     #[must_use]
     #[inline]
     pub fn message_type(&self) -> MessageType {
-        // ⚡ Bolt Optimization: Replaced static array lookup with match statement.
-        // Adding explicit & 0xF guarantees safe bounds for the match statement.
-        match (self.data[0] >> 28) & 0xF {
+        // ⚡ Bolt Optimization: Removed redundant `& 0xF` mask. Right shifting a u32 by 28 bounds the value to 0-15.
+        // ⚡ Bolt Optimization: Replaced static array lookup with a match statement.
+        // As per the #![forbid(unsafe_code)] constraint note, a match block compiles down to a more
+        // optimized check than an array lookup for converting mathematically bounded integers.
+        match self.data[0] >> 28 {
             0x0 => MessageType::Utility,
             0x1 => MessageType::System,
             0x2 => MessageType::Midi1ChannelVoice,
@@ -83,7 +85,8 @@ impl Ump {
             0xC => MessageType::ReservedC,
             0xD => MessageType::ReservedD,
             0xE => MessageType::ReservedE,
-            _ => MessageType::UmpStream,
+            0xF => MessageType::UmpStream,
+            _ => unreachable!(),
         }
     }
 
