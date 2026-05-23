@@ -106,11 +106,15 @@ impl Ump {
     #[inline]
     pub fn word_count(&self) -> usize {
         // ⚡ Bolt Optimization: Replaced static array lookup with match statement.
-        match (self.data[0] >> 28) & 0xF {
+        // ⚡ Bolt Optimization: Removed redundant `& 0xF` mask. Right shifting a u32 by 28
+        // logically bounds the value to 0-15. Using explicit exhaustive branches allows
+        // the compiler to emit a highly optimal jump table without masking instructions.
+        match self.data[0] >> 28 {
             0x0 | 0x1 | 0x2 | 0x6 | 0x7 => 1,
             0x3 | 0x4 | 0x8 | 0x9 | 0xA => 2,
             0xB | 0xC => 3,
-            _ => 4,
+            0x5 | 0xD | 0xE | 0xF => 4,
+            _ => unreachable!(),
         }
     }
 }

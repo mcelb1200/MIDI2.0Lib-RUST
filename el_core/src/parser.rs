@@ -33,13 +33,16 @@ where
         // Fast-path MessageType extraction without enum conversion overhead
         // ⚡ Bolt Optimization: Replaced static array lookup with match statement.
         // In safe Rust contexts, an exhaustive match statement is faster than a static array
-        // lookup because it avoids implicit array bounds-checking overhead. Masking with & 0xF
-        // guarantees safe boundaries.
-        let count = match (w1 >> 28) & 0xF {
+        // lookup because it avoids implicit array bounds-checking overhead.
+        // ⚡ Bolt Optimization: Removed redundant `& 0xF` mask. Right shifting a u32 by 28
+        // logically bounds the value to 0-15. Using explicit exhaustive branches allows
+        // the compiler to emit a highly optimal jump table without masking instructions.
+        let count = match w1 >> 28 {
             0x0 | 0x1 | 0x2 | 0x6 | 0x7 => 1,
             0x3 | 0x4 | 0x8 | 0x9 | 0xA => 2,
             0xB | 0xC => 3,
-            _ => 4,
+            0x5 | 0xD | 0xE | 0xF => 4,
+            _ => unreachable!(),
         };
 
         // ⚡ Bolt Optimization: Eliminated match statement block for array allocation.
