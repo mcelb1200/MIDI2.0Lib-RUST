@@ -53,6 +53,7 @@ void midiCIProcessor::cleanupRequest(reqId peReqIdx){
 }
 
 void midiCIProcessor::processMIDICI(uint8_t s7Byte){
+    //printf("s7 Byte %d\n", s7Byte);
 	if(sysexPos == 3){
 		midici.ciType =  s7Byte;
 	}
@@ -477,10 +478,10 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
             }
 
             if(complete){
-                if (midici.ciType == MIDICI_PROFILE_ADD && recvSetProfileAdded != nullptr)
-                    recvSetProfileAdded(midici, {buffer[0], buffer[1],
+                if (midici.ciType == MIDICI_PROFILE_ADD && recvSetProfileDisabled != nullptr)
+                    recvSetProfileDisabled(midici, {buffer[0], buffer[1],
                                                     buffer[2], buffer[3],
-                                                    buffer[4]});
+                                                    buffer[4]}, 0);
 
                 if (midici.ciType == MIDICI_PROFILE_REMOVE && recvSetProfileRemoved != nullptr)
                     recvSetProfileRemoved(midici, {buffer[0], buffer[1],
@@ -585,11 +586,9 @@ void midiCIProcessor::processProfileSysex(uint8_t s7Byte){
                    || sysexPos == 21 + dataLength
                    || dataLength == 0
                         ){
-                    if(recvProfileSpecificData != nullptr) {
-                        recvProfileSpecificData(midici, {buffer[0], buffer[1],
-                                                    buffer[2], buffer[3],
-                                                    buffer[4]}, dataLength == 0 ? 0 : charOffset + 1 - 5, &(buffer[5]), intTemp[1], lastByteOfSet);
-                    }
+                    recvProfileSpecificData(midici, {buffer[0], buffer[1],
+                                                buffer[2], buffer[3],
+                                                buffer[4]}, dataLength == 0 ? 0 : charOffset + 1 - 5, &(buffer[5]), intTemp[1], lastByteOfSet);
                     intTemp[1]++;
                 }
             }
@@ -632,7 +631,7 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
                                        buffer[2]
                     );
 
-                if(midici.ciType == MIDICI_PE_CAPABILITYREPLY && recvPECapabilitiesReplies != nullptr)
+                if(midici.ciType == MIDICI_PE_CAPABILITYREPLY && recvPECapabilities != nullptr)
                     recvPECapabilitiesReplies(midici,
                                               buffer[0],
                                               buffer[1],
@@ -674,11 +673,7 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
                 if (peHeaderStr[midici._peReqIdx].length() < midiCIProcessor::MAX_PE_HEADER_SIZE) {
                     peHeaderStr[midici._peReqIdx].push_back(s7Byte);
                 } else if (charOffset == midiCIProcessor::MAX_PE_HEADER_SIZE) {
-                    if (recvLog != nullptr) {
-                        char msg[128];
-                        snprintf(msg, sizeof(msg), "Warning: PE Header string exceeded MAX_PE_HEADER_SIZE (%u bytes). Truncating.", midiCIProcessor::MAX_PE_HEADER_SIZE);
-                        recvLog(midici, msg);
-                    }
+                    printf("Warning: PE Header string exceeded MAX_PE_HEADER_SIZE (%d bytes). Truncating.\n", midiCIProcessor::MAX_PE_HEADER_SIZE);
                 }
             }
 

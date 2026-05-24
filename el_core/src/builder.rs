@@ -5,7 +5,6 @@ pub struct VoiceBuilder;
 
 impl VoiceBuilder {
     #[must_use]
-    #[inline]
     pub fn midi1_note_on(group: u8, channel: u8, note: u8, velocity: u8) -> Ump {
         let combined = ((group as u32) << 24)
             | ((channel as u32) << 16)
@@ -16,7 +15,6 @@ impl VoiceBuilder {
     }
 
     #[must_use]
-    #[inline]
     pub fn midi1_note_off(group: u8, channel: u8, note: u8, velocity: u8) -> Ump {
         let combined = ((group as u32) << 24)
             | ((channel as u32) << 16)
@@ -27,7 +25,6 @@ impl VoiceBuilder {
     }
 
     #[must_use]
-    #[inline]
     pub fn midi1_cc(group: u8, channel: u8, index: u8, value: u8) -> Ump {
         let combined = ((group as u32) << 24)
             | ((channel as u32) << 16)
@@ -38,7 +35,6 @@ impl VoiceBuilder {
     }
 
     #[must_use]
-    #[inline]
     pub fn midi1_pitch_bend(group: u8, channel: u8, value: u16) -> Ump {
         let (msb, lsb) = split_14bit(value);
         let combined =
@@ -48,7 +44,6 @@ impl VoiceBuilder {
     }
 
     #[must_use]
-    #[inline]
     pub fn midi2_note_on(
         group: u8,
         channel: u8,
@@ -67,7 +62,6 @@ impl VoiceBuilder {
     }
 
     #[must_use]
-    #[inline]
     pub fn midi2_note_off(
         group: u8,
         channel: u8,
@@ -86,7 +80,6 @@ impl VoiceBuilder {
     }
 
     #[must_use]
-    #[inline]
     pub fn midi2_cc(group: u8, channel: u8, index: u8, value: u32) -> Ump {
         let combined = ((group as u32) << 24) | ((channel as u32) << 16) | ((index as u32) << 8);
         let w1 = 0x40B00000 | (combined & 0x0F0F7F00);
@@ -94,7 +87,6 @@ impl VoiceBuilder {
     }
 
     #[must_use]
-    #[inline]
     pub fn midi2_pitch_bend(group: u8, channel: u8, value: u32) -> Ump {
         let combined = ((group as u32) << 24) | ((channel as u32) << 16);
         let w1 = 0x40E00000 | (combined & 0x0F0F0000);
@@ -102,7 +94,6 @@ impl VoiceBuilder {
     }
 
     #[must_use]
-    #[inline]
     pub fn midi2_nrpn(group: u8, channel: u8, bank: u8, index: u8, value: u32) -> Ump {
         // NRPN Status = 0x02, Bank = Data Byte 1, Index = Data Byte 2
         let combined = ((group as u32) << 24)
@@ -118,13 +109,11 @@ pub struct UtilityBuilder;
 
 impl UtilityBuilder {
     #[must_use]
-    #[inline]
     pub fn noop() -> Ump {
         Ump::new(0, 0, 0, 0)
     }
 
     #[must_use]
-    #[inline]
     pub fn jitter_reduction_clock(group: u8, timestamp: u16) -> Ump {
         let combined = ((group as u32) << 24) | (timestamp as u32);
         let w1 = 0x00100000 | (combined & 0x0F00FFFF);
@@ -132,7 +121,6 @@ impl UtilityBuilder {
     }
 
     #[must_use]
-    #[inline]
     pub fn jitter_reduction_timestamp(group: u8, timestamp: u16) -> Ump {
         let combined = ((group as u32) << 24) | (timestamp as u32);
         let w1 = 0x00200000 | (combined & 0x0F00FFFF);
