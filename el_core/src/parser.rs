@@ -35,26 +35,16 @@ where
         const WORD_COUNTS: [usize; 16] = [1, 1, 1, 2, 2, 4, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4];
         let count = WORD_COUNTS[(w1 >> 28) as usize];
 
+        // ⚡ Bolt Optimization: Removed unrolled match blocks and replaced them with
+        // an explicitly zero-initialized array followed by a tight `for` loop. For mixed-length
+        // streams, this eliminates severe branch prediction overhead caused by evaluating the
+        // length and jumping to different array initializations, improving parsing speed.
         // We explicitly return None if the stream truncates mid-packet.
-        match count {
-            1 => Some(Ump {
-                data: [w1, 0, 0, 0],
-            }),
-            2 => Some(Ump {
-                data: [w1, self.stream.next()?, 0, 0],
-            }),
-            3 => Some(Ump {
-                data: [w1, self.stream.next()?, self.stream.next()?, 0],
-            }),
-            4 => Some(Ump {
-                data: [
-                    w1,
-                    self.stream.next()?,
-                    self.stream.next()?,
-                    self.stream.next()?,
-                ],
-            }),
-            _ => unreachable!(),
+        let mut data = [w1, 0, 0, 0];
+        for i in 1..count {
+            data[i] = self.stream.next()?;
         }
+
+        Some(Ump { data })
     }
 }
