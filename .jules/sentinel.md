@@ -94,3 +94,7 @@
 **Vulnerability:** Information Leakage via printf in Library Code.
 **Learning:** Using `printf` in library code causes information leakage to `stdout` and prevents host applications from controlling or redirecting library warnings/errors.
 **Prevention:** Always use configurable callbacks (e.g., `std::function`) or dedicated logging abstractions in library code instead of direct console output.
+## 2026-05-13 - [security improvement] Add missing null check for recvProfileSpecificData
+**Vulnerability:** In `src/midiCIProcessor.cpp` around line 588, the `recvProfileSpecificData` callback was invoked without a prior null check (`if(recvProfileSpecificData != nullptr)`). If an application does not register this callback, parsing a Profile Specific Data message would result in a `std::bad_function_call` exception or a null pointer dereference, leading to a Denial of Service (DoS).
+**Learning:** Failing to check if an `std::function` callback is registered before invoking it is a recurring bug in callback-heavy parsers, leading directly to DoS. All callback invocations must be strictly guarded.
+**Prevention:** Enforce a strict policy that all `std::function` callback invocations must be conditionally checked before use. Implement unit tests that send every supported message type while leaving callbacks uninitialized to catch unguarded invocations.
