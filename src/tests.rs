@@ -299,4 +299,29 @@ mod tests {
         // 255 (0xFF) -> 0xFF & 0xF = 0xF
         assert_eq!(MessageType::from_u8(255), MessageType::Stream);
     }
+
+    #[test]
+    fn test_mtc_quarter_frame() {
+        let group = 5;
+        let data = 0x42;
+        let mtc = UmpFactory::mtc_quarter_frame(group, data);
+
+        assert_eq!(mtc.message_type(), MessageType::System);
+        assert_eq!(mtc.group(), group);
+        assert_eq!(mtc.status(), 0xF0); // Ump::status() returns high nibble
+
+        let w = mtc.data[0];
+        assert_eq!((w >> 28) & 0xF, 0x1); // MT=1
+        assert_eq!((w >> 24) & 0xF, group as u32);
+        assert_eq!((w >> 16) & 0xFF, TIMING_CODE as u32);
+        assert_eq!((w >> 8) & 0x7F, data as u32);
+        assert_eq!(w & 0x7F, 0);
+
+        // Test masking
+        let mtc_masked = UmpFactory::mtc_quarter_frame(0xFF, 0xFF);
+        assert_eq!(mtc_masked.group(), 0xF);
+        let w_masked = mtc_masked.data[0];
+        // Ensure data byte is masked to 7 bits (0x7F)
+        assert_eq!((w_masked >> 8) & 0xFF, 0x7F);
+    }
 }
