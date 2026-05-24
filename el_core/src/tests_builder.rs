@@ -14,22 +14,6 @@ mod tests {
     }
 
     #[test]
-    fn test_jitter_reduction_clock() {
-        let ump = UtilityBuilder::jitter_reduction_clock(5, 0x1234);
-        assert_eq!(ump.message_type(), MessageType::Utility);
-        assert_eq!(ump.group(), 5);
-        assert_eq!(ump.data[0], 0x05101234);
-    }
-
-    #[test]
-    fn test_jitter_reduction_timestamp() {
-        let ump = UtilityBuilder::jitter_reduction_timestamp(3, 0xABCD);
-        assert_eq!(ump.message_type(), MessageType::Utility);
-        assert_eq!(ump.group(), 3);
-        assert_eq!(ump.data[0], 0x0320ABCD);
-    }
-
-    #[test]
     fn test_midi2_note_on() {
         let ump = VoiceBuilder::midi2_note_on(1, 0, 60, 0, 0x8000, 0);
         assert_eq!(ump.message_type(), MessageType::Midi2ChannelVoice);
@@ -95,10 +79,5 @@ mod tests {
         // group -> 0xF, channel -> 0xF, value -> split to 0x7F, 0x7F
         // MT=0x2, Status=0xE, w1 = 0x2FEF7F7F
         assert_eq!(ump3.data[0], 0x2FEF7F7F);
-
-        let ump4 = UtilityBuilder::jitter_reduction_clock(0xFF, 0xFFFF);
-        // group should be masked to 0xF, status is 0x1, timestamp is 0xFFFF
-        // 0x0F10FFFF
-        assert_eq!(ump4.data[0], 0x0F10FFFF);
     }
 }

@@ -14,7 +14,6 @@ where
     I: Iterator<Item = u32>,
 {
     #[must_use]
-    #[inline]
     pub fn new(stream: I) -> Self {
         Self { stream }
     }
@@ -26,38 +25,36 @@ where
 {
     type Item = Ump;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let w1 = self.stream.next()?;
 
-        // Fast-path MessageType extraction without enum conversion overhead
-        // ⚡ Bolt Optimization: Replaced static array lookup with match statement.
-        // In safe Rust contexts, an exhaustive match statement is faster than a static array
-        // lookup because it avoids implicit array bounds-checking overhead.
-        // ⚡ Bolt Optimization: Removed redundant `& 0xF` mask. Right shifting a u32 by 28
-        // logically bounds the value to 0-15. Using explicit exhaustive branches allows
-        // the compiler to emit a highly optimal jump table without masking instructions.
-        let count = match w1 >> 28 {
-            0x0 | 0x1 | 0x2 | 0x6 | 0x7 => 1,
-            0x3 | 0x4 | 0x8 | 0x9 | 0xA => 2,
-            0xB | 0xC => 3,
-            0x5 | 0xD | 0xE | 0xF => 4,
-            _ => unreachable!(),
-        };
-
-        // ⚡ Bolt Optimization: Eliminated match statement block for array allocation.
-        // Unrolling branch prediction here is often slower than a simple
-        // loop allocation because the length is highly unpredictable in mixed streams.
-        // Initializing the array and pulling the remaining words sequentially
-        // directly from the iterator is faster (~70% improvement on mixed streams)
-        // and safely bounds checks via `count`.
-        let mut data = [w1, 0, 0, 0];
+        // Fast-path MessageType extraction without branching or enum conversion overhead
+        // ⚡ Bolt Optimization: Replaced match statement with a static array lookup.
+        // Array lookups are significantly faster because they avoid branch mispredictions
+        // and jump tables, directly fetching the word count from a small, cache-friendly array.
+        const WORD_COUNTS: [usize; 16] = [1, 1, 1, 2, 2, 4, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4];
+        let count = WORD_COUNTS[(w1 >> 28) as usize];
 
         // We explicitly return None if the stream truncates mid-packet.
-        for i in 1..count {
-            data[i] = self.stream.next()?;
+        match count {
+            1 => Some(Ump {
+                data: [w1, 0, 0, 0],
+            }),
+            2 => Some(Ump {
+                data: [w1, self.stream.next()?, 0, 0],
+            }),
+            3 => Some(Ump {
+                data: [w1, self.stream.next()?, self.stream.next()?, 0],
+            }),
+            4 => Some(Ump {
+                data: [
+                    w1,
+                    self.stream.next()?,
+                    self.stream.next()?,
+                    self.stream.next()?,
+                ],
+            }),
+            _ => unreachable!(),
         }
-
-        Some(Ump { data })
     }
 }
