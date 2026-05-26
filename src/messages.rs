@@ -219,12 +219,18 @@ impl UmpFactory {
     /// Helper to create a MIDI 1.0 Channel Voice UMP (MT=0x2).
     #[must_use]
     fn mt2_create(group: u8, status: u8, channel: u8, val1: u8, val2: u8) -> Ump {
-        let mut message = ((u32::from(UMP_M1CVM)) << 28) + ((u32::from(group & 0xF)) << 24);
-        message += (u32::from((status & 0xF0) | (channel & 0xF))) << 16;
-        message += (u32::from(val1 & 0x7F)) << 8;
-        message += u32::from(val2 & 0x7F);
+        // ⚡ Bolt Optimization: Use a single bitwise combination and global mask.
+        // Instead of masking individual arguments (e.g., `(group & 0xF) << 24`) and accumulating
+        // with addition, combine all unmasked values via bitwise OR and apply one global mask
+        // at the end. This reduces instruction count and improves message builder speed.
+        // Note: status and channel share the same byte and must still be correctly interleaved.
+        let combined = ((group as u32) << 24)
+            | ((((status & 0xF0) | (channel & 0xF)) as u32) << 16)
+            | ((val1 as u32) << 8)
+            | (val2 as u32);
+
         Ump {
-            data: [message, 0, 0, 0],
+            data: [((u32::from(UMP_M1CVM)) << 28) | (combined & 0x0FFF7F7F), 0, 0, 0],
         }
     }
 
@@ -355,11 +361,13 @@ impl UmpFactory {
     /// Helper to create the first word of a MIDI 2.0 Channel Voice UMP (MT=0x4).
     #[must_use]
     fn mt4_create_first_word(group: u8, status: u8, channel: u8, val1: u8, val2: u8) -> u32 {
-        let mut message = ((u32::from(UMP_M2CVM)) << 28) + ((u32::from(group & 0xF)) << 24);
-        message += (u32::from((status & 0xF0) | (channel & 0xF))) << 16;
-        message += (u32::from(val1)) << 8;
-        message += u32::from(val2);
-        message
+        // ⚡ Bolt Optimization: Use a single bitwise combination and global mask.
+        let combined = ((group as u32) << 24)
+            | ((((status & 0xF0) | (channel & 0xF)) as u32) << 16)
+            | ((val1 as u32) << 8)
+            | (val2 as u32);
+
+        ((u32::from(UMP_M2CVM)) << 28) | (combined & 0x0FFFFFFF)
     }
 
     /// Creates a MIDI 2.0 Note Off UMP.
