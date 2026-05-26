@@ -230,7 +230,12 @@ impl UmpFactory {
             | (val2 as u32);
 
         Ump {
-            data: [((u32::from(UMP_M1CVM)) << 28) | (combined & 0x0FFF7F7F), 0, 0, 0],
+            data: [
+                ((u32::from(UMP_M1CVM)) << 28) | (combined & 0x0FFF7F7F),
+                0,
+                0,
+                0,
+            ],
         }
     }
 
