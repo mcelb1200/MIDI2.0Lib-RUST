@@ -28,12 +28,8 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let w1 = self.stream.next()?;
 
-        // Fast-path MessageType extraction without branching or enum conversion overhead
-        // ⚡ Bolt Optimization: Replaced match statement with a static array lookup.
-        // Array lookups are significantly faster because they avoid branch mispredictions
-        // and jump tables, directly fetching the word count from a small, cache-friendly array.
-        const WORD_COUNTS: [usize; 16] = [1, 1, 1, 2, 2, 4, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4];
-        let count = WORD_COUNTS[(w1 >> 28) as usize];
+        use crate::ump::MessageType;
+        let count = MessageType::from_u32(w1).word_count();
 
         // ⚡ Bolt Optimization: Removed unrolled match blocks and replaced them with
         // an explicitly zero-initialized array followed by a tight `for` loop. For mixed-length
