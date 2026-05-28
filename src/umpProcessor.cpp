@@ -419,7 +419,7 @@ void umpProcessor::processUMP(uint32_t UMP){
 
             }else if(status == 8){ //MDS Header
 
-                if(mds5Header)mds5Header(
+                if(mds5Header != nullptr)mds5Header(
                     group,
                     (umpMess[1] >> 16) & 0xF,
                     umpMess[0] & 0xFFFF,
@@ -446,7 +446,7 @@ void umpProcessor::processUMP(uint32_t UMP){
                 callbackBuffer[11] =  (umpMess[3] >> 16) & 0xFF;
                 callbackBuffer[12] =  (umpMess[3] >> 8) & 0xFF;
                 callbackBuffer[13] =  umpMess[3] & 0xFF;
-                if(mds5Payload)mds5Payload(
+                if(mds5Payload != nullptr)mds5Payload(
                     group,
                     (umpMess[1] >> 16) & 0xF,
                     callbackBuffer, 14
