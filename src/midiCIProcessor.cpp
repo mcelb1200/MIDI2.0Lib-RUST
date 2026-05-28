@@ -170,7 +170,7 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
             case MIDICI_ENDPOINTINFO_REPLY:{
                 bool complete = false;
                 if(midici.ciVer < 2) return;
-                if (sysexPos == 13 && recvEndPointInfo!= nullptr) {
+                if (sysexPos == 13 && recvEndPointInfoReply != nullptr) {
                     intTemp[0] = s7Byte;
                 }
                 if(sysexPos == 14 || sysexPos == 15){
@@ -187,11 +187,13 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte){
                 }
 
                 if (complete) {
-                    recvEndPointInfoReply(midici,
-                                     (uint8_t) intTemp[0],
-                                     intTemp[1] > sizeof(buffer) ? (uint16_t)sizeof(buffer) : intTemp[1],
-                                     buffer
-                                     );
+                    if (recvEndPointInfoReply != nullptr) {
+                        recvEndPointInfoReply(midici,
+                                         (uint8_t) intTemp[0],
+                                         intTemp[1] > sizeof(buffer) ? (uint16_t)sizeof(buffer) : intTemp[1],
+                                         buffer
+                                         );
+                    }
                 }
                 break;
             }
