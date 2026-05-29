@@ -25,6 +25,7 @@ where
 {
     type Item = Ump;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let w1 = self.stream.next()?;
 

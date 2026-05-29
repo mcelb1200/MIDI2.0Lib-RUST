@@ -1,11 +1,13 @@
 /// Combines 14-bit CC fragments into a single u16 value
 #[must_use]
+#[inline]
 pub fn join_14bit(msb: u8, lsb: u8) -> u16 {
     (u16::from(msb & 0x7F) << 7) | u16::from(lsb & 0x7F)
 }
 
 /// Splits a 14-bit u16 value into MSB and LSB
 #[must_use]
+#[inline]
 pub fn split_14bit(value: u16) -> (u8, u8) {
     let msb = ((value >> 7) as u8) & 0x7F;
     let lsb = (value as u8) & 0x7F;
@@ -14,6 +16,7 @@ pub fn split_14bit(value: u16) -> (u8, u8) {
 
 /// Scales a value up to 32 bits using the MIDI 2.0 Bit Duplication algorithm
 #[must_use]
+#[inline]
 pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
     if src_bits == dst_bits || src_bits == 0 || dst_bits == 0 {
         return value;
@@ -107,6 +110,7 @@ pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
 
 /// Scales a value down from a higher bit depth
 #[must_use]
+#[inline]
 pub fn scale_down(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
     // ⚡ Bolt Optimization: Explicitly checking `src_bits <= dst_bits` instead of
     // `saturating_sub` allows the compiler to use a direct conditional branch, bypassing
