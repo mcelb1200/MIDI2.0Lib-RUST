@@ -91,3 +91,7 @@ nstruction selection.
 ## 2025-10-24 - [Optimize Formatting Loops in CLI Tools]
 **Learning:** In formatting-heavy tight loops (like CLI data dumping of MIDI UMP words), using a dynamic `for` loop with multiple `write!` macro calls involves substantial loop overhead and repeated buffer interactions. We found that unrolling variable-length iterations into a `match` statement with a single `writeln!` macro per branch (for predictable lengths like 1 to 4) yields a ~20% execution speedup.
 **Action:** When repeatedly formatting short, bounded arrays or iterators to a buffer, consider unrolling the loop into a `match` statement based on length, using a single formatting macro per branch. Ensure a safe generic fallback is always provided for unexpected bounds to avoid panics.
+
+## 2025-10-24 - [Cross-Crate Function Inlining Overhead]
+**Learning:** In a multi-crate Rust workspace (like `el_core` being consumed by `el_dump` or `el_ci_sim`), the Rust compiler does not automatically inline functions across crate boundaries during compilation unless Link Time Optimization (LTO) is enabled. This means small, frequently-called public methods (like builder factories, parser iterators, and bit-math utilities) suffer unexpected function call overhead in tight loops across crates.
+**Action:** Always explicitly apply `#[inline]` to small, performance-critical public functions (like `Iterator::next`, simple getters/setters, small builder methods, and arithmetic helpers) intended to be consumed by other crates within a modular workspace to eliminate call overhead.

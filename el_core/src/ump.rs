@@ -72,6 +72,7 @@ pub struct Ump {
 
 impl Ump {
     #[must_use]
+    #[inline]
     pub fn new(w1: u32, w2: u32, w3: u32, w4: u32) -> Self {
         Self {
             data: [w1, w2, w3, w4],
