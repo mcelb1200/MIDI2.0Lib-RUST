@@ -91,7 +91,8 @@ pub fn scale_up(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
     // and requires `32 - bits_left` math inside the loop, we track the actual right shift
     // amount `shift_right` starting from `32 - dst_bits`. This avoids subtraction and unsigned/signed
     // cast overhead inside the hot loop, yielding an approx ~15% performance improvement in fallbacks.
-    let mut shift_right = 32_u32.saturating_sub(dst_bits as u32);
+    // We also avoid `saturating_sub` overhead by explicitly checking `if dst_bits <= 32`.
+    let mut shift_right = if dst_bits <= 32 { 32 - (dst_bits as u32) } else { 0 };
     let src_step = src_bits as u32;
 
     // Prevent underflow panic if src_bits > 32
