@@ -212,27 +212,27 @@ namespace M2Utils {
       if (srcBits == 7) {
           // Fast path for 7-bit to 32-bit (e.g., Velocity, CC)
           uint32_t shifted = srcVal << 25;
-          if (srcVal <= 64) return shifted;
+          uint32_t mask = 0 - (uint32_t)(srcVal > 64);
           uint32_t v = srcVal & 0x3F;
-          return shifted | (v << 19) | (v << 13) | (v << 7) | (v << 1) | (v >> 5);
+          return shifted | (((v << 19) | (v << 13) | (v << 7) | (v << 1) | (v >> 5)) & mask);
       } else if (srcBits == 8) {
           // Fast path for 8-bit to 32-bit (e.g., some SysEx data mappings)
           uint32_t shifted = srcVal << 24;
-          if (srcVal <= 128) return shifted;
+          uint32_t mask = 0 - (uint32_t)(srcVal > 128);
           uint32_t v = srcVal & 0x7F;
-          return shifted | (v << 17) | (v << 10) | (v << 3) | (v >> 4);
+          return shifted | (((v << 17) | (v << 10) | (v << 3) | (v >> 4)) & mask);
       } else if (srcBits == 14) {
           // Fast path for 14-bit to 32-bit (e.g., Pitch Bend, High Res Velocity)
           uint32_t shifted = srcVal << 18;
-          if (srcVal <= 8192) return shifted;
+          uint32_t mask = 0 - (uint32_t)(srcVal > 8192);
           uint32_t v = srcVal & 0x1FFF;
-          return shifted | (v << 5) | (v >> 8);
+          return shifted | (((v << 5) | (v >> 8)) & mask);
       } else if (srcBits == 16) {
           // Fast path for 16-bit to 32-bit
           uint32_t shifted = srcVal << 16;
-          if (srcVal <= 32768) return shifted;
+          uint32_t mask = 0 - (uint32_t)(srcVal > 32768);
           uint32_t v = srcVal & 0x7FFF;
-          return shifted | (v << 1) | (v >> 14);
+          return shifted | (((v << 1) | (v >> 14)) & mask);
       }
   }
 
@@ -267,6 +267,7 @@ namespace M2Utils {
   }
   // simple bit shift
   uint8_t scaleBits = (srcBits - dstBits);
+  if (scaleBits >= 32) return 0;
   return srcVal >> scaleBits;
  }
 
