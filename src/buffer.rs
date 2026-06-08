@@ -53,12 +53,11 @@ where
         // Grouping matching directly on the MT bounds limits memory lookup overhead
         // and enables the compiler to generate an optimized branch table.
         // We explicitly return None if the stream truncates mid-packet.
-        // ⚡ Bolt Optimization: Removed mathematically redundant `& 0xF` mask on `w1 >> 28`
-        // since shifting right by 28 bits naturally constraints the max value to 15.
-        // Replaced explicitly piped values with inclusive range boundaries where possible to
-        // reduce branch generation overhead, yielding faster evaluation speeds.
+        // ⚡ Bolt Optimization: Removed redundant `& 0xF` mask. Because `w1` is a `u32`,
+        // `w1 >> 28` guarantees the maximum value is 15, making the mask mathematically
+        // unnecessary and saving a bitwise instruction per packet in the hot loop.
         match w1 >> 28 {
-            0x0..=0x2 | 0x6..=0x7 => Some(Ump {
+            0x0 | 0x1 | 0x2 | 0x6 | 0x7 => Some(Ump {
                 data: [w1, 0, 0, 0],
             }),
             0x3..=0x4 | 0x8..=0xA => Some(Ump {
