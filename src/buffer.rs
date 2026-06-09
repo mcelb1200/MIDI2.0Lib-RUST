@@ -60,16 +60,16 @@ where
             0x0 | 0x1 | 0x2 | 0x6 | 0x7 => Some(Ump {
                 data: [w1, 0, 0, 0],
             }),
-            0x3 | 0x4 | 0x8 | 0x9 | 0xA => Some(Ump {
+            0x3..=0x4 | 0x8..=0xA => Some(Ump {
                 data: [w1, self.iter.next()?, 0, 0],
             }),
-            0xB | 0xC => Some(Ump {
+            0xB..=0xC => Some(Ump {
                 data: [w1, self.iter.next()?, self.iter.next()?, 0],
             }),
-            0x5 | 0xD | 0xE | 0xF => Some(Ump {
+            0x5 | 0xD..=0xF => Some(Ump {
                 data: [w1, self.iter.next()?, self.iter.next()?, self.iter.next()?],
             }),
-            _ => None, // Unreachable due to 4-bit bitmask constraint
+            _ => unreachable!(),
         }
     }
 }
