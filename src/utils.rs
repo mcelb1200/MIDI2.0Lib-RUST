@@ -129,39 +129,36 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
 
     // Specialized optimizations for common MIDI conversions
     if dst_bits == 32 {
-        if src_bits == 7 {
-            // Fast path for 7-bit to 32-bit (e.g., Velocity, CC)
-            let shifted = src_val << 25;
-            if src_val <= 64 {
-                return shifted;
+        // ⚡ Bolt Optimization: Replaced standard `if val <= [center]` branch checks with
+        // branchless sign-extended masking logic. Mathematically, this produces `0xFFFFFFFF`
+        // when `val > [center]` and `0` otherwise, allowing us to safely apply the bit
+        // duplications for the remainder unconditionally without branching.
+        match src_bits {
+            7 => {
+                let shifted = src_val << 25;
+                let mask = ((64_u32.wrapping_sub(src_val) as i32) >> 31) as u32;
+                let v = src_val & 0x3F;
+                return shifted | (((v << 19) | (v << 13) | (v << 7) | (v << 1) | (v >> 5)) & mask);
             }
-            let v = src_val & 0x3F;
-            return shifted | (v << 19) | (v << 13) | (v << 7) | (v << 1) | (v >> 5);
-        } else if src_bits == 8 {
-            // Fast path for 8-bit to 32-bit (e.g., some SysEx data mappings)
-            // ⚡ Bolt Optimization: Replace loop-based generic scaling with unrolled bitmath
-            let shifted = src_val << 24;
-            if src_val <= 128 {
-                return shifted;
+            8 => {
+                let shifted = src_val << 24;
+                let mask = ((128_u32.wrapping_sub(src_val) as i32) >> 31) as u32;
+                let v = src_val & 0x7F;
+                return shifted | (((v << 17) | (v << 10) | (v << 3) | (v >> 4)) & mask);
             }
-            let v = src_val & 0x7F;
-            return shifted | (v << 17) | (v << 10) | (v << 3) | (v >> 4);
-        } else if src_bits == 14 {
-            // Fast path for 14-bit to 32-bit (e.g., Pitch Bend, High Res Velocity)
-            let shifted = src_val << 18;
-            if src_val <= 8192 {
-                return shifted;
+            14 => {
+                let shifted = src_val << 18;
+                let mask = ((8192_u32.wrapping_sub(src_val) as i32) >> 31) as u32;
+                let v = src_val & 0x1FFF;
+                return shifted | (((v << 5) | (v >> 8)) & mask);
             }
-            let v = src_val & 0x1FFF;
-            return shifted | (v << 5) | (v >> 8);
-        } else if src_bits == 16 {
-            // Fast path for 16-bit to 32-bit
-            let shifted = src_val << 16;
-            if src_val <= 32768 {
-                return shifted;
+            16 => {
+                let shifted = src_val << 16;
+                let mask = ((32768_u32.wrapping_sub(src_val) as i32) >> 31) as u32;
+                let v = src_val & 0x7FFF;
+                return shifted | (((v << 1) | (v >> 14)) & mask);
             }
-            let v = src_val & 0x7FFF;
-            return shifted | (v << 1) | (v >> 14);
+            _ => {}
         }
     }
 
