@@ -115,3 +115,6 @@ nstruction selection.
 ## 2026-06-25 - [C++ Consolidate Bounds Checking for Bit Shifts]
 **Learning:** Similar to Rust, C++ bit shift operations (e.g. `srcVal >> scaleBits`) invoke undefined behavior if `scaleBits >= 32` (or the bitwidth of the integer). Adding explicit bound limit conditions like `if (scaleBits >= 32) return 0;` and explicitly fast-pathing `dstBits == 0` mitigates logic bugs.
 **Action:** Always add explicit early returns to catch oversized bit shifts that could lead to undefined behavior or unnecessary execution cycles when shifting by bounds equivalent to the container width.
+## 2025-10-24 - [Branchless Fast-Paths in Bit Scaling]
+**Learning:** In C++ and Rust bit scaling hot paths, evaluating branch thresholds (`if val <= center`) introduces pipeline mispredictions on varying stream data. Using a branchless sign-extended arithmetic mask `let mask = (([center]_u32.wrapping_sub(val) as i32) >> 31) as u32;` computationally guarantees `0xFFFFFFFF` when `val > center` and `0` otherwise, allowing safe bitwise combinations without branching.
+**Action:** Applied branchless masking logic to the 32-bit fast paths in `utils::scale_up`. We unrolled standard branch conditions into `match` statements containing purely bitwise evaluations.
