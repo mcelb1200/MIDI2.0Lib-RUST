@@ -67,6 +67,9 @@ where
         };
 
         let mut data = [w1, 0, 0, 0];
+        // #[allow(clippy::needless_range_loop)] is used here because doing `for item in data.iter_mut().take(count).skip(1)`
+        // as clippy suggests adds iterator abstraction overhead inside this hot parser loop.
+        #[allow(clippy::needless_range_loop)]
         for i in 1..count {
             data[i] = self.iter.next()?;
         }
