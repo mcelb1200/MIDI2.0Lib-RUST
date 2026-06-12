@@ -154,9 +154,13 @@ private:
 
     void processPISysex(uint8_t s7Byte);
 
+    std::function<void(std::string)> logCallback = nullptr;
+
 public:
 
     void * refpoint;
+    inline void setLogCallback(std::function<void(std::string)> fptr){
+        logCallback = fptr; }
     inline void setCheckMUID(std::function<bool(uint8_t group, uint32_t muid, void * refpoint)> fptr){
         checkMUID = fptr; }
     void endSysex7();

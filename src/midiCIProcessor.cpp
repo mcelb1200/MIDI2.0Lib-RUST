@@ -677,7 +677,11 @@ void midiCIProcessor::processPESysex(uint8_t s7Byte){
                 if (peHeaderStr[midici._peReqIdx].length() < midiCIProcessor::MAX_PE_HEADER_SIZE) {
                     peHeaderStr[midici._peReqIdx].push_back(s7Byte);
                 } else if (charOffset == midiCIProcessor::MAX_PE_HEADER_SIZE) {
-                    printf("Warning: PE Header string exceeded MAX_PE_HEADER_SIZE (%d bytes). Truncating.\n", midiCIProcessor::MAX_PE_HEADER_SIZE);
+                    if (logCallback != nullptr) {
+                        char msg[128];
+                        snprintf(msg, sizeof(msg), "Warning: PE Header string exceeded MAX_PE_HEADER_SIZE (%d bytes). Truncating.\n", midiCIProcessor::MAX_PE_HEADER_SIZE);
+                        logCallback(std::string(msg));
+                    }
                 }
             }
 
