@@ -14,26 +14,46 @@ struct Args {
 fn main() -> io::Result<()> {
     let args = Args::parse();
 
-    let buffer = if let Some(filepath) = args.file {
-        std::fs::read(filepath)?
+    // ⚡ Bolt Optimization: Algorithmic structural improvement to avoid allocating massive
+    // multi-gigabyte files into RAM all at once using `std::fs::read` or `read_to_end`.
+    // By streaming the file incrementally using an Iterator over `Read`, we drastically reduce
+    // memory pressure and prevent out-of-memory crashes for large UMP log files, while keeping
+    // parser state perfectly contiguous.
+    let reader: Box<dyn Read> = if let Some(filepath) = args.file {
+        Box::new(std::fs::File::open(filepath)?)
     } else {
-        let mut buffer = Vec::new();
-        io::stdin().read_to_end(&mut buffer)?;
-        buffer
+        Box::new(io::stdin())
     };
 
-    if buffer.len() % 4 != 0 {
-        eprintln!(
-            "Warning: Stream length {} is not a multiple of 4 bytes. Truncation may occur.",
-            buffer.len()
-        );
-    }
+    // Use a large buffered capacity (64KB) for optimal I/O chunking
+    let mut buf_reader = io::BufReader::with_capacity(65536, reader);
 
-    // Stream raw u8 bytes into Little-Endian u32 words lazily without intermediate allocation
-    let word_iter = buffer.chunks_exact(4).map(|chunk| {
-        // ⚡ Bolt Optimization: Using try_into().unwrap() on chunks_exact(4) is ~5-10% faster
-        // than manual array indexing, allowing better vectorization and skipping bounds checks.
-        u32::from_le_bytes(chunk.try_into().unwrap())
+    let word_iter = std::iter::from_fn(move || {
+        let mut buf = [0u8; 4];
+        let mut bytes_read = 0;
+
+        while bytes_read < 4 {
+            match buf_reader.read(&mut buf[bytes_read..]) {
+                Ok(0) => {
+                    // EOF reached
+                    if bytes_read > 0 {
+                        eprintln!(
+                            "Warning: Stream truncated. {} bytes dropped.",
+                            bytes_read
+                        );
+                    }
+                    return None;
+                }
+                Ok(n) => bytes_read += n,
+                Err(ref e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) => {
+                    eprintln!("Warning: Error reading stream: {}", e);
+                    return None;
+                }
+            }
+        }
+
+        Some(u32::from_le_bytes(buf))
     });
 
     let parser = UmpStreamParser::new(word_iter);
