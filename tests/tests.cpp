@@ -125,6 +125,44 @@ void testRun_umpToump(const char* heading, uint32_t * in, int inlength, uint32_t
 int main(){
     printf("Starting Tests...\n");
 
+    // mtD Flex Data creation tests
+    {
+        // Tempo
+        std::array<uint32_t, 4> tempo = UMPMessage::mtDFlexTempo(1, 2, 0, 1, 0x12345678);
+        if (tempo[0] != 0xD1120000) { printf("mtDFlexTempo Header Failed: %x\n", tempo[0]); }
+        if (tempo[1] != 0x12345678) { printf("mtDFlexTempo Value Failed: %x\n", tempo[1]); }
+
+        // Time Signature
+        std::array<uint32_t, 4> timesig = UMPMessage::mtDFlexTimeSig(1, 2, 0, 1, 4, 4, 8);
+        if (timesig[0] != 0xD1120001) { printf("mtDFlexTimeSig Header Failed: %x\n", timesig[0]); }
+        if (timesig[1] != 0x04040800) { printf("mtDFlexTimeSig Value Failed: %x\n", timesig[1]); }
+
+        // Metronome
+        std::array<uint32_t, 4> metronome = UMPMessage::mtDFlexMetronome(1, 2, 0, 1, 10, 11, 12, 13, 14, 15);
+        if (metronome[0] != 0xD1120002) { printf("mtDFlexMetronome Header Failed: %x\n", metronome[0]); }
+        if (metronome[1] != 0x0A0B0C0D) { printf("mtDFlexMetronome Word 2 Failed: %x\n", metronome[1]); }
+        if (metronome[2] != 0x0E0F0000) { printf("mtDFlexMetronome Word 3 Failed: %x\n", metronome[2]); }
+
+        // Key Signature
+        std::array<uint32_t, 4> keysig = UMPMessage::mtDFlexKeySig(1, 2, 0, 1, 5, 2);
+        if (keysig[0] != 0xD1120005) { printf("mtDFlexKeySig Header Failed: %x\n", keysig[0]); }
+        if (keysig[1] != 0x05020000) { printf("mtDFlexKeySig Value Failed: %x\n", keysig[1]); }
+
+        // Chord
+        std::array<uint32_t, 4> chord = UMPMessage::mtDFlexChord(1, 2, 0, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2);
+        if (chord[0] != 0xD1120006) { printf("mtDFlexChord Header Failed: %x\n", chord[0]); }
+        if (chord[1] != 0x12034567) { printf("mtDFlexChord Word 2 Failed: %x\n", chord[1]); }
+        if (chord[2] != 0x89AB0000) { printf("mtDFlexChord Word 3 Failed: %x\n", chord[2]); }
+        if (chord[3] != 0xCD0EF012) { printf("mtDFlexChord Word 4 Failed: %x\n", chord[3]); }
+
+        // Text
+        const uint8_t text[] = {'H', 'e', 'l', 'l', 'o'};
+        std::array<uint32_t, 4> text_ump = UMPMessage::mtDFlexText(1, 2, 0, 1, FLEXDATA_LYRIC, 0, text, 5);
+        if (text_ump[0] != 0xD1120200) { printf("mtDFlexText Header Failed: %x\n", text_ump[0]); }
+        if (text_ump[1] != 0x48656C6C) { printf("mtDFlexText Word 2 Failed: %x\n", text_ump[1]); }
+        if (text_ump[2] != 0x6F000000) { printf("mtDFlexText Word 3 Failed: %x\n", text_ump[2]); }
+    }
+
     //******** ByteSteam to UMP ***************
     printf("ByteSteam to UMP \n");
     uint8_t bytes1[] = {0x81, 0x60, 0x50, 0x70, 0x70};

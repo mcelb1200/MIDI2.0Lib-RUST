@@ -299,7 +299,60 @@ inline std::array<uint32_t, 4> mt5MDSPayload(uint8_t group, uint8_t mds, const u
         return umpMess;
     }
 
-//TODO mtD*
+inline uint32_t mtDFlexHeader(uint8_t group, uint8_t form, uint8_t addrs, uint8_t channel, uint8_t statusBank, uint8_t status){
+    return (uint32_t) ((0xD << 28) + (((group & 0xF) + 0L) << 24) + ((form & 0x3) << 22) + ((addrs & 0x3) << 20) + ((channel & 0xF) << 16) + (statusBank << 8) + status);
+}
+
+inline std::array<uint32_t, 4> mtDFlexTempo(uint8_t group, uint8_t channel, uint8_t form, uint8_t addrs, uint32_t num10nsPQN){
+    std::array<uint32_t, 4> umpMess = {0,0,0,0};
+    umpMess[0] = mtDFlexHeader(group, form, addrs, channel, FLEXDATA_COMMON, FLEXDATA_COMMON_TEMPO);
+    umpMess[1] = num10nsPQN;
+    return umpMess;
+}
+
+inline std::array<uint32_t, 4> mtDFlexTimeSig(uint8_t group, uint8_t channel, uint8_t form, uint8_t addrs, uint8_t numerator, uint8_t denominator, uint8_t num32Notes){
+    std::array<uint32_t, 4> umpMess = {0,0,0,0};
+    umpMess[0] = mtDFlexHeader(group, form, addrs, channel, FLEXDATA_COMMON, FLEXDATA_COMMON_TIMESIG);
+    umpMess[1] = ((uint32_t)numerator << 24) + ((uint32_t)denominator << 16) + ((uint32_t)num32Notes << 8);
+    return umpMess;
+}
+
+inline std::array<uint32_t, 4> mtDFlexMetronome(uint8_t group, uint8_t channel, uint8_t form, uint8_t addrs, uint8_t numClkpPriCli, uint8_t bAccP1, uint8_t bAccP2, uint8_t bAccP3, uint8_t numSubDivCli1, uint8_t numSubDivCli2){
+    std::array<uint32_t, 4> umpMess = {0,0,0,0};
+    umpMess[0] = mtDFlexHeader(group, form, addrs, channel, FLEXDATA_COMMON, FLEXDATA_COMMON_METRONOME);
+    umpMess[1] = ((uint32_t)numClkpPriCli << 24) + ((uint32_t)bAccP1 << 16) + ((uint32_t)bAccP2 << 8) + bAccP3;
+    umpMess[2] = ((uint32_t)numSubDivCli1 << 24) + ((uint32_t)numSubDivCli2 << 16);
+    return umpMess;
+}
+
+inline std::array<uint32_t, 4> mtDFlexKeySig(uint8_t group, uint8_t channel, uint8_t form, uint8_t addrs, uint8_t sharpFlats, uint8_t tonic){
+    std::array<uint32_t, 4> umpMess = {0,0,0,0};
+    umpMess[0] = mtDFlexHeader(group, form, addrs, channel, FLEXDATA_COMMON, FLEXDATA_COMMON_KEYSIG);
+    umpMess[1] = ((uint32_t)sharpFlats << 24) + ((uint32_t)tonic << 16);
+    return umpMess;
+}
+
+inline std::array<uint32_t, 4> mtDFlexChord(uint8_t group, uint8_t channel, uint8_t form, uint8_t addrs,
+                                            uint8_t chShrpFlt, uint8_t chTonic, uint8_t chType, uint8_t chAlt1Type, uint8_t chAlt1Deg, uint8_t chAlt2Type, uint8_t chAlt2Deg,
+                                            uint8_t chAlt3Type, uint8_t chAlt3Deg, uint8_t chAlt4Type, uint8_t chAlt4Deg,
+                                            uint8_t baShrpFlt, uint8_t baTonic, uint8_t baType, uint8_t baAlt1Type, uint8_t baAlt1Deg, uint8_t baAlt2Type, uint8_t baAlt2Deg){
+    std::array<uint32_t, 4> umpMess = {0,0,0,0};
+    umpMess[0] = mtDFlexHeader(group, form, addrs, channel, FLEXDATA_COMMON, FLEXDATA_COMMON_CHORD);
+    umpMess[1] = ((uint32_t)(chShrpFlt & 0xF) << 28) + ((uint32_t)(chTonic & 0xF) << 24) + ((uint32_t)chType << 16) + ((uint32_t)(chAlt1Type & 0xF) << 12) + ((uint32_t)(chAlt1Deg & 0xF) << 8) + ((uint32_t)(chAlt2Type & 0xF) << 4) + (chAlt2Deg & 0xF);
+    umpMess[2] = ((uint32_t)(chAlt3Type & 0xF) << 28) + ((uint32_t)(chAlt3Deg & 0xF) << 24) + ((uint32_t)(chAlt4Type & 0xF) << 20) + ((uint32_t)(chAlt4Deg & 0xF) << 16);
+    umpMess[3] = ((uint32_t)(baShrpFlt & 0xF) << 28) + ((uint32_t)(baTonic & 0xF) << 24) + ((uint32_t)baType << 16) + ((uint32_t)(baAlt1Type & 0xF) << 12) + ((uint32_t)(baAlt1Deg & 0xF) << 8) + ((uint32_t)(baAlt2Type & 0xF) << 4) + (baAlt2Deg & 0xF);
+    return umpMess;
+}
+
+inline std::array<uint32_t, 4> mtDFlexText(uint8_t group, uint8_t channel, uint8_t form, uint8_t addrs, uint8_t statusBank, uint8_t status, const uint8_t* text, uint8_t textLen){
+    std::array<uint32_t, 4> umpMess = {0,0,0,0};
+    umpMess[0] = mtDFlexHeader(group, form, addrs, channel, statusBank, status);
+    uint8_t offset = 0;
+    // packPayload expects the remaining 3 words to be filled, so startWordByteCount is 0 to signify that the 0th word is full
+    Internal::packPayload(umpMess, text, textLen, offset, 0);
+    return umpMess;
+}
+
 
 inline std::array<uint32_t, 4> mtFMidiEndpoint(uint8_t filter){
     std::array<uint32_t, 4> umpMess  = {0,0,0,0};
