@@ -37,10 +37,7 @@ fn main() -> io::Result<()> {
                 Ok(0) => {
                     // EOF reached
                     if bytes_read > 0 {
-                        eprintln!(
-                            "Warning: Stream truncated. {} bytes dropped.",
-                            bytes_read
-                        );
+                        eprintln!("Warning: Stream truncated. {} bytes dropped.", bytes_read);
                     }
                     return None;
                 }
