@@ -1,21 +1,28 @@
 /**********************************************************
- * MIDI 2.0 Library 
+ * MIDI 2.0 Library
  * Author: Andrew Mee
- * 
+ *
  * MIT License
  * Copyright 2021 Andrew Mee
- * 
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- * 
- * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- * 
+ *
  * ********************************************************/
 
 #ifndef UTILS_H
@@ -23,12 +30,10 @@
 
 #pragma once
 
-
 #include <cstdint>
-#include <tuple>
 #include <cstdio>
 #include <cstring>
-
+#include <tuple>
 
 #define NOTE_OFF 0x80
 #define NOTE_ON 0x90
@@ -93,7 +98,7 @@
 #define FUNCTIONBLOCK_NAME_NOTIFICATION 0x012
 
 #ifndef S7_BUFFERLEN
-#define S7_BUFFERLEN	36
+#define S7_BUFFERLEN 36
 #endif
 #define S7UNIVERSAL_NRT 0x7E
 #define S7UNIVERSAL_RT 0x7F
@@ -174,8 +179,8 @@
 #define FUNCTION_BLOCK 0x7F
 #define M2_CI_BROADCAST 0xFFFFFFF
 
-#define UMP_VER_MAJOR	1
-#define UMP_VER_MINOR	1
+#define UMP_VER_MAJOR 1
+#define UMP_VER_MINOR 1
 
 #ifndef EXP_MIDICI_PE_EXPERIMENTAL_PATH
 #define EXP_MIDICI_PE_EXPERIMENTAL_PATH 1
@@ -191,57 +196,59 @@
 #define UMP_MIDI_ENDPOINT 0xF
 
 namespace M2Utils {
- inline void clear(uint8_t * const dest, uint8_t const c, std::size_t const n) {
+inline void clear(uint8_t *const dest, uint8_t const c, std::size_t const n) {
   std::memset(dest, c, n);
- }
+}
 
- inline uint32_t scaleUp(uint32_t srcVal, uint8_t srcBits, uint8_t dstBits){
-  //Handle value of 0 - skip processing
-  if(srcVal == 0){
-   return 0L;
+inline uint32_t scaleUp(uint32_t srcVal, uint8_t srcBits, uint8_t dstBits) {
+  // Handle value of 0 - skip processing
+  if (srcVal == 0) {
+    return 0L;
   }
 
-  //handle 1-bit (bool) scaling
-  if(srcBits == 1){
-   if (dstBits == 32) return 0xFFFFFFFF;
-   return (1 << dstBits) - 1L;
+  // handle 1-bit (bool) scaling
+  if (srcBits == 1) {
+    if (dstBits == 32)
+      return 0xFFFFFFFF;
+    return (1 << dstBits) - 1L;
   }
 
   // Specialized optimizations for common MIDI conversions
   if (dstBits == 32) {
-      if (srcBits == 7) {
-          // Fast path for 7-bit to 32-bit (e.g., Velocity, CC)
-          uint32_t shifted = srcVal << 25;
-          uint32_t mask = 0 - (uint32_t)(srcVal > 64);
-          uint32_t v = srcVal & 0x3F;
-          return shifted | (((v << 19) | (v << 13) | (v << 7) | (v << 1) | (v >> 5)) & mask);
-      } else if (srcBits == 8) {
-          // Fast path for 8-bit to 32-bit (e.g., some SysEx data mappings)
-          uint32_t shifted = srcVal << 24;
-          uint32_t mask = 0 - (uint32_t)(srcVal > 128);
-          uint32_t v = srcVal & 0x7F;
-          return shifted | (((v << 17) | (v << 10) | (v << 3) | (v >> 4)) & mask);
-      } else if (srcBits == 14) {
-          // Fast path for 14-bit to 32-bit (e.g., Pitch Bend, High Res Velocity)
-          uint32_t shifted = srcVal << 18;
-          uint32_t mask = 0 - (uint32_t)(srcVal > 8192);
-          uint32_t v = srcVal & 0x1FFF;
-          return shifted | (((v << 5) | (v >> 8)) & mask);
-      } else if (srcBits == 16) {
-          // Fast path for 16-bit to 32-bit
-          uint32_t shifted = srcVal << 16;
-          uint32_t mask = 0 - (uint32_t)(srcVal > 32768);
-          uint32_t v = srcVal & 0x7FFF;
-          return shifted | (((v << 1) | (v >> 14)) & mask);
-      }
+    if (srcBits == 7) {
+      // Fast path for 7-bit to 32-bit (e.g., Velocity, CC)
+      uint32_t shifted = srcVal << 25;
+      uint32_t mask = 0 - (uint32_t)(srcVal > 64);
+      uint32_t v = srcVal & 0x3F;
+      return shifted |
+             (((v << 19) | (v << 13) | (v << 7) | (v << 1) | (v >> 5)) & mask);
+    } else if (srcBits == 8) {
+      // Fast path for 8-bit to 32-bit (e.g., some SysEx data mappings)
+      uint32_t shifted = srcVal << 24;
+      uint32_t mask = 0 - (uint32_t)(srcVal > 128);
+      uint32_t v = srcVal & 0x7F;
+      return shifted | (((v << 17) | (v << 10) | (v << 3) | (v >> 4)) & mask);
+    } else if (srcBits == 14) {
+      // Fast path for 14-bit to 32-bit (e.g., Pitch Bend, High Res Velocity)
+      uint32_t shifted = srcVal << 18;
+      uint32_t mask = 0 - (uint32_t)(srcVal > 8192);
+      uint32_t v = srcVal & 0x1FFF;
+      return shifted | (((v << 5) | (v >> 8)) & mask);
+    } else if (srcBits == 16) {
+      // Fast path for 16-bit to 32-bit
+      uint32_t shifted = srcVal << 16;
+      uint32_t mask = 0 - (uint32_t)(srcVal > 32768);
+      uint32_t v = srcVal & 0x7FFF;
+      return shifted | (((v << 1) | (v >> 14)) & mask);
+    }
   }
 
   // simple bit shift
   uint8_t scaleBits = (dstBits - srcBits);
   uint32_t bitShiftedValue = (srcVal + 0L) << scaleBits;
-  uint32_t srcCenter = 1 << (srcBits-1);
-  if (srcVal <= srcCenter ) {
-   return bitShiftedValue;
+  uint32_t srcCenter = 1 << (srcBits - 1);
+  if (srcVal <= srcCenter) {
+    return bitShiftedValue;
   }
 
   // expanded bit repeat scheme
@@ -249,58 +256,63 @@ namespace M2Utils {
   auto repeatMask = (1 << repeatBits) - 1;
   uint32_t repeatValue = srcVal & repeatMask;
   if (scaleBits > repeatBits) {
-   repeatValue <<= scaleBits - repeatBits;
+    repeatValue <<= scaleBits - repeatBits;
   } else {
-   repeatValue >>= repeatBits - scaleBits;
+    repeatValue >>= repeatBits - scaleBits;
   }
 
   while (repeatValue != 0) {
-   bitShiftedValue |= repeatValue;
-   repeatValue >>= repeatBits;
+    bitShiftedValue |= repeatValue;
+    repeatValue >>= repeatBits;
   }
   return bitShiftedValue;
- }
+}
 
- inline uint32_t scaleDown(uint32_t srcVal, uint8_t srcBits, uint8_t dstBits){
+inline uint32_t scaleDown(uint32_t srcVal, uint8_t srcBits, uint8_t dstBits) {
   if (srcBits <= dstBits) {
-      return srcVal;
+    return srcVal;
   }
   // simple bit shift
   uint8_t scaleBits = (srcBits - dstBits);
-  if (scaleBits >= 32) return 0;
+  if (scaleBits >= 32)
+    return 0;
   return srcVal >> scaleBits;
- }
+}
 
- inline void hirezRepresentation(char * outputString, size_t outputLen, uint32_t srcVal, uint8_t srcBits, uint8_t decimalPlaces) {
-  if (outputLen == 0) return;
-  if (srcVal==0) {
-   snprintf(outputString, outputLen, "MIN");
-   return;
+inline void hirezRepresentation(char *outputString, size_t outputLen,
+                                uint32_t srcVal, uint8_t srcBits,
+                                uint8_t decimalPlaces) {
+  if (outputLen == 0)
+    return;
+  if (srcVal == 0) {
+    snprintf(outputString, outputLen, "MIN");
+    return;
   }
 
-  if (srcVal == (1UL << (srcBits-1))+0L) {
-   snprintf(outputString, outputLen, "MID");
-   return;
+  if (srcVal == (1UL << (srcBits - 1)) + 0L) {
+    snprintf(outputString, outputLen, "MID");
+    return;
   }
 
   uint32_t maxval = 0xFFFFFFFF;
-  if (srcBits!=32) {
-   maxval = (1<< (srcBits))-1;
+  if (srcBits != 32) {
+    maxval = (1 << (srcBits)) - 1;
   }
 
-  if (srcVal==maxval) {
-   snprintf(outputString, outputLen, "MAX");
-   return;
+  if (srcVal == maxval) {
+    snprintf(outputString, outputLen, "MAX");
+    return;
   }
 
   uint8_t fractionalBits = srcBits - 7;
-  uint32_t fractionalValue = srcVal - (srcVal>> fractionalBits <<fractionalBits );
-  float hiRezValue = (float)(srcVal >> fractionalBits) + ( (float)fractionalValue / (float)(1<<fractionalBits));
+  uint32_t fractionalValue =
+      srcVal - (srcVal >> fractionalBits << fractionalBits);
+  float hiRezValue = (float)(srcVal >> fractionalBits) +
+                     ((float)fractionalValue / (float)(1 << fractionalBits));
 
-  snprintf(outputString, outputLen, "%.*f", decimalPlaces, hiRezValue );
-
- }
-
+  snprintf(outputString, outputLen, "%.*f", decimalPlaces, hiRezValue);
 }
+
+} // namespace M2Utils
 
 #endif

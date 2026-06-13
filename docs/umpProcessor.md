@@ -19,8 +19,8 @@ UMPHandler.setFunctionBlock(functionblockCallback);
 ```
 
 ## Structs
-### umpCVM - UMP Channel Voice Message 
-UMP messages of Message Type 0x2 and 0x4 are presented in this format. See below for the value meaning for each status. 
+### umpCVM - UMP Channel Voice Message
+UMP messages of Message Type 0x2 and 0x4 are presented in this format. See below for the value meaning for each status.
 ```c++
 struct umpCVM{
     uint8_t umpGroup;
@@ -67,10 +67,10 @@ Reset the current processing of incoming UMP.
 
 ## Utility message Handlers
 ### inline void setUtility(utilityCallback)
-```c++ 
+```c++
 void utilityCallback(struct umpGeneric mess){
     printf("->Utility Message: status %d value: %d", mess.status, mess.value);
-} 
+}
 ```
 __Values in the umpGeneric struct:__
 
@@ -87,15 +87,15 @@ __Values in the umpGeneric struct:__
 
 ### inline void setCVM(handleChannelVoiceMessages)
 Set the callable function when a Channel Voice Message is processed by ```processUMP```
-```c++ 
+```c++
 void handleChannelVoiceMessages(struct umpCVM mess){
     printf("->CVM: Group %d CH %d Note: %d status: %d", mess.umpGroup, mess.channel, mess.status);
-} 
+}
 ```
 
 __Values in the umpCVM struct:__
 
-| status               | note  | value     | bank          | index         | flag1      | flag2  |     
+| status               | note  | value     | bank          | index         | flag1      | flag2  |
 |----------------------|-------|-----------|---------------|---------------|------------|--------|
 | NOTE_OFF             | note  | velocity♠ | attributeType | attributeData |            |        |
 | NOTE_ON              | note  | velocity♠ | attributeType | attributeData |            |        |
@@ -113,19 +113,19 @@ __Values in the umpCVM struct:__
 | NRPN_PERNOTE †       | note  | value     |               | index         |            |        |
 | PERNOTE_MANAGE †     | note  |           |               |               | detach     | reset  |
 
-_† MIDI 2.0 Protocol messages only_  
-_\* M1 Values are scaled to 32 bit value_  
-_♠ M1 Values are scaled to 16 bit value_  
+_† MIDI 2.0 Protocol messages only_
+_\* M1 Values are scaled to 32 bit value_
+_♠ M1 Values are scaled to 16 bit value_
 _♥ Message is only triggered when a MIDI 2.0 RPN message is sent. This is not triggered when a MIDI 1.0 (N)RPN
-messages are sent. Those messages are processed using the function set by ```setControlChange```_  
+messages are sent. Those messages are processed using the function set by ```setControlChange```_
 _‡ These values are twos complement and will need to cast e.g:_
 ```c++
 int32_t relativeValue = (int32_t)mess.value;
 ```
 
-The ```umpProcessor``` makes some distinction between different Protocols. This means that Channel Voice Messages (e.g. 
-Note On) handlers are called the same way regardless if is a MIDI 1.0 Channel Voice Message (Message Type 0x2) or a MIDI 
-2.0 Channel Voice Message (Message Type 0x4). MIDI 1.0 Channel Voice Message values are scaled to match MIDI 2.0 Messages. 
+The ```umpProcessor``` makes some distinction between different Protocols. This means that Channel Voice Messages (e.g.
+Note On) handlers are called the same way regardless if is a MIDI 1.0 Channel Voice Message (Message Type 0x2) or a MIDI
+2.0 Channel Voice Message (Message Type 0x4). MIDI 1.0 Channel Voice Message values are scaled to match MIDI 2.0 Messages.
 
 This allows for ```umpProcessor``` to process both types of Channel Voice Messages simultaneously.
 
@@ -135,10 +135,10 @@ It is up to the application to manage the combination of JR messages and other U
 
 ### inline void setSystem(handleSystemMessages)
 Set the callable function when a System Message is processed by ```processUMP```
-```c++ 
+```c++
 void handleSystemMessages(struct umpGeneric mess){
     printf("->CVM: Group %d status: %d", mess.umpGroup, mess.status);
-} 
+}
 ```
 
 __Values in the umpGeneric struct:__
@@ -160,7 +160,7 @@ __Values in the umpGeneric struct:__
 ## Common SysEx Handler
 
 ###  inline void setRawSysEx(processUMPSysex)
-```c++ 
+```c++
 midiCIProcessor midiciMain1;
 bool isProcMIDICI = false;
 
@@ -200,7 +200,7 @@ void processUMPSysex(struct umpData mess){
 ### inline void setMidiEndpoint(midiEndpointCallback)
 
 __Example Processing of Endpoint Get:__
-```c++ 
+```c++
 void midiEndpointCallback(uint8_t majVer, uint8_t minVer, uint8_t filter){
     //Upon Recieving the filter it is important to return the information requested
     if(filter & 0x1){ //Endpoint Info Notification
@@ -220,7 +220,7 @@ void midiEndpointCallback(uint8_t majVer, uint8_t minVer, uint8_t filter){
             sendUMP(ump.data(),4);
         }
     }
-    
+
     if(filter & 0x8) {
         int8_t piiLength = strlen(PRODUCT_INSTANCE_ID);
 
@@ -229,12 +229,12 @@ void midiEndpointCallback(uint8_t majVer, uint8_t minVer, uint8_t filter){
             sendUMP(ump.data(),4);
         }
     }
-    
+
     if(filter & 0x10){
         std::array<uint32_t, 4> ump = mtFNotifyProtocol(0x1,false,false);
         sendUMP(ump.data(),4);
     }
-} 
+}
 ```
 ### inline void setMidiEndpointNameNotify(void (\*fptr)(struct umpData mess))
 ### inline void setMidiEndpointProdIdNotify(void (\*fptr)(struct umpData mess))

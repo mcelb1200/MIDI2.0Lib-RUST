@@ -18,7 +18,7 @@ Check if there are available Byte Stream bytes available.
 ### uint8_t readBS()
 Return the next byte.
 
-## Example: Using umpToBytestream 
+## Example: Using umpToBytestream
 
 ```c++
 
@@ -40,4 +40,3 @@ int main(){
     }
 }
 ```
-

@@ -1,6 +1,6 @@
 # MIDI-CI SysEx Creation
 
-These function create the SysEx needed for various MIDI-CI messages. It creates the complete SysEx uint8_t array 
+These function create the SysEx needed for various MIDI-CI messages. It creates the complete SysEx uint8_t array
 minus the 0xF0 and 0xF7 at beginning and end of the SysEx.
 
 For each message a sysex buffer is needed. The return of each function is the length of the buffer used e.g.:
@@ -15,7 +15,7 @@ sendOutSysextoUMP(umpGroup, sysexBuffer, len);
 ```
 _Note: It is upto the application to make sure that the buffer is larger that the created message_
 
-The SysEx created will depend on the ```midiCIVer``` value specified. For example if a Discovery Reply message was sent where 
+The SysEx created will depend on the ```midiCIVer``` value specified. For example if a Discovery Reply message was sent where
 the value is set to __1__, then the message created will not have Output Path Id and Function Block Index.
 
 MIDI-CI Messages that are only available from certain version will return a length of 0 if the ```midiCIVer``` is too low.
@@ -32,7 +32,7 @@ MIDI-CI Messages that are only available from certain version will return a leng
 
 ## Protocol Negotiation (MIDI-CI 1.1)
 Protocol Negotiation is deprecated from MIDI-CI 1.2 onwards. However, Devices that support a later version of MIDI-CI
-can still respond and handle Protocol Negotiation. 
+can still respond and handle Protocol Negotiation.
 
 #### uint16_t CIMessage::sendProtocolNegotiation(uint8_t* sysex, uint8_t midiCIVer, uint32_t srcMUID, uint32_t destMuid, uint8_t authorityLevel, uint8_t numProtocols, uint8_t* protocols, uint8_t* currentProtocol)
 #### uint16_t CIMessage::sendProtocolNegotiationReply(uint8_t* sysex, uint8_t midiCIVer, uint32_t srcMUID, uint32_t destMuid, uint8_t authorityLevel, uint8_t numProtocols, uint8_t* protocols)
@@ -46,12 +46,12 @@ can still respond and handle Protocol Negotiation.
 ```profilesEnabledLen``` and ```profilesDisabledLen``` represent how many Profiles. ```profilesEnabled``` and ```profilesDisabled``` arguments should be 5 times the length of ```profilesEnabledLen``` and ```profilesDisabledLen``` respectively.
 
 ```c++
-void handleProfileInquiry(uint8_t umpGroup, uint32_t remoteMUID, uint8_t destination){  
+void handleProfileInquiry(uint8_t umpGroup, uint32_t remoteMUID, uint8_t destination){
   uint8_t profileNone[0] = {};
   uint8_t sysexBuffer[512];
   int len;
-  
-  // If a Profile Inquiry is received where destination = 0x7F, you should also return 
+
+  // If a Profile Inquiry is received where destination = 0x7F, you should also return
   // the Profiles on each channel. In this example Destination of 0 = channel 1, so
   // the Profile is also returned for Channel 1 or destination = 0x7F
   if(destination == 0 || destination == 0x7F){
@@ -89,12 +89,12 @@ MIDI2.setRecvProfileInquiry(profileInquiry);
 
 #### uint16_t CIMessage::sendPEGet(uint8_t* sysex, uint8_t midiCIVer, uint32_t srcMUID, uint32_t destMuid, uint8_t requestId, uint16_t headerLen, uint8_t* header)
 #### uint16_t CIMessage::sendPEGetReply(uint8_t* sysex, uint8_t midiCIVer, uint32_t srcMUID, uint32_t destMuid, uint8_t requestId, uint16_t headerLen, uint8_t* header, uint16_t numberOfChunks, uint16_t numberOfThisChunk, uint16_t bodyLength , uint8_t* body )
-A complete reply to an Inquiry: Get Property Data can be split over one or more Reply to Get Property Data 
+A complete reply to an Inquiry: Get Property Data can be split over one or more Reply to Get Property Data
 messages. Here is an examples of how this can be done.
 
 __Example Sending a JSON string in 512 byte Sysex message chunks__
 ```c++
-void returnPE(uint8_t umpGroup, uint32_t remoteMUID, uint8_t requestId, char *propertyData, 
+void returnPE(uint8_t umpGroup, uint32_t remoteMUID, uint8_t requestId, char *propertyData,
                     uint32_t propertyDataLength){
   uint8_t sysexBuffer[512];
   std::string header = "{\"status\":200}";
@@ -104,8 +104,8 @@ void returnPE(uint8_t umpGroup, uint32_t remoteMUID, uint8_t requestId, char *pr
     int bodyLen = 480 - hLen;
     if (bodyLen > propertyDataLength) bodyLen = propertyDataLength;
 
-    int len = CIMessage::sendPEGetReply(sysexBuffer, MIDICI_MESSAGE_FORMAT, localMUID, remoteMUID, requestId, hLen, 
-		                     (uint8_t*)header.c_str(), totalChunks, chunk, bodyLen, 
+    int len = CIMessage::sendPEGetReply(sysexBuffer, MIDICI_MESSAGE_FORMAT, localMUID, remoteMUID, requestId, hLen,
+		                     (uint8_t*)header.c_str(), totalChunks, chunk, bodyLen,
 		                     (uint8_t*)(propertyData + (((chunk - 1) * 480) - (chunk == 1 ? 0 : hLen))));
     sendOutSysextoUMP(umpGroup, sysexBuffer, len);
     propertyDataLength -= bodyLen ;
