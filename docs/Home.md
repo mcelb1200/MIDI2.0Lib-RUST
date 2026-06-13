@@ -16,4 +16,3 @@
 * [midiCIMessageCreate.h](midiCIMessageCreate.md) Create MIDI-CI System Exclusive
 * [midiCIProcessor.h](midiCIProcessor.md) Process incoming MIDI-CI
 * [mcoded7.h](mcoded7.md) Handle Mcoded7 for use in Property Exchange
-
