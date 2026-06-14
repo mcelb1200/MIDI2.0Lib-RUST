@@ -101,4 +101,3 @@ UMP Stream messages return ```std::array<uint32_t, 4>```.
 #### std::array<uint32_t, 4> mtFEndOfFile();
 #### std::array<uint32_t, 4> mtFRequestProtocol(uint8_t protocol, bool jrrx, bool jrtx);
 #### std::array<uint32_t, 4> mtFNotifyProtocol( uint8_t protocol, bool jrrx, bool jrtx);
-
