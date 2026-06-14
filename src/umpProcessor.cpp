@@ -57,7 +57,8 @@ void umpProcessor::processUMP(uint32_t UMP) {
       mess.messageType = mt;
       mess.status = (umpMess[0] >> 20) & 0xF;
       mess.value = (umpMess[0] >> 16) & 0xFFFF;
-      utilityMessage(mess);
+      if (utilityMessage != nullptr)
+        utilityMessage(mess);
     } else if (mt == UMP_SYSTEM &&
                systemMessage !=
                    nullptr) { // 32 bits System Real Time and System Common
@@ -71,15 +72,18 @@ void umpProcessor::processUMP(uint32_t UMP) {
       case TIMING_CODE:
       case SONG_SELECT:
         mess.value = (umpMess[0] >> 8) & 0x7F;
-        systemMessage(mess);
+        if (systemMessage != nullptr)
+          systemMessage(mess);
         break;
       case SPP:
         mess.value = ((umpMess[0] >> 8) & 0x7F) + ((umpMess[0] & 0x7F) << 7);
-        systemMessage(mess);
+        if (systemMessage != nullptr)
+          systemMessage(mess);
         break;
       default:
         mess.value = umpMess[0] & 0xFFFF;
-        systemMessage(mess);
+        if (systemMessage != nullptr)
+          systemMessage(mess);
         break;
       }
 
@@ -156,7 +160,8 @@ void umpProcessor::processUMP(uint32_t UMP) {
         callbackBuffer[5] = umpMess[1] & 0x7F;
 
       mess.data = callbackBuffer;
-      sendOutSysex(mess);
+      if (sendOutSysex != nullptr)
+        sendOutSysex(mess);
       M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
 
     } else if (mt == UMP_M2CVM &&
@@ -501,7 +506,8 @@ void umpProcessor::processUMP(uint32_t UMP) {
           callbackBuffer[12] = umpMess[3] & 0xFF;
 
         mess.data = callbackBuffer;
-        sendOutSysex(mess);
+        if (sendOutSysex != nullptr)
+          sendOutSysex(mess);
         M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
 
       } else if (status == 8) { // MDS Header
