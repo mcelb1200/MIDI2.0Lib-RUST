@@ -122,3 +122,7 @@ nstruction selection.
 ## 2025-10-24 - [Optimize Stream Parsing Range Matching III]
 **Learning:** In hot parser loops reading from an iterator (like `UmpStreamParser::next`), unrolled `match` branches returning array initializations based on length evaluate sequentially and instantiate differently-sized initializations. For mixed-length streams, branch prediction frequently fails, causing execution stalls. By assigning the expected length directly from the pattern match and filling a zero-initialized array in a subsequent tight loop (`for i in 1..count`), the compiler generates a faster sequential branch table that avoids structural jump overhead, yielding ~10% performance improvements.
 **Action:** Replace structurally unrolled arrays in stream parser iterators with bounded lengths and tight loops to eliminate branch misprediction overhead.
+
+## 2026-10-30 - [Optimize File I/O for Large Streams]
+**Learning:** Using `std::fs::read` or `io::stdin().read_to_end` to eagerly load large UMP file streams into memory (`Vec<u8>`) causes massive memory allocations. In a streaming analysis tool like `el_dump`, this could result in OOM crashes on gigabyte-sized binary logs.
+**Action:** Replace full-file loads with chunk-based lazy reading by wrapping file handles (or stdin) in `io::BufReader`. Use iterators (like `std::iter::from_fn`) to dynamically read chunks (e.g., `read_exact`) from the stream, keeping memory footprint bounded while maintaining high throughput.

@@ -1,6 +1,6 @@
 use clap::Parser;
 use el_core::parser::UmpStreamParser;
-use std::io::{self, BufWriter, Read, Write};
+use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 
 /// el_dump: A CLI tool to parse and dump raw Universal MIDI Packets (UMP) from a file or stdin.
 #[derive(Parser, Debug)]
@@ -14,26 +14,44 @@ struct Args {
 fn main() -> io::Result<()> {
     let args = Args::parse();
 
-    let buffer = if let Some(filepath) = args.file {
-        std::fs::read(filepath)?
+    let mut reader: Box<dyn BufRead> = if let Some(filepath) = args.file {
+        // ⚡ Bolt Optimization: Avoid eagerly loading potentially multi-gigabyte UMP
+        // files entirely into a Vec<u8> memory array. Using a BufReader allows us to stream
+        // chunks dynamically into the parser with a near-zero memory footprint.
+        Box::new(BufReader::with_capacity(
+            64 * 1024,
+            std::fs::File::open(filepath)?,
+        ))
     } else {
-        let mut buffer = Vec::new();
-        io::stdin().read_to_end(&mut buffer)?;
-        buffer
+        Box::new(BufReader::with_capacity(64 * 1024, io::stdin()))
     };
 
-    if buffer.len() % 4 != 0 {
-        eprintln!(
-            "Warning: Stream length {} is not a multiple of 4 bytes. Truncation may occur.",
-            buffer.len()
-        );
-    }
+    let word_iter = std::iter::from_fn(move || {
+        let mut buf = [0u8; 4];
 
-    // Stream raw u8 bytes into Little-Endian u32 words lazily without intermediate allocation
-    let word_iter = buffer.chunks_exact(4).map(|chunk| {
-        // ⚡ Bolt Optimization: Using try_into().unwrap() on chunks_exact(4) is ~5-10% faster
-        // than manual array indexing, allowing better vectorization and skipping bounds checks.
-        u32::from_le_bytes(chunk.try_into().unwrap())
+        // Peek to see if we are at natural EOF before attempting read_exact
+        match reader.fill_buf() {
+            Ok(b) if b.is_empty() => return None,
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Error reading stream: {}", e);
+                return None;
+            }
+        }
+
+        match reader.read_exact(&mut buf) {
+            Ok(_) => Some(u32::from_le_bytes(buf)),
+            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                eprintln!(
+                    "Warning: Stream length is not a multiple of 4 bytes. Truncation may occur."
+                );
+                None
+            }
+            Err(e) => {
+                eprintln!("Error reading stream: {}", e);
+                None
+            }
+        }
     });
 
     let parser = UmpStreamParser::new(word_iter);
