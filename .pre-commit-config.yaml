@@ -13,9 +13,12 @@ repos:
     rev: v1.0
     hooks:
       - id: fmt
+        types_or: [rust]
       - id: cargo-check
+        types_or: [rust]
       - id: clippy
         args: ["--", "-D", "warnings"]
+        types_or: [rust]
 
   # For legacy C++ files (optional formatting, usually good to have)
   - repo: https://github.com/pre-commit/mirrors-clang-format

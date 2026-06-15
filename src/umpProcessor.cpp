@@ -125,7 +125,7 @@ void umpProcessor::processUMP(uint32_t UMP) {
         channelVoiceMessage(mess);
         break;
       default:
-        if (unknownUMPMessage)
+        if (unknownUMPMessage != nullptr)
           unknownUMPMessage(umpMess, 2);
         break;
       }
@@ -240,7 +240,7 @@ void umpProcessor::processUMP(uint32_t UMP) {
         channelVoiceMessage(mess);
         break;
       default:
-        if (unknownUMPMessage)
+        if (unknownUMPMessage != nullptr)
           unknownUMPMessage(umpMess, 2);
         break;
       }
@@ -248,7 +248,7 @@ void umpProcessor::processUMP(uint32_t UMP) {
     messPos = 0;
   } else if (messPos == 2 && (mt == 0xB || mt == 0xC)) { // 96bit Messages
     messPos = 0;
-    if (unknownUMPMessage)
+    if (unknownUMPMessage != nullptr)
       unknownUMPMessage(umpMess, 3);
 
   } else if (messPos == 3 && (mt == UMP_DATA || mt >= 0xD)) { // 128bit Messages
@@ -458,7 +458,7 @@ void umpProcessor::processUMP(uint32_t UMP) {
         break;
       }
       default:
-        if (unknownUMPMessage)
+        if (unknownUMPMessage != nullptr)
           unknownUMPMessage(umpMess, 4);
         break;
       }
@@ -537,7 +537,7 @@ void umpProcessor::processUMP(uint32_t UMP) {
           mds5Payload(group, (umpMess[1] >> 16) & 0xF, callbackBuffer, 14);
         M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
       } else {
-        if (unknownUMPMessage)
+        if (unknownUMPMessage != nullptr)
           unknownUMPMessage(umpMess, 4);
       }
 
@@ -686,7 +686,7 @@ void umpProcessor::processUMP(uint32_t UMP) {
         break;
       }
     } else {
-      if (unknownUMPMessage)
+      if (unknownUMPMessage != nullptr)
         unknownUMPMessage(umpMess, 4);
     }
     messPos = 0;

@@ -305,7 +305,7 @@ void midiCIProcessor::processMIDICI(uint8_t s7Byte) {
       break;
 #endif
     default:
-      if (recvUnknownMIDICI) {
+      if (recvUnknownMIDICI != nullptr) {
         recvUnknownMIDICI(midici, s7Byte);
       }
       break;
