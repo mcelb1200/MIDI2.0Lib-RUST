@@ -58,12 +58,20 @@ impl UmpFactory {
 
     /// Helper to create a System Common or Realtime UMP (MT=0x1).
     #[must_use]
+    #[inline]
     fn mt1_create(group: u8, status: u8, val1: u8, val2: u8) -> Ump {
-        let w = (((u32::from(UMP_SYSTEM)) << 28) + ((u32::from(group & 0xF)) << 24))
-            + (((u32::from(status)) & 0xFF) << 16)
-            + (((u32::from(val1)) & 0x7F) << 8)
-            + ((u32::from(val2)) & 0x7F);
-        Ump { data: [w, 0, 0, 0] }
+        // ⚡ Bolt Optimization: Use a single bitwise combination and global mask.
+        let combined =
+            ((group as u32) << 24) | ((status as u32) << 16) | ((val1 as u32) << 8) | (val2 as u32);
+
+        Ump {
+            data: [
+                ((u32::from(UMP_SYSTEM)) << 28) | (combined & 0x0FFF7F7F),
+                0,
+                0,
+                0,
+            ],
+        }
     }
 
     /// Creates a Timing Clock UMP.

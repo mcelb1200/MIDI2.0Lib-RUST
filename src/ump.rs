@@ -124,6 +124,7 @@ impl Ump {
     ///
     /// A new `Ump` instance with all data set to 0.
     #[must_use]
+    #[inline]
     pub fn new() -> Self {
         Self { data: [0; 4] }
     }

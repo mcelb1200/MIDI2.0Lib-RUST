@@ -47,6 +47,7 @@ where
     ///
     /// * `Some(Ump)` - The next valid UMP.
     /// * `None` - If the stream ends or is truncated.
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let w1 = self.iter.next()?;
         // Fast-path MessageType extraction without branching or enum conversion overhead
