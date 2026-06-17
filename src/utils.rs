@@ -164,7 +164,14 @@ pub fn scale_up(src_val: u32, src_bits: u8, dst_bits: u8) -> u32 {
     }
 
     // simple bit shift
-    let scale_bits = dst_bits.saturating_sub(src_bits);
+    // ⚡ Bolt Optimization: Added an explicit early-return check (`if src_bits >= dst_bits`)
+    // and replaced `saturating_sub` with a simple subtraction. This avoids clamping overhead
+    // and allows the compiler to generate more optimal direct branches in the hot loop.
+    if src_bits >= dst_bits {
+        return src_val;
+    }
+
+    let scale_bits = dst_bits - src_bits;
     let bit_shifted_value = src_val << scale_bits;
     let src_center = 1 << (src_bits - 1);
 
