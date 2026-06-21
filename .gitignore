@@ -2,5 +2,3 @@
 /cmake-build-debug/
 target/
 test
-guardian_report.*
-.jules/guardian_logs/

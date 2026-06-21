@@ -25,6 +25,7 @@ where
     ///
     /// A new `UmpStreamParser` instance.
     #[must_use]
+    #[inline]
     pub fn new(iter: I) -> Self {
         Self { iter }
     }

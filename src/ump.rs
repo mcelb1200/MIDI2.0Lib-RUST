@@ -135,6 +135,7 @@ impl Ump {
     ///
     /// The `MessageType` derived from the high 4 bits of the first word.
     #[must_use]
+    #[inline]
     pub fn message_type(&self) -> MessageType {
         let mt = (self.data[0] >> 28) as u8;
         MessageType::from(mt)
@@ -147,6 +148,7 @@ impl Ump {
     /// # Arguments
     ///
     /// * `mt` - The `MessageType` to set.
+    #[inline]
     pub fn set_message_type(&mut self, mt: MessageType) {
         self.data[0] &= 0x0FFFFFFF;
         self.data[0] |= u32::from(mt as u8) << 28;
@@ -160,6 +162,7 @@ impl Ump {
     ///
     /// The group number.
     #[must_use]
+    #[inline]
     pub fn group(&self) -> u8 {
         ((self.data[0] >> 24) & 0xF) as u8
     }
@@ -169,6 +172,7 @@ impl Ump {
     /// # Arguments
     ///
     /// * `group` - The group number to set (0-15). The value is masked to 4 bits.
+    #[inline]
     pub fn set_group(&mut self, group: u8) {
         self.data[0] &= 0xF0FFFFFF;
         self.data[0] |= ((u32::from(group)) & 0xF) << 24;
@@ -184,6 +188,7 @@ impl Ump {
     ///
     /// The status byte (with lower nibble zeroed out).
     #[must_use]
+    #[inline]
     pub fn status(&self) -> u8 {
         ((self.data[0] >> 16) & 0xF0) as u8
     }
@@ -196,6 +201,7 @@ impl Ump {
     ///
     /// The channel number.
     #[must_use]
+    #[inline]
     pub fn channel(&self) -> u8 {
         ((self.data[0] >> 16) & 0x0F) as u8
     }

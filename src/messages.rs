@@ -16,6 +16,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a NOOP message.
     #[must_use]
+    #[inline]
     pub fn noop() -> Ump {
         Ump::new()
     }
@@ -30,6 +31,7 @@ impl UmpFactory {
     ///
     /// A `Ump` containing the JR Clock message.
     #[must_use]
+    #[inline]
     pub fn jr_clock(clock_time: u16) -> Ump {
         let val = ((u32::from(UTILITY_JRCLOCK)) << 20) + (u32::from(clock_time));
         Ump {
@@ -47,6 +49,7 @@ impl UmpFactory {
     ///
     /// A `Ump` containing the JR Timestamp message.
     #[must_use]
+    #[inline]
     pub fn jr_timestamp(timestamp: u16) -> Ump {
         let val = ((u32::from(UTILITY_JRTS)) << 20) + (u32::from(timestamp));
         Ump {
@@ -84,6 +87,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Timing Clock message.
     #[must_use]
+    #[inline]
     pub fn timing_clock(group: u8) -> Ump {
         Self::mt1_create(group, TIMINGCLOCK, 0, 0)
     }
@@ -98,6 +102,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Start message.
     #[must_use]
+    #[inline]
     pub fn start(group: u8) -> Ump {
         Self::mt1_create(group, SEQSTART, 0, 0)
     }
@@ -112,6 +117,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Continue message.
     #[must_use]
+    #[inline]
     pub fn continue_seq(group: u8) -> Ump {
         Self::mt1_create(group, SEQCONT, 0, 0)
     }
@@ -126,6 +132,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Stop message.
     #[must_use]
+    #[inline]
     pub fn stop(group: u8) -> Ump {
         Self::mt1_create(group, SEQSTOP, 0, 0)
     }
@@ -140,6 +147,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing an Active Sensing message.
     #[must_use]
+    #[inline]
     pub fn active_sensing(group: u8) -> Ump {
         Self::mt1_create(group, ACTIVESENSE, 0, 0)
     }
@@ -154,6 +162,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a System Reset message.
     #[must_use]
+    #[inline]
     pub fn system_reset(group: u8) -> Ump {
         Self::mt1_create(group, SYSTEMRESET, 0, 0)
     }
@@ -169,6 +178,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing an MTC Quarter Frame message.
     #[must_use]
+    #[inline]
     pub fn mtc_quarter_frame(group: u8, data: u8) -> Ump {
         Self::mt1_create(group, TIMING_CODE, data, 0)
     }
@@ -184,6 +194,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Song Position Pointer message.
     #[must_use]
+    #[inline]
     pub fn song_position_pointer(group: u8, position: u16) -> Ump {
         Self::mt1_create(
             group,
@@ -204,6 +215,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Song Select message.
     #[must_use]
+    #[inline]
     pub fn song_select(group: u8, song: u8) -> Ump {
         Self::mt1_create(group, SONG_SELECT, song, 0)
     }
@@ -218,6 +230,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Tune Request message.
     #[must_use]
+    #[inline]
     pub fn tune_request(group: u8) -> Ump {
         Self::mt1_create(group, TUNEREQUEST, 0, 0)
     }
@@ -260,6 +273,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Note Off message.
     #[must_use]
+    #[inline]
     pub fn midi1_note_off(group: u8, channel: u8, note: u8, velocity: u8) -> Ump {
         Self::mt2_create(group, NOTE_OFF, channel, note, velocity)
     }
@@ -277,6 +291,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Note On message.
     #[must_use]
+    #[inline]
     pub fn midi1_note_on(group: u8, channel: u8, note: u8, velocity: u8) -> Ump {
         Self::mt2_create(group, NOTE_ON, channel, note, velocity)
     }
@@ -294,6 +309,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Polyphonic Key Pressure message.
     #[must_use]
+    #[inline]
     pub fn midi1_poly_pressure(group: u8, channel: u8, note: u8, pressure: u8) -> Ump {
         Self::mt2_create(group, KEY_PRESSURE, channel, note, pressure)
     }
@@ -311,6 +327,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Control Change message.
     #[must_use]
+    #[inline]
     pub fn midi1_control_change(group: u8, channel: u8, index: u8, value: u8) -> Ump {
         Self::mt2_create(group, CC, channel, index, value)
     }
@@ -327,6 +344,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Program Change message.
     #[must_use]
+    #[inline]
     pub fn midi1_program_change(group: u8, channel: u8, program: u8) -> Ump {
         Self::mt2_create(group, PROGRAM_CHANGE, channel, program, 0)
     }
@@ -343,6 +361,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Channel Pressure message.
     #[must_use]
+    #[inline]
     pub fn midi1_channel_pressure(group: u8, channel: u8, pressure: u8) -> Ump {
         Self::mt2_create(group, CHANNEL_PRESSURE, channel, pressure, 0)
     }
@@ -359,6 +378,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Pitch Bend message.
     #[must_use]
+    #[inline]
     pub fn midi1_pitch_bend(group: u8, channel: u8, value: u16) -> Ump {
         Self::mt2_create(
             group,
@@ -398,6 +418,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Note Off message.
     #[must_use]
+    #[inline]
     pub fn midi2_note_off(
         group: u8,
         channel: u8,
@@ -429,6 +450,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Note On message.
     #[must_use]
+    #[inline]
     pub fn midi2_note_on(
         group: u8,
         channel: u8,
@@ -458,6 +480,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Polyphonic Key Pressure message.
     #[must_use]
+    #[inline]
     pub fn midi2_poly_pressure(group: u8, channel: u8, note: u8, pressure: u32) -> Ump {
         let word1 = Self::mt4_create_first_word(group, KEY_PRESSURE, channel, note & 0x7F, 0);
         Ump {
@@ -478,6 +501,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Control Change message.
     #[must_use]
+    #[inline]
     pub fn midi2_control_change(group: u8, channel: u8, index: u8, value: u32) -> Ump {
         let word1 = Self::mt4_create_first_word(group, CC, channel, index & 0x7F, 0);
         Ump {
@@ -499,6 +523,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing an RPN message.
     #[must_use]
+    #[inline]
     pub fn midi2_rpn(group: u8, channel: u8, bank: u8, index: u8, value: u32) -> Ump {
         let word1 = Self::mt4_create_first_word(group, RPN, channel, bank & 0x7F, index & 0x7F);
         Ump {
@@ -520,6 +545,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing an NRPN message.
     #[must_use]
+    #[inline]
     pub fn midi2_nrpn(group: u8, channel: u8, bank: u8, index: u8, value: u32) -> Ump {
         let word1 = Self::mt4_create_first_word(group, NRPN, channel, bank & 0x7F, index & 0x7F);
         Ump {
@@ -541,6 +567,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Relative RPN message.
     #[must_use]
+    #[inline]
     pub fn midi2_relative_rpn(group: u8, channel: u8, bank: u8, index: u8, value: i32) -> Ump {
         let word1 =
             Self::mt4_create_first_word(group, RPN_RELATIVE, channel, bank & 0x7F, index & 0x7F);
@@ -563,6 +590,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Relative NRPN message.
     #[must_use]
+    #[inline]
     pub fn midi2_relative_nrpn(group: u8, channel: u8, bank: u8, index: u8, value: i32) -> Ump {
         let word1 =
             Self::mt4_create_first_word(group, NRPN_RELATIVE, channel, bank & 0x7F, index & 0x7F);
@@ -586,6 +614,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Program Change message.
     #[must_use]
+    #[inline]
     pub fn midi2_program_change(
         group: u8,
         channel: u8,
@@ -624,6 +653,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Channel Pressure message.
     #[must_use]
+    #[inline]
     pub fn midi2_channel_pressure(group: u8, channel: u8, pressure: u32) -> Ump {
         let word1 = Self::mt4_create_first_word(group, CHANNEL_PRESSURE, channel, 0, 0);
         Ump {
@@ -643,6 +673,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Pitch Bend message.
     #[must_use]
+    #[inline]
     pub fn midi2_pitch_bend(group: u8, channel: u8, value: u32) -> Ump {
         let word1 = Self::mt4_create_first_word(group, PITCH_BEND, channel, 0, 0);
         Ump {
@@ -663,6 +694,7 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Per-Note Pitch Bend message.
     #[must_use]
+    #[inline]
     pub fn midi2_per_note_pitch_bend(group: u8, channel: u8, note: u8, value: u32) -> Ump {
         let word1 = Self::mt4_create_first_word(group, PITCH_BEND_PERNOTE, channel, note & 0x7F, 0);
         Ump {
