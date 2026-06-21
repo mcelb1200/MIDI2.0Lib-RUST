@@ -1,0 +1,3 @@
+Bolt: Add inline to public methods
+
+Added `#[inline]` to public methods in `src/buffer.rs`, `src/ump.rs`, and `src/messages.rs` to allow cross-crate inlining.
