@@ -129,9 +129,9 @@ pub fn scale_down(value: u32, src_bits: u8, dst_bits: u8) -> u32 {
     }
 
     let scale_bits = src_bits - dst_bits;
-    if scale_bits >= 32 {
-        0
-    } else {
+    if scale_bits < 32 {
         value >> scale_bits
+    } else {
+        0
     }
 }
