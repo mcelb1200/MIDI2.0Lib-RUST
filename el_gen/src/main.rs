@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use el_core::builder::{UtilityBuilder, VoiceBuilder};
-use std::io::{self, Write};
+use std::io::{self, BufWriter, Write};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -78,13 +78,18 @@ fn main() -> io::Result<()> {
     };
 
     let word_count = ump.word_count();
-    let mut stdout = io::stdout().lock();
+
+    // ⚡ Bolt Optimization: Wrap stdout in a BufWriter.
+    // Instead of making multiple small 4-byte system calls, this aggregates
+    // the sequential writes into a single buffer, significantly improving I/O throughput.
+    let stdout = io::stdout().lock();
+    let mut writer = BufWriter::new(stdout);
     for i in 0..word_count {
         // Output strictly as network-endian (Little Endian for UMP) raw bytes
         let bytes = ump.data[i].to_le_bytes();
-        stdout.write_all(&bytes)?;
+        writer.write_all(&bytes)?;
     }
-    stdout.flush()?;
+    writer.flush()?;
 
     Ok(())
 }
