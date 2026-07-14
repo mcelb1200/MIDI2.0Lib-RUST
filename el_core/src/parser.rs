@@ -34,8 +34,7 @@ where
         // ⚡ Bolt Optimization: Replaced match statement with a static array lookup.
         // Array lookups are significantly faster because they avoid branch mispredictions
         // and jump tables, directly fetching the word count from a small, cache-friendly array.
-        const WORD_COUNTS: [usize; 16] = [1, 1, 1, 2, 2, 4, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4];
-        let count = WORD_COUNTS[(w1 >> 28) as usize];
+        let count = crate::ump::MessageType::WORD_COUNTS[(w1 >> 28) as usize];
 
         // ⚡ Bolt Optimization: Eliminated match statement block.
         // Unrolling branch prediction here is often slower than a simple

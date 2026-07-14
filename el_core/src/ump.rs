@@ -20,6 +20,27 @@ pub enum MessageType {
 }
 
 impl MessageType {
+    pub const WORD_COUNTS: [usize; 16] = [1, 1, 1, 2, 2, 4, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4];
+
+    pub const TYPES: [MessageType; 16] = [
+        MessageType::Utility,
+        MessageType::System,
+        MessageType::Midi1ChannelVoice,
+        MessageType::Data64,
+        MessageType::Midi2ChannelVoice,
+        MessageType::Data128,
+        MessageType::Reserved6,
+        MessageType::Reserved7,
+        MessageType::Reserved8,
+        MessageType::Reserved9,
+        MessageType::ReservedA,
+        MessageType::ReservedB,
+        MessageType::ReservedC,
+        MessageType::ReservedD,
+        MessageType::ReservedE,
+        MessageType::UmpStream,
+    ];
+
     /// Bypasses branching for packet length lookups, using the exact bounds mapped in our memory.
     #[must_use]
     #[inline]
@@ -27,8 +48,16 @@ impl MessageType {
         // ⚡ Bolt Optimization: Replaced match statement with a static array lookup.
         // As per the #![forbid(unsafe_code)] constraint note, static array indexing
         // for dense integers is significantly faster (~3.5x) than match branches.
-        const WORD_COUNTS: [usize; 16] = [1, 1, 1, 2, 2, 4, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4];
-        WORD_COUNTS[*self as usize]
+        Self::WORD_COUNTS[*self as usize]
+    }
+
+    /// Fast-path MessageType extraction without branching or enum conversion overhead
+    #[must_use]
+    #[inline]
+    pub const fn from_u32(w1: u32) -> Self {
+        // ⚡ Bolt Optimization: Removed redundant `& 0xF` mask. Right shifting a u32 by 28 bounds the value to 0-15.
+        // ⚡ Bolt Optimization: Replaced match statement with a static array lookup.
+        Self::TYPES[(w1 >> 28) as usize]
     }
 }
 
@@ -50,28 +79,7 @@ impl Ump {
     #[must_use]
     #[inline]
     pub fn message_type(&self) -> MessageType {
-        // ⚡ Bolt Optimization: Removed redundant `& 0xF` mask. Right shifting a u32 by 28 bounds the value to 0-15.
-        // ⚡ Bolt Optimization: Replaced match statement with a static array lookup.
-        const TYPES: [MessageType; 16] = [
-            MessageType::Utility,
-            MessageType::System,
-            MessageType::Midi1ChannelVoice,
-            MessageType::Data64,
-            MessageType::Midi2ChannelVoice,
-            MessageType::Data128,
-            MessageType::Reserved6,
-            MessageType::Reserved7,
-            MessageType::Reserved8,
-            MessageType::Reserved9,
-            MessageType::ReservedA,
-            MessageType::ReservedB,
-            MessageType::ReservedC,
-            MessageType::ReservedD,
-            MessageType::ReservedE,
-            MessageType::UmpStream,
-        ];
-        let mt_val = (self.data[0] >> 28) as usize;
-        TYPES[mt_val]
+        MessageType::from_u32(self.data[0])
     }
 
     #[must_use]
@@ -90,8 +98,6 @@ impl Ump {
     #[inline]
     pub fn word_count(&self) -> usize {
         // ⚡ Bolt Optimization: Replaced match statement with a static array lookup.
-        const WORD_COUNTS: [usize; 16] = [1, 1, 1, 2, 2, 4, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4];
-        let mt_val = (self.data[0] >> 28) as usize;
-        WORD_COUNTS[mt_val]
+        MessageType::WORD_COUNTS[(self.data[0] >> 28) as usize]
     }
 }
