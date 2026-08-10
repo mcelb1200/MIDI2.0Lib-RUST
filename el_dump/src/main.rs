@@ -30,10 +30,10 @@ fn main() -> io::Result<()> {
     }
 
     // Stream raw u8 bytes into Little-Endian u32 words lazily without intermediate allocation
-    let word_iter = buffer.chunks_exact(4).map(|chunk| {
-        // ⚡ Bolt Optimization: Using try_into().unwrap() on chunks_exact(4) is ~5-10% faster
-        // than manual array indexing, allowing better vectorization and skipping bounds checks.
-        u32::from_le_bytes(chunk.try_into().unwrap())
+    let word_iter = buffer.chunks_exact(4).filter_map(|chunk| {
+        // ⚡ Bolt Optimization: Using try_into().ok() on chunks_exact(4) maintains performance
+        // while avoiding unsafe unwrap() calls on external input.
+        chunk.try_into().ok().map(u32::from_le_bytes)
     });
 
     let parser = UmpStreamParser::new(word_iter);
