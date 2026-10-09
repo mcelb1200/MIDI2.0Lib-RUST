@@ -78,13 +78,14 @@ fn main() -> io::Result<()> {
     };
 
     let word_count = ump.word_count();
-    let mut stdout = io::stdout().lock();
+    let stdout = io::stdout().lock();
+    let mut writer = io::BufWriter::new(stdout);
     for i in 0..word_count {
         // Output strictly as network-endian (Little Endian for UMP) raw bytes
         let bytes = ump.data[i].to_le_bytes();
-        stdout.write_all(&bytes)?;
+        writer.write_all(&bytes)?;
     }
-    stdout.flush()?;
+    writer.flush()?;
 
     Ok(())
 }
