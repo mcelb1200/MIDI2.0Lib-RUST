@@ -461,4 +461,298 @@ mod tests {
             Err(SysEx7ReceiverError::GroupMismatch)
         );
     }
+
+    #[test]
+    fn test_sysex8_empty_payload() {
+        use crate::sysex::{SysEx8Chunker, SysEx8Format, SysEx8Receiver, SysEx8ReceiverState};
+
+        let chunker = SysEx8Chunker::new(4, 0x1A, &[]);
+        let packets: alloc::vec::Vec<_> = chunker.collect();
+        assert_eq!(packets.len(), 1);
+
+        let ump = packets[0];
+        assert_eq!(ump.message_type(), MessageType::Data);
+        assert_eq!(ump.group(), 4);
+        let format = (ump.data[0] >> 20) & 0xF;
+        assert_eq!(format, SysEx8Format::Complete as u32);
+        let num_bytes = (ump.data[0] >> 16) & 0xF;
+        assert_eq!(num_bytes, 1); // stream_id only
+        let stream_id = (ump.data[0] >> 8) & 0xFF;
+        assert_eq!(stream_id, 0x1A);
+
+        let mut receiver = SysEx8Receiver::<64>::new();
+        let res = receiver.process_ump(&ump);
+        assert_eq!(res, Ok(SysEx8ReceiverState::Complete));
+        assert_eq!(receiver.payload(), &[]);
+        assert_eq!(receiver.group(), 4);
+        assert_eq!(receiver.stream_id(), 0x1A);
+    }
+
+    #[test]
+    fn test_sysex8_single_packet_complete() {
+        use crate::sysex::{SysEx8Chunker, SysEx8Format, SysEx8Receiver, SysEx8ReceiverState};
+
+        // 13 8-bit bytes (exact single packet max payload)
+        let payload: [u8; 13] = [
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
+        ];
+        let mut chunker = SysEx8Chunker::new(1, 0xAA, &payload);
+        let ump = chunker.next().expect("Expected 1 packet");
+        assert!(chunker.next().is_none());
+
+        assert_eq!(ump.message_type(), MessageType::Data);
+        assert_eq!(ump.group(), 1);
+        let format = (ump.data[0] >> 20) & 0xF;
+        assert_eq!(format, SysEx8Format::Complete as u32);
+        let num_bytes = (ump.data[0] >> 16) & 0xF;
+        assert_eq!(num_bytes, 14); // 13 payload + 1 stream_id
+        let stream_id = (ump.data[0] >> 8) & 0xFF;
+        assert_eq!(stream_id, 0xAA);
+
+        // Verify word layout matches C++ mt5Sysex8:
+        // w0 = 0x510EAA01
+        // w1 = 0x02030405
+        // w2 = 0x06070809
+        // w3 = 0x0A0B0C0D
+        assert_eq!(ump.data[0], 0x510EAA01);
+        assert_eq!(ump.data[1], 0x02030405);
+        assert_eq!(ump.data[2], 0x06070809);
+        assert_eq!(ump.data[3], 0x0A0B0C0D);
+
+        let mut receiver = SysEx8Receiver::<128>::new();
+        assert_eq!(
+            receiver.process_ump(&ump),
+            Ok(SysEx8ReceiverState::Complete)
+        );
+        assert_eq!(receiver.payload(), &payload);
+        assert_eq!(receiver.group(), 1);
+        assert_eq!(receiver.stream_id(), 0xAA);
+    }
+
+    #[test]
+    fn test_sysex8_multi_packet_roundtrip() {
+        use crate::sysex::{SysEx8Chunker, SysEx8Format, SysEx8Receiver, SysEx8ReceiverState};
+
+        // 30 bytes requires 3 packets: 13 + 13 + 4
+        let payload: [u8; 30] = [
+            0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x20,
+            0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x30, 0x31,
+            0x32, 0x33,
+        ];
+
+        let chunker = SysEx8Chunker::new(5, 0x42, &payload);
+        let packets: alloc::vec::Vec<_> = chunker.collect();
+        assert_eq!(packets.len(), 3);
+
+        // Packet 0: Start, 13 bytes payload (total 14)
+        assert_eq!((packets[0].data[0] >> 20) & 0xF, SysEx8Format::Start as u32);
+        assert_eq!((packets[0].data[0] >> 16) & 0xF, 14);
+        assert_eq!((packets[0].data[0] >> 8) & 0xFF, 0x42);
+
+        // Packet 1: Continue, 13 bytes payload (total 14)
+        assert_eq!(
+            (packets[1].data[0] >> 20) & 0xF,
+            SysEx8Format::Continue as u32
+        );
+        assert_eq!((packets[1].data[0] >> 16) & 0xF, 14);
+        assert_eq!((packets[1].data[0] >> 8) & 0xFF, 0x42);
+
+        // Packet 2: End, 4 bytes payload (total 5)
+        assert_eq!((packets[2].data[0] >> 20) & 0xF, SysEx8Format::End as u32);
+        assert_eq!((packets[2].data[0] >> 16) & 0xF, 5);
+        assert_eq!((packets[2].data[0] >> 8) & 0xFF, 0x42);
+
+        // Reassemble with receiver
+        let mut receiver = SysEx8Receiver::<64>::new();
+        assert_eq!(receiver.state(), SysEx8ReceiverState::Idle);
+
+        assert_eq!(
+            receiver.process_ump(&packets[0]),
+            Ok(SysEx8ReceiverState::Receiving)
+        );
+        assert_eq!(
+            receiver.process_ump(&packets[1]),
+            Ok(SysEx8ReceiverState::Receiving)
+        );
+        assert_eq!(
+            receiver.process_ump(&packets[2]),
+            Ok(SysEx8ReceiverState::Complete)
+        );
+
+        assert_eq!(receiver.payload(), &payload);
+        assert_eq!(receiver.group(), 5);
+        assert_eq!(receiver.stream_id(), 0x42);
+    }
+
+    #[test]
+    fn test_sysex8_receiver_overflow_and_errors() {
+        use crate::sysex::{
+            build_sysex8_ump, SysEx8Format, SysEx8Receiver, SysEx8ReceiverError,
+            SysEx8ReceiverState,
+        };
+
+        let mut receiver = SysEx8Receiver::<20>::new();
+        let payload = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+        let ump1 = build_sysex8_ump(1, 0x10, SysEx8Format::Start, &payload);
+        let ump2 = build_sysex8_ump(1, 0x10, SysEx8Format::Continue, &payload); // total 26 > 20
+
+        assert_eq!(
+            receiver.process_ump(&ump1),
+            Ok(SysEx8ReceiverState::Receiving)
+        );
+        assert_eq!(
+            receiver.process_ump(&ump2),
+            Err(SysEx8ReceiverError::BufferOverflow)
+        );
+        assert_eq!(receiver.state(), SysEx8ReceiverState::Idle);
+
+        // Out-of-order error: Continue without Start
+        assert_eq!(
+            receiver.process_ump(&ump2),
+            Err(SysEx8ReceiverError::UnexpectedFormat)
+        );
+
+        // Group mismatch error
+        let mut receiver2 = SysEx8Receiver::<64>::new();
+        assert_eq!(
+            receiver2.process_ump(&ump1),
+            Ok(SysEx8ReceiverState::Receiving)
+        );
+        let ump_diff_group = build_sysex8_ump(2, 0x10, SysEx8Format::End, &[1, 2]);
+        assert_eq!(
+            receiver2.process_ump(&ump_diff_group),
+            Err(SysEx8ReceiverError::GroupMismatch)
+        );
+
+        // Stream ID mismatch error
+        let mut receiver3 = SysEx8Receiver::<64>::new();
+        assert_eq!(
+            receiver3.process_ump(&ump1),
+            Ok(SysEx8ReceiverState::Receiving)
+        );
+        let ump_diff_stream = build_sysex8_ump(1, 0x99, SysEx8Format::End, &[1, 2]);
+        assert_eq!(
+            receiver3.process_ump(&ump_diff_stream),
+            Err(SysEx8ReceiverError::StreamIdMismatch)
+        );
+
+        // Non-SysEx8 packet error (e.g. SysEx7 MT=0x3)
+        let ump_not_sysex8 = crate::ump::Ump::new();
+        assert_eq!(
+            receiver3.process_ump(&ump_not_sysex8),
+            Err(SysEx8ReceiverError::NotSysEx8Packet)
+        );
+    }
+
+    #[test]
+    fn test_stream_message_builders() {
+        use crate::stream::*;
+
+        // Endpoint Discovery
+        let disc = StreamFactory::endpoint_discovery(1, 1, 0x1F);
+        assert_eq!(disc.message_type(), MessageType::Stream);
+        assert_eq!(disc.data[0], 0xF0000101);
+        assert_eq!(disc.data[1], 0x1F000000);
+
+        // Endpoint Info Notification
+        let info = StreamFactory::endpoint_info_notify(1, 1, 4, true, true, false, true);
+        assert_eq!(info.message_type(), MessageType::Stream);
+        assert_eq!(info.data[0], 0xF0010101);
+        assert_eq!(info.data[1], (4 << 24) | (1 << 9) | (1 << 8) | 1);
+
+        // Device Info Notification
+        let dev = StreamFactory::endpoint_device_info_notify(
+            [0x01, 0x02, 0x03],
+            [0x10, 0x20],
+            [0x30, 0x40],
+            [0x01, 0x00, 0x00, 0x00],
+        );
+        assert_eq!(dev.message_type(), MessageType::Stream);
+        assert_eq!(dev.data[0], 0xF0020000);
+        assert_eq!(dev.data[1], 0x00010203);
+        assert_eq!(dev.data[2], 0x10203040);
+        assert_eq!(dev.data[3], 0x01000000);
+
+        // Stream Config Request & Notify
+        let req = StreamFactory::stream_config_request(2, true, false);
+        assert_eq!(req.data[0], 0xF0050202);
+
+        let notif = StreamFactory::stream_config_notify(2, true, false);
+        assert_eq!(notif.data[0], 0xF0060202);
+
+        // Sequence Markers
+        let seq_start = StreamFactory::start_of_sequence();
+        assert_eq!(seq_start.data[0], 0xF0200000);
+
+        let eof = StreamFactory::end_of_file();
+        assert_eq!(eof.data[0], 0xF0210000);
+
+        // Function Block Info Notification
+        let fb_info =
+            StreamFactory::function_block_info_notify(2, true, 2, true, true, 0, 1, 1, 0, 8);
+        assert_eq!(fb_info.message_type(), MessageType::Stream);
+        assert_eq!(
+            (fb_info.data[0] >> 16) & 0x3FF,
+            STATUS_FUNCTION_BLOCK_INFO_NOTIFICATION as u32
+        );
+        assert_eq!((fb_info.data[1] >> 24) & 0xFF, 0); // first group
+        assert_eq!((fb_info.data[1] >> 16) & 0xFF, 1); // group length
+    }
+
+    #[test]
+    fn test_stream_text_chunker_and_receiver() {
+        use crate::stream::*;
+
+        // Endpoint Name roundtrip
+        let name = b"Grand Synth Pro 2.0";
+        let chunker = StreamTextChunker::endpoint_name(name);
+        let packets: alloc::vec::Vec<_> = chunker.collect();
+        // 19 bytes total: packet 1 holds 14 bytes, packet 2 holds 5 bytes
+        assert_eq!(packets.len(), 2);
+
+        let mut receiver = StreamTextReceiver::<64>::new();
+        assert_eq!(
+            receiver.process_ump(&packets[0]),
+            Ok(StreamTextReceiverState::Receiving)
+        );
+        assert_eq!(
+            receiver.process_ump(&packets[1]),
+            Ok(StreamTextReceiverState::Complete)
+        );
+        assert_eq!(receiver.text(), name);
+        assert_eq!(receiver.status(), STATUS_ENDPOINT_NAME_NOTIFICATION);
+        assert_eq!(receiver.function_block_index(), None);
+
+        // Function Block Name roundtrip (single packet complete)
+        let fb_name = b"Main Engine";
+        let fb_chunker = StreamTextChunker::function_block_name(3, fb_name);
+        let fb_packets: alloc::vec::Vec<_> = fb_chunker.collect();
+        assert_eq!(fb_packets.len(), 1);
+
+        let mut fb_receiver = StreamTextReceiver::<32>::new();
+        assert_eq!(
+            fb_receiver.process_ump(&fb_packets[0]),
+            Ok(StreamTextReceiverState::Complete)
+        );
+        assert_eq!(fb_receiver.text(), fb_name);
+        assert_eq!(
+            fb_receiver.status(),
+            STATUS_FUNCTION_BLOCK_NAME_NOTIFICATION
+        );
+        assert_eq!(fb_receiver.function_block_index(), Some(3));
+
+        // Error handling: buffer overflow
+        let mut small_receiver = StreamTextReceiver::<8>::new();
+        assert_eq!(
+            small_receiver.process_ump(&packets[0]),
+            Err(StreamTextReceiverError::BufferOverflow)
+        );
+
+        // Error handling: unexpected continue format
+        let mut err_receiver = StreamTextReceiver::<64>::new();
+        assert_eq!(
+            err_receiver.process_ump(&packets[1]),
+            Err(StreamTextReceiverError::UnexpectedFormat)
+        );
+    }
 }
