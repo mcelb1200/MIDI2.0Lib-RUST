@@ -643,4 +643,116 @@ mod tests {
             Err(SysEx8ReceiverError::NotSysEx8Packet)
         );
     }
+
+    #[test]
+    fn test_stream_message_builders() {
+        use crate::stream::*;
+
+        // Endpoint Discovery
+        let disc = StreamFactory::endpoint_discovery(1, 1, 0x1F);
+        assert_eq!(disc.message_type(), MessageType::Stream);
+        assert_eq!(disc.data[0], 0xF0000101);
+        assert_eq!(disc.data[1], 0x1F000000);
+
+        // Endpoint Info Notification
+        let info = StreamFactory::endpoint_info_notify(1, 1, 4, true, true, false, true);
+        assert_eq!(info.message_type(), MessageType::Stream);
+        assert_eq!(info.data[0], 0xF0010101);
+        assert_eq!(info.data[1], (4 << 24) | (1 << 9) | (1 << 8) | 1);
+
+        // Device Info Notification
+        let dev = StreamFactory::endpoint_device_info_notify(
+            [0x01, 0x02, 0x03],
+            [0x10, 0x20],
+            [0x30, 0x40],
+            [0x01, 0x00, 0x00, 0x00],
+        );
+        assert_eq!(dev.message_type(), MessageType::Stream);
+        assert_eq!(dev.data[0], 0xF0020000);
+        assert_eq!(dev.data[1], 0x00010203);
+        assert_eq!(dev.data[2], 0x10203040);
+        assert_eq!(dev.data[3], 0x01000000);
+
+        // Stream Config Request & Notify
+        let req = StreamFactory::stream_config_request(2, true, false);
+        assert_eq!(req.data[0], 0xF0050202);
+
+        let notif = StreamFactory::stream_config_notify(2, true, false);
+        assert_eq!(notif.data[0], 0xF0060202);
+
+        // Sequence Markers
+        let seq_start = StreamFactory::start_of_sequence();
+        assert_eq!(seq_start.data[0], 0xF0200000);
+
+        let eof = StreamFactory::end_of_file();
+        assert_eq!(eof.data[0], 0xF0210000);
+
+        // Function Block Info Notification
+        let fb_info =
+            StreamFactory::function_block_info_notify(2, true, 2, true, true, 0, 1, 1, 0, 8);
+        assert_eq!(fb_info.message_type(), MessageType::Stream);
+        assert_eq!(
+            (fb_info.data[0] >> 16) & 0x3FF,
+            STATUS_FUNCTION_BLOCK_INFO_NOTIFICATION as u32
+        );
+        assert_eq!((fb_info.data[1] >> 24) & 0xFF, 0); // first group
+        assert_eq!((fb_info.data[1] >> 16) & 0xFF, 1); // group length
+    }
+
+    #[test]
+    fn test_stream_text_chunker_and_receiver() {
+        use crate::stream::*;
+
+        // Endpoint Name roundtrip
+        let name = b"Grand Synth Pro 2.0";
+        let chunker = StreamTextChunker::endpoint_name(name);
+        let packets: alloc::vec::Vec<_> = chunker.collect();
+        // 19 bytes total: packet 1 holds 14 bytes, packet 2 holds 5 bytes
+        assert_eq!(packets.len(), 2);
+
+        let mut receiver = StreamTextReceiver::<64>::new();
+        assert_eq!(
+            receiver.process_ump(&packets[0]),
+            Ok(StreamTextReceiverState::Receiving)
+        );
+        assert_eq!(
+            receiver.process_ump(&packets[1]),
+            Ok(StreamTextReceiverState::Complete)
+        );
+        assert_eq!(receiver.text(), name);
+        assert_eq!(receiver.status(), STATUS_ENDPOINT_NAME_NOTIFICATION);
+        assert_eq!(receiver.function_block_index(), None);
+
+        // Function Block Name roundtrip (single packet complete)
+        let fb_name = b"Main Engine";
+        let fb_chunker = StreamTextChunker::function_block_name(3, fb_name);
+        let fb_packets: alloc::vec::Vec<_> = fb_chunker.collect();
+        assert_eq!(fb_packets.len(), 1);
+
+        let mut fb_receiver = StreamTextReceiver::<32>::new();
+        assert_eq!(
+            fb_receiver.process_ump(&fb_packets[0]),
+            Ok(StreamTextReceiverState::Complete)
+        );
+        assert_eq!(fb_receiver.text(), fb_name);
+        assert_eq!(
+            fb_receiver.status(),
+            STATUS_FUNCTION_BLOCK_NAME_NOTIFICATION
+        );
+        assert_eq!(fb_receiver.function_block_index(), Some(3));
+
+        // Error handling: buffer overflow
+        let mut small_receiver = StreamTextReceiver::<8>::new();
+        assert_eq!(
+            small_receiver.process_ump(&packets[0]),
+            Err(StreamTextReceiverError::BufferOverflow)
+        );
+
+        // Error handling: unexpected continue format
+        let mut err_receiver = StreamTextReceiver::<64>::new();
+        assert_eq!(
+            err_receiver.process_ump(&packets[1]),
+            Err(StreamTextReceiverError::UnexpectedFormat)
+        );
+    }
 }
