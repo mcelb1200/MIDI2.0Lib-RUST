@@ -365,7 +365,10 @@ mod tests {
         assert_eq!(num_bytes, 4);
 
         let mut receiver = SysEx7Receiver::<128>::new();
-        assert_eq!(receiver.process_ump(&ump), Ok(SysEx7ReceiverState::Complete));
+        assert_eq!(
+            receiver.process_ump(&ump),
+            Ok(SysEx7ReceiverState::Complete)
+        );
         assert_eq!(receiver.payload(), &payload);
         assert_eq!(receiver.group(), 0);
     }
@@ -376,9 +379,8 @@ mod tests {
 
         // 15 bytes requires 3 packets: 6 + 6 + 3
         let payload: [u8; 15] = [
-            0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
-            0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
-            0x0D, 0x0E, 0x0F,
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+            0x0F,
         ];
 
         let chunker = SysEx7Chunker::new(3, &payload);
@@ -389,7 +391,10 @@ mod tests {
         assert_eq!((packets[0].data[0] >> 20) & 0xF, SysEx7Format::Start as u32);
         assert_eq!((packets[0].data[0] >> 16) & 0xF, 6);
 
-        assert_eq!((packets[1].data[0] >> 20) & 0xF, SysEx7Format::Continue as u32);
+        assert_eq!(
+            (packets[1].data[0] >> 20) & 0xF,
+            SysEx7Format::Continue as u32
+        );
         assert_eq!((packets[1].data[0] >> 16) & 0xF, 6);
 
         assert_eq!((packets[2].data[0] >> 20) & 0xF, SysEx7Format::End as u32);
@@ -399,9 +404,18 @@ mod tests {
         let mut receiver = SysEx7Receiver::<64>::new();
         assert_eq!(receiver.state(), SysEx7ReceiverState::Idle);
 
-        assert_eq!(receiver.process_ump(&packets[0]), Ok(SysEx7ReceiverState::Receiving));
-        assert_eq!(receiver.process_ump(&packets[1]), Ok(SysEx7ReceiverState::Receiving));
-        assert_eq!(receiver.process_ump(&packets[2]), Ok(SysEx7ReceiverState::Complete));
+        assert_eq!(
+            receiver.process_ump(&packets[0]),
+            Ok(SysEx7ReceiverState::Receiving)
+        );
+        assert_eq!(
+            receiver.process_ump(&packets[1]),
+            Ok(SysEx7ReceiverState::Receiving)
+        );
+        assert_eq!(
+            receiver.process_ump(&packets[2]),
+            Ok(SysEx7ReceiverState::Complete)
+        );
 
         assert_eq!(receiver.payload(), &payload);
         assert_eq!(receiver.group(), 3);
@@ -409,24 +423,42 @@ mod tests {
 
     #[test]
     fn test_sysex7_receiver_overflow_and_errors() {
-        use crate::sysex::{build_sysex7_ump, SysEx7Format, SysEx7Receiver, SysEx7ReceiverError, SysEx7ReceiverState};
+        use crate::sysex::{
+            build_sysex7_ump, SysEx7Format, SysEx7Receiver, SysEx7ReceiverError,
+            SysEx7ReceiverState,
+        };
 
         let mut receiver = SysEx7Receiver::<10>::new();
         let payload = [1, 2, 3, 4, 5, 6];
         let ump1 = build_sysex7_ump(1, SysEx7Format::Start, &payload);
         let ump2 = build_sysex7_ump(1, SysEx7Format::Continue, &payload); // total 12 > 10
 
-        assert_eq!(receiver.process_ump(&ump1), Ok(SysEx7ReceiverState::Receiving));
-        assert_eq!(receiver.process_ump(&ump2), Err(SysEx7ReceiverError::BufferOverflow));
+        assert_eq!(
+            receiver.process_ump(&ump1),
+            Ok(SysEx7ReceiverState::Receiving)
+        );
+        assert_eq!(
+            receiver.process_ump(&ump2),
+            Err(SysEx7ReceiverError::BufferOverflow)
+        );
         assert_eq!(receiver.state(), SysEx7ReceiverState::Idle);
 
         // Out-of-order error: Continue without Start
-        assert_eq!(receiver.process_ump(&ump2), Err(SysEx7ReceiverError::UnexpectedFormat));
+        assert_eq!(
+            receiver.process_ump(&ump2),
+            Err(SysEx7ReceiverError::UnexpectedFormat)
+        );
 
         // Group mismatch error
         let mut receiver2 = SysEx7Receiver::<32>::new();
-        assert_eq!(receiver2.process_ump(&ump1), Ok(SysEx7ReceiverState::Receiving));
+        assert_eq!(
+            receiver2.process_ump(&ump1),
+            Ok(SysEx7ReceiverState::Receiving)
+        );
         let ump_diff_group = build_sysex7_ump(2, SysEx7Format::End, &[1, 2]);
-        assert_eq!(receiver2.process_ump(&ump_diff_group), Err(SysEx7ReceiverError::GroupMismatch));
+        assert_eq!(
+            receiver2.process_ump(&ump_diff_group),
+            Err(SysEx7ReceiverError::GroupMismatch)
+        );
     }
 }

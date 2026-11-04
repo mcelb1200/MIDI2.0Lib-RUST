@@ -35,7 +35,11 @@ impl SysEx7Format {
 /// Any bytes beyond the given slice up to 6 are padded with zeros.
 #[must_use]
 pub fn build_sysex7_ump(group: u8, format: SysEx7Format, bytes: &[u8]) -> Ump {
-    let num_bytes = if bytes.len() > 6 { 6 } else { bytes.len() as u8 };
+    let num_bytes = if bytes.len() > 6 {
+        6
+    } else {
+        bytes.len() as u8
+    };
     let mut w0 = (0x3 << 28)
         | (((group & 0xF) as u32) << 24)
         | (((format as u8) as u32) << 20)
@@ -228,7 +232,8 @@ impl<const CAP: usize> SysEx7Receiver<CAP> {
 
         let group = ((w0 >> 24) & 0xF) as u8;
         let format_nibble = ((w0 >> 20) & 0xF) as u8;
-        let format = SysEx7Format::from_u8(format_nibble).ok_or(SysEx7ReceiverError::UnexpectedFormat)?;
+        let format =
+            SysEx7Format::from_u8(format_nibble).ok_or(SysEx7ReceiverError::UnexpectedFormat)?;
         let num_bytes = ((w0 >> 16) & 0xF) as usize;
 
         if num_bytes > 6 {
