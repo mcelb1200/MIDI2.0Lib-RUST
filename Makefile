@@ -16,7 +16,7 @@ tests:
 
 build/%.o: src/%.cpp
 	g++ $(OPTS) -I . -I ./include \
-		-o $@ -c $< 
+		-o $@ -c $<
 
 midi2: $(OBJECTS)
 	ar -rc build/libmidi2.a $(OBJECTS)

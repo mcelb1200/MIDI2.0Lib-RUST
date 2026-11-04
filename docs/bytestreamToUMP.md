@@ -9,13 +9,13 @@ This allows the application to set the group used when creating UMP messages. Th
 
 #### bool outputMIDI2 = false;
 
-By default ```bytestreamToUMP``` will output MIDI 1.0 Channel voice message (Message Type 2). Set this to true to output 
+By default ```bytestreamToUMP``` will output MIDI 1.0 Channel voice message (Message Type 2). Set this to true to output
 MIDI 2 Channel Voice Messages (Message Type 4).
 
 This uses the Translation methods described in **Universal MIDI Packet (UMP) Format
 and MIDI 2.0 Protocol** Version 1.1.
 
-This class attempts to convert RPN and NRPN Control Change messages into UMP RPN and NRPN messages. This may cause some 
+This class attempts to convert RPN and NRPN Control Change messages into UMP RPN and NRPN messages. This may cause some
 issues with Some devices that do not send LSB Data vale (CC #38).
 
 ## Common methods
@@ -30,7 +30,7 @@ Return a 32Bit word for a UMP Packet. A bytestream conversion may create several
 
 
 
-## Example: Using bytestreamToUMP 
+## Example: Using bytestreamToUMP
 
 ```c++
 
@@ -38,7 +38,7 @@ bytestreamToUMP DIN2UMP;
 
 int main(){
     DIN2UMP.defaultGroup = 2; //Set Group 3
-    
+
     while(1){
         //Read from DIN Port
         //-------------------
@@ -48,10 +48,9 @@ int main(){
             DIN2UMP.midi1BytestreamParse(ch);
             while(DIN2UMP.availableUMP()){
                 uint32_t ump = DIN2UMP.readUMP();
-                //Process UMP 
+                //Process UMP
             }
         }
     }
 }
 ```
-
