@@ -181,6 +181,7 @@ impl StreamFactory {
     /// * `is_midi1` - 0 = Not restricted, 1 = Restricted to MIDI 1.0
     /// * `max_s8_streams` - Max SysEx8 streams supported
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn function_block_info_notify(
         fb_idx: u8,
         active: bool,
@@ -276,11 +277,9 @@ pub fn build_stream_text_ump(
     };
 
     // Pack into Word 0
-    if !is_fb {
-        if offset < n {
-            w0 |= ((bytes[offset] as u32) & 0xFF) << 8;
-            offset += 1;
-        }
+    if !is_fb && offset < n {
+        w0 |= ((bytes[offset] as u32) & 0xFF) << 8;
+        offset += 1;
     }
     if offset < n {
         w0 |= (bytes[offset] as u32) & 0xFF;
