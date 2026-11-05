@@ -31,7 +31,7 @@ fn main() -> io::Result<()> {
 
         // Peek to see if we are at natural EOF before attempting read_exact
         match reader.fill_buf() {
-            Ok(b) if b.is_empty() => return None,
+            Ok([]) => return None,
             Ok(_) => {}
             Err(e) => {
                 eprintln!("Error reading stream: {}", e);
