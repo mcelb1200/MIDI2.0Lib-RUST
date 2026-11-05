@@ -102,9 +102,13 @@ void umpProcessor::processUMP(uint32_t UMP) {
       switch (mess.status) {
       case NOTE_OFF:     // Note Off
       case NOTE_ON:      // Note On
-      case KEY_PRESSURE: // Poly Pressure
         mess.note = val1;
         mess.value = M2Utils::scaleUp(val2, 7, 16);
+        channelVoiceMessage(mess);
+        break;
+      case KEY_PRESSURE: // Poly Pressure
+        mess.note = val1;
+        mess.value = M2Utils::scaleUp(val2, 7, 32);
         channelVoiceMessage(mess);
         break;
       case CHANNEL_PRESSURE: // Channel Pressure
@@ -126,7 +130,7 @@ void umpProcessor::processUMP(uint32_t UMP) {
         break;
       default:
         if (unknownUMPMessage != nullptr)
-          unknownUMPMessage(umpMess, 2);
+          unknownUMPMessage(umpMess, 1);
         break;
       }
     }
@@ -513,7 +517,7 @@ void umpProcessor::processUMP(uint32_t UMP) {
       } else if (status == 8) { // MDS Header
 
         if (mds5Header != nullptr)
-          mds5Header(group, (umpMess[1] >> 16) & 0xF, umpMess[0] & 0xFFFF,
+          mds5Header(group, (umpMess[0] >> 16) & 0xF, umpMess[0] & 0xFFFF,
                      (umpMess[1] >> 16) & 0xFFFF, umpMess[1] & 0xFFFF,
                      (umpMess[2] >> 16) & 0xFFFF, umpMess[2] & 0xFFFF,
                      (umpMess[3] >> 16) & 0xFFFF, umpMess[3] & 0xFFFF);
@@ -534,7 +538,7 @@ void umpProcessor::processUMP(uint32_t UMP) {
         callbackBuffer[12] = (umpMess[3] >> 8) & 0xFF;
         callbackBuffer[13] = umpMess[3] & 0xFF;
         if (mds5Payload != nullptr)
-          mds5Payload(group, (umpMess[1] >> 16) & 0xF, callbackBuffer, 14);
+          mds5Payload(group, (umpMess[0] >> 16) & 0xF, callbackBuffer, 14);
         M2Utils::clear(callbackBuffer, 0, sizeof(callbackBuffer));
       } else {
         if (unknownUMPMessage != nullptr)

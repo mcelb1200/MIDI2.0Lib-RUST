@@ -755,4 +755,38 @@ mod tests {
             Err(StreamTextReceiverError::UnexpectedFormat)
         );
     }
+
+    #[test]
+    fn test_poly_pressure_scaling() {
+        use crate::utils::scale_up;
+        // MT=0x2 Poly Pressure 7-bit to 32-bit scaling check
+        let scaled_0 = scale_up(0, 7, 32);
+        assert_eq!(scaled_0, 0);
+
+        let scaled_127 = scale_up(127, 7, 32);
+        assert_eq!(scaled_127, 0xFFFFFFFF);
+
+        let scaled_64 = scale_up(64, 7, 32);
+        assert_eq!(scaled_64, 0x80000000);
+    }
+
+    #[test]
+    fn test_lossless_m1cvm() {
+        use crate::ump::{Midi1ChannelVoice, Ump};
+
+        let mut ump = Ump::new();
+        // MT=2, group=3, status=0xA0 (Poly Pressure), channel=4, note=60, pressure=100
+        ump.data[0] = 0x23A43C64;
+        let cvm = Midi1ChannelVoice::try_from(&ump).expect("should decode MT=2");
+        assert_eq!(cvm.group, 3);
+        assert_eq!(cvm.status, 0xA0);
+        assert_eq!(cvm.channel, 4);
+        assert_eq!(cvm.data1, 60);
+        assert_eq!(cvm.data2, 100);
+
+        // MT=4 should fail
+        let mut ump4 = Ump::new();
+        ump4.data[0] = 0x40903C00;
+        assert!(Midi1ChannelVoice::try_from(&ump4).is_err());
+    }
 }

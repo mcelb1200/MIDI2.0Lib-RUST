@@ -103,3 +103,42 @@ impl Ump {
         self.message_type().word_count()
     }
 }
+
+/// Lossless MIDI 1.0 Channel Voice Message representation.
+///
+/// For DAWs and MIDI routers handling MIDI 1.0 protocol messages over UMP,
+/// automatic upscaling to 32-bit is lossy/undesirable. This struct preserves
+/// the raw 7-bit parameters and channel voice fields.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Midi1ChannelVoice {
+    pub group: u8,
+    pub status: u8,
+    pub channel: u8,
+    pub data1: u8,
+    pub data2: u8,
+}
+
+impl TryFrom<&Ump> for Midi1ChannelVoice {
+    type Error = &'static str;
+
+    #[inline]
+    fn try_from(ump: &Ump) -> Result<Self, Self::Error> {
+        if ump.message_type() != MessageType::Midi1ChannelVoice {
+            return Err("UMP is not a MIDI 1.0 Channel Voice message (MT=0x2)");
+        }
+        let w = ump.data[0];
+        let group = ((w >> 24) & 0xF) as u8;
+        let status = ((w >> 16) & 0xF0) as u8;
+        let channel = ((w >> 16) & 0x0F) as u8;
+        let data1 = ((w >> 8) & 0x7F) as u8;
+        let data2 = (w & 0x7F) as u8;
+
+        Ok(Self {
+            group,
+            status,
+            channel,
+            data1,
+            data2,
+        })
+    }
+}
