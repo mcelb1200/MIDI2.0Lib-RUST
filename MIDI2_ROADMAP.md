@@ -60,7 +60,7 @@ We are building `am_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 **Prompt:** "Implement the sysex module. MIDI 2.0 sends SysEx in 64-bit (MT 0x3) or 128-bit (MT 0x5) Data packets. We need a SysExBuilder that takes a `&[u8]` payload and returns an `Iterator<Item = Ump>` to chunk the data into packets (Start, Continue, End). Also need a SysExCollector state machine to reassemble incoming packets."
 **Definition of Done:** A test that takes a long string, chunks it into 10 UMPs, and reassembles it back to the string.
 
-### ⬜ Session 3.2: Discovery & Protocol Negotiation
+### ✅ Session 3.2: Discovery & Protocol Negotiation
 **Prompt:** "Implement the ci module basics. Define the Universal SysEx header for MIDI-CI (0x7E, 0x0D, ...). Create a struct CiDiscovery that generates the 'Discovery Inquiry' message. Create a state machine CiInitiator that transitions: Uninitialized -> DiscoverySent -> DiscoveryReceived -> Negotiating."
 **Definition of Done:** A state machine that advances when fed simulated valid CI responses.
 

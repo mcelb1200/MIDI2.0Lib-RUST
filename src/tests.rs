@@ -932,4 +932,181 @@ mod tests {
         assert_eq!(perf_ump.data[2], 0x6F000000);
         assert_eq!(perf_ump.data[3], 0);
     }
+
+    #[test]
+    fn test_ci_7bit_packing() {
+        use crate::ci::*;
+
+        assert_eq!(pack_7bit_u16(0x3FFF), [0x7F, 0x7F]);
+        assert_eq!(unpack_7bit_u16(&[0x7F, 0x7F]), 0x3FFF);
+        assert_eq!(unpack_7bit_u16(&[0x05, 0x01]), 5 | (1 << 7));
+
+        let muid: u32 = 0x05A3B2C1 & 0x0FFFFFFF;
+        let packed = pack_7bit_u32(muid);
+        let unpacked = unpack_7bit_u32(&packed);
+        assert_eq!(unpacked, muid);
+    }
+
+    #[test]
+    fn test_ci_header_roundtrip() {
+        use crate::ci::*;
+
+        let hdr = CiHeader::new(0x7F, MIDICI_DISCOVERY, 2, 0x12345, 0x6789A);
+        let bytes = hdr.to_bytes();
+        assert_eq!(bytes[0], S7UNIVERSAL_NRT);
+        assert_eq!(bytes[1], 0x7F);
+        assert_eq!(bytes[2], S7MIDICI);
+        assert_eq!(bytes[3], MIDICI_DISCOVERY);
+        assert_eq!(bytes[4], 2);
+
+        let parsed = CiHeader::parse(&bytes).expect("should parse header");
+        assert_eq!(parsed, hdr);
+    }
+
+    #[test]
+    fn test_ci_discovery_inquiry_and_reply() {
+        use crate::ci::*;
+
+        let dev_info = CiDeviceInfo {
+            manufacturer_id: [0x01, 0x02, 0x03],
+            family_id: [0x10, 0x20],
+            model_id: [0x30, 0x40],
+            version: [0x01, 0x00, 0x00, 0x00],
+            ci_support: 0x07,
+            max_sysex: 512,
+            output_path_id: 1,
+            fb_idx: 2,
+        };
+
+        // Inquiry
+        let inq_payload = CiDiscovery::build_inquiry_payload(0x1234, &dev_info, 2);
+        assert_eq!(inq_payload.len(), 30);
+        let (inq_hdr, inq_dev) =
+            CiDiscovery::parse_discovery(&inq_payload).expect("should parse inquiry");
+        assert_eq!(inq_hdr.source_muid, 0x1234);
+        assert_eq!(inq_hdr.destination_muid, M2_CI_BROADCAST);
+        assert_eq!(inq_dev.manufacturer_id, [0x01, 0x02, 0x03]);
+        assert_eq!(inq_dev.output_path_id, 1);
+
+        // Reply
+        let reply_payload = CiDiscovery::build_reply_payload(0x5678, 0x1234, &dev_info, 2);
+        assert_eq!(reply_payload.len(), 31);
+        let (rep_hdr, rep_dev) =
+            CiDiscovery::parse_discovery(&reply_payload).expect("should parse reply");
+        assert_eq!(rep_hdr.source_muid, 0x5678);
+        assert_eq!(rep_hdr.destination_muid, 0x1234);
+        assert_eq!(rep_dev.fb_idx, 2);
+    }
+
+    #[test]
+    fn test_ci_initiator_and_responder_state_machine() {
+        use crate::ci::*;
+        use crate::sysex::SysEx7Receiver;
+
+        let initiator_info = CiDeviceInfo {
+            manufacturer_id: [0x00, 0x01, 0x02],
+            family_id: [0x01, 0x00],
+            model_id: [0x02, 0x00],
+            version: [0x01, 0x00, 0x00, 0x00],
+            ci_support: 0x07,
+            max_sysex: 1024,
+            output_path_id: 0,
+            fb_idx: 0,
+        };
+
+        let responder_info = CiDeviceInfo {
+            manufacturer_id: [0x03, 0x04, 0x05],
+            family_id: [0x03, 0x00],
+            model_id: [0x04, 0x00],
+            version: [0x02, 0x00, 0x00, 0x00],
+            ci_support: 0x07,
+            max_sysex: 1024,
+            output_path_id: 0,
+            fb_idx: 1,
+        };
+
+        let mut initiator = CiInitiator::new(0x11111, initiator_info);
+        let mut responder = CiResponder::new(0x22222, responder_info);
+
+        assert_eq!(initiator.state(), CiInitiatorState::Uninitialized);
+        assert_eq!(responder.state(), CiResponderState::Idle);
+
+        // 1. Initiator starts discovery
+        let (inq_buf, inq_len) = initiator.start_discovery(2);
+        assert_eq!(initiator.state(), CiInitiatorState::DiscoverySent);
+
+        // Transmit Inquiry over UMP chunker & receiver simulation
+        let chunker = CiDiscovery::create_inquiry_ump_chunker(0, &inq_buf[..inq_len]);
+        let mut rx_inquiry = SysEx7Receiver::<64>::new();
+        for ump in chunker {
+            let _ = rx_inquiry.process_ump(&ump);
+        }
+        assert_eq!(rx_inquiry.payload(), &inq_buf[..inq_len]);
+
+        // 2. Responder receives inquiry and generates reply
+        let (reply_buf, reply_len) = responder
+            .handle_discovery_inquiry(rx_inquiry.payload())
+            .expect("should generate discovery reply");
+        assert_eq!(responder.state(), CiResponderState::Discovered);
+
+        // 3. Initiator receives discovery reply
+        let res = initiator.process_message(&reply_buf[..reply_len]);
+        assert_eq!(res, Ok(CiInitiatorState::DiscoveryReceived));
+        assert_eq!(initiator.remote_muid(), Some(0x22222));
+
+        // 4. Protocol negotiation: Initiator inquires
+        let (proto_inq, proto_len) = CiProtocolNegotiation::build_inquiry_payload(
+            0x11111,
+            0x22222,
+            1,
+            &[MIDI_PROTOCOL_2, MIDI_PROTOCOL_1],
+        );
+        let (proto_rep, rep_len) = responder
+            .handle_protocol_inquiry(&proto_inq[..proto_len])
+            .expect("should handle protocol inquiry");
+        assert_eq!(responder.state(), CiResponderState::ProtocolNegotiating);
+
+        // 5. Initiator processes protocol reply
+        let res = initiator.process_message(&proto_rep[..rep_len]);
+        assert_eq!(res, Ok(CiInitiatorState::ProtocolNegotiating));
+
+        // 6. Protocol confirmation
+        let confirm_payload =
+            CiProtocolNegotiation::build_protocol_confirm_payload(0x22222, 0x11111, 1);
+        let res = initiator.process_message(&confirm_payload);
+        assert_eq!(res, Ok(CiInitiatorState::Negotiated));
+    }
+
+    #[test]
+    fn test_ci_protocol_negotiation_messages() {
+        use crate::ci::*;
+
+        let (inq, len) = CiProtocolNegotiation::build_inquiry_payload(
+            100,
+            200,
+            2,
+            &[MIDI_PROTOCOL_2, MIDI_PROTOCOL_1],
+        );
+        assert_eq!(len, 25);
+        assert_eq!(inq[13], 2); // authority
+        assert_eq!(inq[14], 2); // num protocols
+        assert_eq!(&inq[15..20], &MIDI_PROTOCOL_2);
+        assert_eq!(&inq[20..25], &MIDI_PROTOCOL_1);
+
+        let set_proto =
+            CiProtocolNegotiation::build_set_protocol_payload(100, 200, 2, MIDI_PROTOCOL_2);
+        assert_eq!(set_proto.len(), 19);
+        assert_eq!(&set_proto[14..19], &MIDI_PROTOCOL_2);
+
+        let test_proto = CiProtocolNegotiation::build_protocol_test_payload(100, 200, 2);
+        assert_eq!(test_proto.len(), 62);
+        assert_eq!(test_proto[13], 2);
+        assert_eq!(test_proto[14], 0);
+        assert_eq!(test_proto[61], 47);
+
+        let test_resp = CiProtocolNegotiation::build_protocol_test_responder_payload(200, 100, 2);
+        assert_eq!(test_resp.len(), 62);
+        assert_eq!(test_resp[14], 0);
+        assert_eq!(test_resp[61], 47);
+    }
 }
