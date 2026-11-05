@@ -64,4 +64,22 @@ mod tests {
         assert_eq!(ump.group(), 3);
         assert_eq!(ump.data[0], 0xF3FFFFFF); // Only bits [24:27] should change
     }
+
+    #[test]
+    fn test_lossless_m1cvm() {
+        use crate::ump::Midi1ChannelVoice;
+
+        // Valid MT=0x2 message: Note On, group 2, ch 5, note 60, vel 100
+        let ump = Ump::new(0x22953C64, 0, 0, 0);
+        let cvm = Midi1ChannelVoice::try_from(&ump).expect("should decode MT=2");
+        assert_eq!(cvm.group, 2);
+        assert_eq!(cvm.status, 0x90);
+        assert_eq!(cvm.channel, 5);
+        assert_eq!(cvm.data1, 60);
+        assert_eq!(cvm.data2, 100);
+
+        // Invalid MT (MT=0x4)
+        let ump_mt4 = Ump::new(0x40903C00, 0x80000000, 0, 0);
+        assert!(Midi1ChannelVoice::try_from(&ump_mt4).is_err());
+    }
 }
