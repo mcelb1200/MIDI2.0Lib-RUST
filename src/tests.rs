@@ -169,6 +169,75 @@ mod tests {
     }
 
     #[test]
+    fn test_midi2_per_note_pitch_bend() {
+        let group = 1;
+        let channel = 2;
+        let note = 60;
+        let value: u32 = 0x80000000;
+        let ump = UmpFactory::midi2_per_note_pitch_bend(group, channel, note, value);
+
+        assert_eq!(ump.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(ump.group(), group);
+        assert_eq!(ump.channel(), channel);
+        assert_eq!(ump.status(), PITCH_BEND_PERNOTE);
+        assert_eq!(ump.data[0], 0x41623C00);
+        assert_eq!(ump.data[1], value);
+    }
+
+    #[test]
+    fn test_midi2_per_note_cc() {
+        let group = 1;
+        let channel = 2;
+        let note = 60;
+        let index = 5;
+        let value: u32 = 0x12345678;
+        let ump = UmpFactory::midi2_per_note_cc(group, channel, note, index, value);
+
+        assert_eq!(ump.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(ump.group(), group);
+        assert_eq!(ump.channel(), channel);
+        assert_eq!(ump.status(), NRPN_PERNOTE);
+        // MT=0x4, Grp=1, Status=0x1, Ch=2, Note=0x3C, Index=0x05
+        assert_eq!(ump.data[0], 0x41123C05);
+        assert_eq!(ump.data[1], value);
+    }
+
+    #[test]
+    fn test_midi2_per_note_rpn() {
+        let group = 1;
+        let channel = 2;
+        let note = 60;
+        let index = 5;
+        let value: u32 = 0x12345678;
+        let ump = UmpFactory::midi2_per_note_rpn(group, channel, note, index, value);
+
+        assert_eq!(ump.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(ump.group(), group);
+        assert_eq!(ump.channel(), channel);
+        assert_eq!(ump.status(), RPN_PERNOTE);
+        // MT=0x4, Grp=1, Status=0x0, Ch=2, Note=0x3C, Index=0x05
+        assert_eq!(ump.data[0], 0x41023C05);
+        assert_eq!(ump.data[1], value);
+    }
+
+    #[test]
+    fn test_midi2_per_note_manage() {
+        let group = 1;
+        let channel = 2;
+        let note = 60;
+        let option_flags = 3; // bit 0 (detach) + bit 1 (reset)
+        let ump = UmpFactory::midi2_per_note_manage(group, channel, note, option_flags);
+
+        assert_eq!(ump.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(ump.group(), group);
+        assert_eq!(ump.channel(), channel);
+        assert_eq!(ump.status(), PERNOTE_MANAGE);
+        // MT=0x4, Grp=1, Status=0xF, Ch=2, Note=0x3C, Flags=0x03
+        assert_eq!(ump.data[0], 0x41F23C03);
+        assert_eq!(ump.data[1], 0);
+    }
+
+    #[test]
     fn test_midi2_channel_pressure() {
         let group = 3;
         let channel = 7;
