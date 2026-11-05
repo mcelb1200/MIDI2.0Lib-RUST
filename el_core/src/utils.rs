@@ -1,3 +1,21 @@
+// Flex Data Constants
+/// Flex Data Status Bank: Common / Configuration (0x00).
+pub const FLEXDATA_COMMON: u8 = 0x00;
+/// Flex Data Status: Set Tempo Message (0x00).
+pub const FLEXDATA_COMMON_TEMPO: u8 = 0x00;
+/// Flex Data Status: Set Time Signature Message (0x01).
+pub const FLEXDATA_COMMON_TIMESIG: u8 = 0x01;
+/// Flex Data Status: Set Metronome Message (0x02).
+pub const FLEXDATA_COMMON_METRONOME: u8 = 0x02;
+/// Flex Data Status: Set Key Signature Message (0x05).
+pub const FLEXDATA_COMMON_KEYSIG: u8 = 0x05;
+/// Flex Data Status: Set Chord Message (0x06).
+pub const FLEXDATA_COMMON_CHORD: u8 = 0x06;
+/// Flex Data Status Bank: Performance Events (0x01).
+pub const FLEXDATA_PERFORMANCE: u8 = 0x01;
+/// Flex Data Status Bank: Lyric Events (0x02).
+pub const FLEXDATA_LYRIC: u8 = 0x02;
+
 /// Combines 14-bit CC fragments into a single u16 value
 #[must_use]
 #[inline]

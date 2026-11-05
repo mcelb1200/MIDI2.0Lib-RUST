@@ -669,4 +669,339 @@ impl UmpFactory {
             data: [word1, value, 0, 0],
         }
     }
+
+    // Flex Data Messages (MT=0xD)
+
+    /// Helper to create the header (Word 0) of a Flex Data UMP (MT=0xD).
+    ///
+    /// Bits:
+    /// - [31:28] Message Type (0xD)
+    /// - [27:24] Group (4 bits)
+    /// - [23:22] Form (2 bits)
+    /// - [21:20] Address (2 bits)
+    /// - [19:16] Channel (4 bits)
+    /// - [15:8]  Status Bank (8 bits)
+    /// - [7:0]   Status (8 bits)
+    #[must_use]
+    #[inline]
+    pub fn flex_header(
+        group: u8,
+        form: u8,
+        addrs: u8,
+        channel: u8,
+        status_bank: u8,
+        status: u8,
+    ) -> u32 {
+        let combined = ((group as u32) << 24)
+            | (((form as u32) & 0x3) << 22)
+            | (((addrs as u32) & 0x3) << 20)
+            | (((channel as u32) & 0xF) << 16)
+            | ((status_bank as u32) << 8)
+            | (status as u32);
+        ((u32::from(UMP_FLEX_DATA)) << 28) | (combined & 0x0FFFFFFF)
+    }
+
+    /// Generic Flex Data UMP builder.
+    #[must_use]
+    #[inline]
+    #[allow(clippy::too_many_arguments)]
+    pub fn flex_data(
+        group: u8,
+        form: u8,
+        addrs: u8,
+        channel: u8,
+        status_bank: u8,
+        status: u8,
+        data1: u32,
+        data2: u32,
+        data3: u32,
+    ) -> Ump {
+        let word0 = Self::flex_header(group, form, addrs, channel, status_bank, status);
+        Ump {
+            data: [word0, data1, data2, data3],
+        }
+    }
+
+    /// Creates a Flex Data Set Tempo UMP.
+    ///
+    /// # Arguments
+    ///
+    /// * `group` - Destination group (0-15).
+    /// * `channel` - Destination channel (0-15).
+    /// * `form` - Multi-packet format (0-3).
+    /// * `addrs` - Target address (0: Channel, 1: Group, 2: Complete Endpoint).
+    /// * `num_10ns_pqn` - Number of 10-nanosecond units per primary quarter note.
+    #[must_use]
+    #[inline]
+    pub fn flex_tempo(group: u8, channel: u8, form: u8, addrs: u8, num_10ns_pqn: u32) -> Ump {
+        Self::flex_data(
+            group,
+            form,
+            addrs,
+            channel,
+            FLEXDATA_COMMON,
+            FLEXDATA_COMMON_TEMPO,
+            num_10ns_pqn,
+            0,
+            0,
+        )
+    }
+
+    /// Creates a Flex Data Set Time Signature UMP.
+    ///
+    /// # Arguments
+    ///
+    /// * `group` - Destination group (0-15).
+    /// * `channel` - Destination channel (0-15).
+    /// * `form` - Multi-packet format (0-3).
+    /// * `addrs` - Target address (0: Channel, 1: Group, 2: Complete Endpoint).
+    /// * `numerator` - Time signature numerator.
+    /// * `denominator` - Time signature denominator (negative power of 2, e.g. 2 for quarter note).
+    /// * `num_32_notes` - Number of 1/32 notes in a beat.
+    #[must_use]
+    #[inline]
+    pub fn flex_time_sig(
+        group: u8,
+        channel: u8,
+        form: u8,
+        addrs: u8,
+        numerator: u8,
+        denominator: u8,
+        num_32_notes: u8,
+    ) -> Ump {
+        let word1 = ((numerator as u32) << 24)
+            | ((denominator as u32) << 16)
+            | ((num_32_notes as u32) << 8);
+        Self::flex_data(
+            group,
+            form,
+            addrs,
+            channel,
+            FLEXDATA_COMMON,
+            FLEXDATA_COMMON_TIMESIG,
+            word1,
+            0,
+            0,
+        )
+    }
+
+    /// Creates a Flex Data Set Metronome UMP.
+    ///
+    /// # Arguments
+    ///
+    /// * `group` - Destination group (0-15).
+    /// * `channel` - Destination channel (0-15).
+    /// * `form` - Multi-packet format (0-3).
+    /// * `addrs` - Target address (0: Channel, 1: Group, 2: Complete Endpoint).
+    /// * `num_clk_pri_cli` - Number of clocks per primary click.
+    /// * `b_acc_p1` - Bar accent part 1.
+    /// * `b_acc_p2` - Bar accent part 2.
+    /// * `b_acc_p3` - Bar accent part 3.
+    /// * `num_sub_div_cli1` - Number of subdivision clicks 1.
+    /// * `num_sub_div_cli2` - Number of subdivision clicks 2.
+    #[must_use]
+    #[inline]
+    #[allow(clippy::too_many_arguments)]
+    pub fn flex_metronome(
+        group: u8,
+        channel: u8,
+        form: u8,
+        addrs: u8,
+        num_clk_pri_cli: u8,
+        b_acc_p1: u8,
+        b_acc_p2: u8,
+        b_acc_p3: u8,
+        num_sub_div_cli1: u8,
+        num_sub_div_cli2: u8,
+    ) -> Ump {
+        let word1 = ((num_clk_pri_cli as u32) << 24)
+            | ((b_acc_p1 as u32) << 16)
+            | ((b_acc_p2 as u32) << 8)
+            | (b_acc_p3 as u32);
+        let word2 = ((num_sub_div_cli1 as u32) << 24) | ((num_sub_div_cli2 as u32) << 16);
+        Self::flex_data(
+            group,
+            form,
+            addrs,
+            channel,
+            FLEXDATA_COMMON,
+            FLEXDATA_COMMON_METRONOME,
+            word1,
+            word2,
+            0,
+        )
+    }
+
+    /// Creates a Flex Data Set Key Signature UMP.
+    ///
+    /// # Arguments
+    ///
+    /// * `group` - Destination group (0-15).
+    /// * `channel` - Destination channel (0-15).
+    /// * `form` - Multi-packet format (0-3).
+    /// * `addrs` - Target address (0: Channel, 1: Group, 2: Complete Endpoint).
+    /// * `sharps_flats` - Number of sharps (>0) or flats (<0, signed 2s complement).
+    /// * `tonic` - Tonic note.
+    #[must_use]
+    #[inline]
+    pub fn flex_key_sig(
+        group: u8,
+        channel: u8,
+        form: u8,
+        addrs: u8,
+        sharps_flats: u8,
+        tonic: u8,
+    ) -> Ump {
+        let word1 = ((sharps_flats as u32) << 24) | ((tonic as u32) << 16);
+        Self::flex_data(
+            group,
+            form,
+            addrs,
+            channel,
+            FLEXDATA_COMMON,
+            FLEXDATA_COMMON_KEYSIG,
+            word1,
+            0,
+            0,
+        )
+    }
+
+    /// Creates a Flex Data Set Chord UMP.
+    #[must_use]
+    #[inline]
+    #[allow(clippy::too_many_arguments)]
+    pub fn flex_chord(
+        group: u8,
+        channel: u8,
+        form: u8,
+        addrs: u8,
+        ch_shrp_flt: u8,
+        ch_tonic: u8,
+        ch_type: u8,
+        ch_alt1_type: u8,
+        ch_alt1_deg: u8,
+        ch_alt2_type: u8,
+        ch_alt2_deg: u8,
+        ch_alt3_type: u8,
+        ch_alt3_deg: u8,
+        ch_alt4_type: u8,
+        ch_alt4_deg: u8,
+        ba_shrp_flt: u8,
+        ba_tonic: u8,
+        ba_type: u8,
+        ba_alt1_type: u8,
+        ba_alt1_deg: u8,
+        ba_alt2_type: u8,
+        ba_alt2_deg: u8,
+    ) -> Ump {
+        let word1 = (((ch_shrp_flt & 0xF) as u32) << 28)
+            | (((ch_tonic & 0xF) as u32) << 24)
+            | ((ch_type as u32) << 16)
+            | (((ch_alt1_type & 0xF) as u32) << 12)
+            | (((ch_alt1_deg & 0xF) as u32) << 8)
+            | (((ch_alt2_type & 0xF) as u32) << 4)
+            | ((ch_alt2_deg & 0xF) as u32);
+
+        let word2 = (((ch_alt3_type & 0xF) as u32) << 28)
+            | (((ch_alt3_deg & 0xF) as u32) << 24)
+            | (((ch_alt4_type & 0xF) as u32) << 20)
+            | (((ch_alt4_deg & 0xF) as u32) << 16);
+
+        let word3 = (((ba_shrp_flt & 0xF) as u32) << 28)
+            | (((ba_tonic & 0xF) as u32) << 24)
+            | ((ba_type as u32) << 16)
+            | (((ba_alt1_type & 0xF) as u32) << 12)
+            | (((ba_alt1_deg & 0xF) as u32) << 8)
+            | (((ba_alt2_type & 0xF) as u32) << 4)
+            | ((ba_alt2_deg & 0xF) as u32);
+
+        Self::flex_data(
+            group,
+            form,
+            addrs,
+            channel,
+            FLEXDATA_COMMON,
+            FLEXDATA_COMMON_CHORD,
+            word1,
+            word2,
+            word3,
+        )
+    }
+
+    /// Creates a Flex Data Text UMP carrying up to 12 text bytes across words 1..3.
+    ///
+    /// # Arguments
+    ///
+    /// * `group` - Destination group (0-15).
+    /// * `channel` - Destination channel (0-15).
+    /// * `form` - Multi-packet format (0-3).
+    /// * `addrs` - Target address (0: Channel, 1: Group, 2: Complete Endpoint).
+    /// * `status_bank` - Status Bank.
+    /// * `status` - Status byte.
+    /// * `text` - Payload text bytes (up to 12 bytes packed into words 1..3).
+    #[must_use]
+    #[inline]
+    pub fn flex_text(
+        group: u8,
+        channel: u8,
+        form: u8,
+        addrs: u8,
+        status_bank: u8,
+        status: u8,
+        text: &[u8],
+    ) -> Ump {
+        let mut words = [0_u32; 3];
+        let mut offset = 0;
+        let text_len = text.len();
+
+        for word in &mut words {
+            for b in (0..4).rev() {
+                if offset < text_len {
+                    *word |= (text[offset] as u32) << (b * 8);
+                    offset += 1;
+                }
+            }
+        }
+
+        Self::flex_data(
+            group,
+            form,
+            addrs,
+            channel,
+            status_bank,
+            status,
+            words[0],
+            words[1],
+            words[2],
+        )
+    }
+
+    /// Creates a Flex Data Performance Text UMP (Status Bank = 0x01).
+    #[must_use]
+    #[inline]
+    pub fn flex_performance(
+        group: u8,
+        channel: u8,
+        form: u8,
+        addrs: u8,
+        status: u8,
+        text: &[u8],
+    ) -> Ump {
+        Self::flex_text(
+            group,
+            channel,
+            form,
+            addrs,
+            FLEXDATA_PERFORMANCE,
+            status,
+            text,
+        )
+    }
+
+    /// Creates a Flex Data Lyric Text UMP (Status Bank = 0x02).
+    #[must_use]
+    #[inline]
+    pub fn flex_lyric(group: u8, channel: u8, form: u8, addrs: u8, status: u8, text: &[u8]) -> Ump {
+        Self::flex_text(group, channel, form, addrs, FLEXDATA_LYRIC, status, text)
+    }
 }

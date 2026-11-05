@@ -789,4 +789,78 @@ mod tests {
         ump4.data[0] = 0x40903C00;
         assert!(Midi1ChannelVoice::try_from(&ump4).is_err());
     }
+
+    #[test]
+    fn test_flex_data_creation_roundtrip() {
+        use crate::messages::UmpFactory;
+        use crate::ump::MessageType;
+        use crate::utils::{FLEXDATA_COMMON, FLEXDATA_COMMON_TEMPO, FLEXDATA_LYRIC};
+
+        // Header check
+        let header = UmpFactory::flex_header(1, 0, 1, 2, FLEXDATA_COMMON, FLEXDATA_COMMON_TEMPO);
+        assert_eq!(header, 0xD1120000);
+
+        // Tempo test matching upstream mtDFlexTempo(1, 2, 0, 1, 0x12345678)
+        let tempo = UmpFactory::flex_tempo(1, 2, 0, 1, 0x12345678);
+        assert_eq!(tempo.message_type(), MessageType::FlexData);
+        assert_eq!(tempo.group(), 1);
+        assert_eq!(tempo.data[0], 0xD1120000);
+        assert_eq!(tempo.data[1], 0x12345678);
+        assert_eq!(tempo.data[2], 0);
+        assert_eq!(tempo.data[3], 0);
+
+        // Time Signature test matching upstream mtDFlexTimeSig(1, 2, 0, 1, 4, 4, 8)
+        let timesig = UmpFactory::flex_time_sig(1, 2, 0, 1, 4, 4, 8);
+        assert_eq!(timesig.message_type(), MessageType::FlexData);
+        assert_eq!(timesig.data[0], 0xD1120001);
+        assert_eq!(timesig.data[1], 0x04040800);
+        assert_eq!(timesig.data[2], 0);
+        assert_eq!(timesig.data[3], 0);
+
+        // Metronome test matching upstream mtDFlexMetronome(1, 2, 0, 1, 10, 11, 12, 13, 14, 15)
+        let metronome = UmpFactory::flex_metronome(1, 2, 0, 1, 10, 11, 12, 13, 14, 15);
+        assert_eq!(metronome.message_type(), MessageType::FlexData);
+        assert_eq!(metronome.data[0], 0xD1120002);
+        assert_eq!(metronome.data[1], 0x0A0B0C0D);
+        assert_eq!(metronome.data[2], 0x0E0F0000);
+        assert_eq!(metronome.data[3], 0);
+
+        // Key Signature test matching upstream mtDFlexKeySig(1, 2, 0, 1, 5, 2)
+        let keysig = UmpFactory::flex_key_sig(1, 2, 0, 1, 5, 2);
+        assert_eq!(keysig.message_type(), MessageType::FlexData);
+        assert_eq!(keysig.data[0], 0xD1120005);
+        assert_eq!(keysig.data[1], 0x05020000);
+        assert_eq!(keysig.data[2], 0);
+        assert_eq!(keysig.data[3], 0);
+
+        // Chord test matching upstream mtDFlexChord(1, 2, 0, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2)
+        let chord = UmpFactory::flex_chord(
+            1, 2, 0, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2,
+        );
+        assert_eq!(chord.message_type(), MessageType::FlexData);
+        assert_eq!(chord.data[0], 0xD1120006);
+        assert_eq!(chord.data[1], 0x12034567);
+        assert_eq!(chord.data[2], 0x89AB0000);
+        assert_eq!(chord.data[3], 0xCD0EF012);
+
+        // Text test matching upstream mtDFlexText(1, 2, 0, 1, FLEXDATA_LYRIC, 0, text, 5)
+        let text = b"Hello";
+        let text_ump = UmpFactory::flex_text(1, 2, 0, 1, FLEXDATA_LYRIC, 0, text);
+        assert_eq!(text_ump.message_type(), MessageType::FlexData);
+        assert_eq!(text_ump.data[0], 0xD1120200);
+        assert_eq!(text_ump.data[1], 0x48656C6C);
+        assert_eq!(text_ump.data[2], 0x6F000000);
+        assert_eq!(text_ump.data[3], 0);
+
+        // Lyric text helper
+        let lyric_ump = UmpFactory::flex_lyric(1, 2, 0, 1, 0, text);
+        assert_eq!(lyric_ump.data, text_ump.data);
+
+        // Performance text helper
+        let perf_ump = UmpFactory::flex_performance(1, 2, 0, 1, 0, text);
+        assert_eq!(perf_ump.data[0], 0xD1120100);
+        assert_eq!(perf_ump.data[1], 0x48656C6C);
+        assert_eq!(perf_ump.data[2], 0x6F000000);
+        assert_eq!(perf_ump.data[3], 0);
+    }
 }
