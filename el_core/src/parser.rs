@@ -38,6 +38,7 @@ where
         // length and jumping to different array initializations, improving parsing speed.
         // We explicitly return None if the stream truncates mid-packet.
         let mut data = [w1, 0, 0, 0];
+        #[allow(clippy::needless_range_loop)]
         for i in 1..count {
             data[i] = self.stream.next()?;
         }

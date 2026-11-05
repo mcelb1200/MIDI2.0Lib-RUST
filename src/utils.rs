@@ -84,6 +84,24 @@ pub const UMP_FLEX_DATA: u8 = 0xD;
 /// Message Type: MIDI Endpoint (0xF).
 pub const UMP_MIDI_ENDPOINT: u8 = 0xF;
 
+// Flex Data Constants
+/// Flex Data Status Bank: Common / Configuration (0x00).
+pub const FLEXDATA_COMMON: u8 = 0x00;
+/// Flex Data Status: Set Tempo Message (0x00).
+pub const FLEXDATA_COMMON_TEMPO: u8 = 0x00;
+/// Flex Data Status: Set Time Signature Message (0x01).
+pub const FLEXDATA_COMMON_TIMESIG: u8 = 0x01;
+/// Flex Data Status: Set Metronome Message (0x02).
+pub const FLEXDATA_COMMON_METRONOME: u8 = 0x02;
+/// Flex Data Status: Set Key Signature Message (0x05).
+pub const FLEXDATA_COMMON_KEYSIG: u8 = 0x05;
+/// Flex Data Status: Set Chord Message (0x06).
+pub const FLEXDATA_COMMON_CHORD: u8 = 0x06;
+/// Flex Data Status Bank: Performance Events (0x01).
+pub const FLEXDATA_PERFORMANCE: u8 = 0x01;
+/// Flex Data Status Bank: Lyric Events (0x02).
+pub const FLEXDATA_LYRIC: u8 = 0x02;
+
 // Helper functions
 
 /// Scales a value up from a smaller bit depth to a larger bit depth.
