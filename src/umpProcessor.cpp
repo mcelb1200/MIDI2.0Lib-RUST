@@ -100,8 +100,8 @@ void umpProcessor::processUMP(uint32_t UMP) {
       uint8_t val2 = umpMess[0] & 0x7F;
 
       switch (mess.status) {
-      case NOTE_OFF: // Note Off
-      case NOTE_ON:  // Note On
+      case NOTE_OFF:     // Note Off
+      case NOTE_ON:      // Note On
         mess.note = val1;
         mess.value = M2Utils::scaleUp(val2, 7, 16);
         channelVoiceMessage(mess);
