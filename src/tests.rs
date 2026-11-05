@@ -1109,4 +1109,159 @@ mod tests {
         assert_eq!(test_resp[14], 0);
         assert_eq!(test_resp[61], 47);
     }
+
+    #[test]
+    fn test_ci_profile_configuration_messages() {
+        use crate::ci::*;
+        use crate::sysex::SysEx7Chunker;
+
+        let src_muid = 0x12345;
+        let dst_muid = 0x6789A;
+        let p_standard = ProfileId::standard(1, 2, 1, 0);
+        assert!(p_standard.is_standard());
+        assert_eq!(p_standard.raw, [0x7E, 1, 2, 1, 0]);
+
+        // 1. Profile Inquiry
+        let inq = CiProfile::build_inquiry_payload(src_muid, dst_muid, 0x7F, 1);
+        assert_eq!(inq.len(), 13);
+        let hdr = CiHeader::parse(&inq).expect("valid header");
+        assert_eq!(hdr.ci_type, MIDICI_PROFILE_INQUIRY);
+
+        // 2. Profile Inquiry Reply
+        let p_custom = ProfileId::new([0x01, 0x02, 0x03, 0x04, 0x05]);
+        assert!(!p_custom.is_standard());
+        let (rep, rep_len) = CiProfile::build_inquiry_reply_payload(
+            dst_muid,
+            src_muid,
+            0x7F,
+            1,
+            &[p_standard],
+            &[p_custom],
+        );
+        assert_eq!(rep_len, 13 + 2 + 5 + 2 + 5);
+        let rep_hdr = CiHeader::parse(&rep[..rep_len]).expect("valid reply header");
+        assert_eq!(rep_hdr.ci_type, MIDICI_PROFILE_INQUIRYREPLY);
+
+        // 3. Set Profile On (CI v1 = 18 bytes, CI v2 = 20 bytes)
+        let (set_on_v1, len_v1) =
+            CiProfile::build_set_profile_on(src_muid, dst_muid, 0x7F, 1, p_standard, 1);
+        assert_eq!(len_v1, 18);
+        let (hdr_on_v1, parsed_p1, ch1) =
+            CiProfile::parse_profile_message(&set_on_v1[..len_v1]).expect("parse v1");
+        assert_eq!(hdr_on_v1.ci_type, MIDICI_PROFILE_SETON);
+        assert_eq!(parsed_p1, p_standard);
+        assert_eq!(ch1, 0);
+
+        let (set_on_v2, len_v2) =
+            CiProfile::build_set_profile_on(src_muid, dst_muid, 0x7F, 2, p_standard, 4);
+        assert_eq!(len_v2, 20);
+        let (hdr_on_v2, parsed_p2, ch2) =
+            CiProfile::parse_profile_message(&set_on_v2[..len_v2]).expect("parse v2");
+        assert_eq!(hdr_on_v2.ci_type, MIDICI_PROFILE_SETON);
+        assert_eq!(parsed_p2, p_standard);
+        assert_eq!(ch2, 4);
+
+        // 4. Set Profile Off
+        let (set_off, off_len) =
+            CiProfile::build_set_profile_off(src_muid, dst_muid, 0x7F, 2, p_standard);
+        assert_eq!(off_len, 20);
+        let (hdr_off, parsed_off, _) =
+            CiProfile::parse_profile_message(&set_off[..off_len]).expect("parse off");
+        assert_eq!(hdr_off.ci_type, MIDICI_PROFILE_SETOFF);
+        assert_eq!(parsed_off, p_standard);
+
+        // 5. Profile Specific Data
+        let test_data = [0x11, 0x22, 0x33, 0x44];
+        let (data_msg, data_len) = CiProfile::build_profile_specific_data(
+            src_muid, dst_muid, 0x7F, 2, p_standard, &test_data,
+        );
+        assert_eq!(data_len, 22 + 4);
+        let data_hdr = CiHeader::parse(&data_msg[..data_len]).expect("parse data msg");
+        assert_eq!(data_hdr.ci_type, MIDICI_PROFILE_SPECIFIC_DATA);
+
+        // 6. SysEx7 chunking roundtrip of Profile On payload
+        let chunker = SysEx7Chunker::new(2, &set_on_v2[..len_v2]);
+        let umps: alloc::vec::Vec<_> = chunker.collect();
+        assert_eq!(umps.len(), 4); // 20 bytes -> ceil(20 / 6) = 4 packets
+    }
+
+    #[test]
+    fn test_ci_profile_state_machine_handshake() {
+        use crate::ci::*;
+
+        let dev_info = CiDeviceInfo::default();
+        let mut initiator = CiInitiator::new(0x11111, dev_info);
+        let mut responder = CiResponder::new(0x22222, dev_info);
+
+        let p1 = ProfileId::standard(1, 2, 1, 0);
+        let p2 = ProfileId::new([0x01, 0x02, 0x03, 0x04, 0x05]);
+        assert!(responder.add_supported_profile(p1));
+        assert!(responder.add_supported_profile(p2));
+
+        // Advance to Negotiated
+        let (inq_buf, inq_len) = initiator.start_discovery(2);
+        let (reply_buf, reply_len) = responder
+            .handle_discovery_inquiry(&inq_buf[..inq_len])
+            .unwrap();
+        initiator.process_message(&reply_buf[..reply_len]).unwrap();
+
+        let (proto_inq, proto_len) = CiProtocolNegotiation::build_inquiry_payload(
+            0x11111,
+            0x22222,
+            1,
+            &[MIDI_PROTOCOL_2, MIDI_PROTOCOL_1],
+        );
+        let (proto_rep, rep_len) = responder
+            .handle_protocol_inquiry(&proto_inq[..proto_len])
+            .unwrap();
+        initiator.process_message(&proto_rep[..rep_len]).unwrap();
+
+        let confirm_payload =
+            CiProtocolNegotiation::build_protocol_confirm_payload(0x22222, 0x11111, 1);
+        initiator.process_message(&confirm_payload).unwrap();
+        assert_eq!(initiator.state(), CiInitiatorState::Negotiated);
+
+        // Initiator requests Profile Inquiry
+        let prof_inq = CiProfile::build_inquiry_payload(0x11111, 0x22222, 0x7F, 2);
+        let (prof_reply, prof_reply_len) = responder
+            .handle_profile_inquiry(&prof_inq)
+            .expect("should handle profile inquiry");
+        assert_eq!(responder.state(), CiResponderState::ProfileConfiguring);
+        assert_eq!(prof_reply_len, 13 + 2 + 2 + 10); // 0 enabled, 2 disabled (p1 and p2)
+        assert_eq!(prof_reply[3], MIDICI_PROFILE_INQUIRYREPLY);
+
+        // Initiator sends Set Profile On for p1
+        let (set_on, set_on_len) =
+            CiProfile::build_set_profile_on(0x11111, 0x22222, 0x7F, 2, p1, 1);
+        let (en_report, en_report_len) = responder
+            .handle_set_profile_on(&set_on[..set_on_len])
+            .expect("should enable profile");
+        assert_eq!(responder.state(), CiResponderState::ProfileConfiguring);
+
+        // Initiator processes Profile Enabled Report
+        initiator
+            .process_message(&en_report[..en_report_len])
+            .unwrap();
+        assert_eq!(initiator.state(), CiInitiatorState::ProfileConfiguring);
+        assert_eq!(initiator.enabled_profiles().len(), 1);
+        assert_eq!(initiator.enabled_profiles()[0], Some(p1));
+
+        // Responder inquiry now reports p1 enabled and p2 disabled
+        let (prof_reply2, rep2_len) = responder
+            .handle_profile_inquiry(&prof_inq)
+            .expect("reply again");
+        assert_eq!(rep2_len, 13 + 2 + 5 + 2 + 5);
+        assert_eq!(prof_reply2[3], MIDICI_PROFILE_INQUIRYREPLY);
+
+        // Turn off p1
+        let (set_off, set_off_len) =
+            CiProfile::build_set_profile_off(0x11111, 0x22222, 0x7F, 2, p1);
+        let (dis_report, dis_report_len) = responder
+            .handle_set_profile_off(&set_off[..set_off_len])
+            .expect("should disable profile");
+        initiator
+            .process_message(&dis_report[..dis_report_len])
+            .unwrap();
+        assert_eq!(initiator.enabled_profiles().len(), 0);
+    }
 }
