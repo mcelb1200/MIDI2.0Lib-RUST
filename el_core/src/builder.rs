@@ -112,6 +112,47 @@ impl VoiceBuilder {
         let w1 = 0x40020000 | (combined & 0x0F0F7F7F);
         Ump::new(w1, value, 0, 0)
     }
+
+    #[must_use]
+    #[inline]
+    pub fn midi2_per_note_pitch_bend(group: u8, channel: u8, note: u8, value: u32) -> Ump {
+        let combined = ((group as u32) << 24) | ((channel as u32) << 16) | ((note as u32) << 8);
+        let w1 = 0x40600000 | (combined & 0x0F0F7F00);
+        Ump::new(w1, value, 0, 0)
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn midi2_per_note_cc(group: u8, channel: u8, note: u8, index: u8, value: u32) -> Ump {
+        let combined = ((group as u32) << 24)
+            | ((channel as u32) << 16)
+            | ((note as u32) << 8)
+            | (index as u32);
+        let w1 = 0x40100000 | (combined & 0x0F0F7FFF);
+        Ump::new(w1, value, 0, 0)
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn midi2_per_note_rpn(group: u8, channel: u8, note: u8, index: u8, value: u32) -> Ump {
+        let combined = ((group as u32) << 24)
+            | ((channel as u32) << 16)
+            | ((note as u32) << 8)
+            | (index as u32);
+        let w1 = 0x40000000 | (combined & 0x0F0F7FFF);
+        Ump::new(w1, value, 0, 0)
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn midi2_per_note_manage(group: u8, channel: u8, note: u8, option_flags: u8) -> Ump {
+        let combined = ((group as u32) << 24)
+            | ((channel as u32) << 16)
+            | ((note as u32) << 8)
+            | (option_flags as u32);
+        let w1 = 0x40F00000 | (combined & 0x0F0F7FFF);
+        Ump::new(w1, 0, 0, 0)
+    }
 }
 
 pub struct UtilityBuilder;

@@ -663,10 +663,77 @@ impl UmpFactory {
     ///
     /// A `Ump` representing a Per-Note Pitch Bend message.
     #[must_use]
+    #[inline]
     pub fn midi2_per_note_pitch_bend(group: u8, channel: u8, note: u8, value: u32) -> Ump {
         let word1 = Self::mt4_create_first_word(group, PITCH_BEND_PERNOTE, channel, note & 0x7F, 0);
         Ump {
             data: [word1, value, 0, 0],
+        }
+    }
+
+    /// Creates a MIDI 2.0 Per-Note Controller (CC / Assignable Per-Note) UMP.
+    ///
+    /// # Arguments
+    ///
+    /// * `group` - The destination group (0-15).
+    /// * `channel` - The destination channel (0-15).
+    /// * `note` - The note number (0-127).
+    /// * `index` - The controller index (0-255).
+    /// * `value` - The 32-bit data value.
+    ///
+    /// # Returns
+    ///
+    /// A `Ump` representing a Per-Note CC message.
+    #[must_use]
+    #[inline]
+    pub fn midi2_per_note_cc(group: u8, channel: u8, note: u8, index: u8, value: u32) -> Ump {
+        let word1 = Self::mt4_create_first_word(group, NRPN_PERNOTE, channel, note & 0x7F, index);
+        Ump {
+            data: [word1, value, 0, 0],
+        }
+    }
+
+    /// Creates a MIDI 2.0 Per-Note Registered Parameter Number (RPN) UMP.
+    ///
+    /// # Arguments
+    ///
+    /// * `group` - The destination group (0-15).
+    /// * `channel` - The destination channel (0-15).
+    /// * `note` - The note number (0-127).
+    /// * `index` - The RPN index (0-255).
+    /// * `value` - The 32-bit data value.
+    ///
+    /// # Returns
+    ///
+    /// A `Ump` representing a Per-Note RPN message.
+    #[must_use]
+    #[inline]
+    pub fn midi2_per_note_rpn(group: u8, channel: u8, note: u8, index: u8, value: u32) -> Ump {
+        let word1 = Self::mt4_create_first_word(group, RPN_PERNOTE, channel, note & 0x7F, index);
+        Ump {
+            data: [word1, value, 0, 0],
+        }
+    }
+
+    /// Creates a MIDI 2.0 Per-Note Management UMP.
+    ///
+    /// # Arguments
+    ///
+    /// * `group` - The destination group (0-15).
+    /// * `channel` - The destination channel (0-15).
+    /// * `note` - The note number (0-127).
+    /// * `option_flags` - The option flags (bit 0 = DETACH, bit 1 = RESET).
+    ///
+    /// # Returns
+    ///
+    /// A `Ump` representing a Per-Note Management message.
+    #[must_use]
+    #[inline]
+    pub fn midi2_per_note_manage(group: u8, channel: u8, note: u8, option_flags: u8) -> Ump {
+        let word1 =
+            Self::mt4_create_first_word(group, PERNOTE_MANAGE, channel, note & 0x7F, option_flags);
+        Ump {
+            data: [word1, 0, 0, 0],
         }
     }
 }
