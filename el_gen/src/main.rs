@@ -50,10 +50,20 @@ enum Commands {
     },
     /// Generate a Utility NOOP message
     Noop,
+    /// Generate a sample MIDI Clip (.midiclip) file with Note On/Off sequence
+    Clip {
+        #[arg(short, long, default_value_t = 60)]
+        note: u8,
+        #[arg(short, long, default_value_t = 480)]
+        ppqn: u16,
+    },
 }
 
 fn main() -> io::Result<()> {
     let cli = Cli::parse();
+
+    let stdout = io::stdout().lock();
+    let mut writer = BufWriter::new(stdout);
 
     let ump = match cli.command {
         Commands::NoteOn {
@@ -75,6 +85,57 @@ fn main() -> io::Result<()> {
             value,
         } => VoiceBuilder::midi2_cc(group, channel, index, value),
         Commands::Noop => UtilityBuilder::noop(),
+        Commands::Clip { note, ppqn } => {
+            let mut hdr = [0_u8; 14];
+            hdr[0..4].copy_from_slice(b"SMF2");
+            hdr[4..8].copy_from_slice(&6_u32.to_be_bytes());
+            hdr[8..10].copy_from_slice(&0_u16.to_be_bytes());
+            hdr[10..12].copy_from_slice(&1_u16.to_be_bytes());
+            hdr[12..14].copy_from_slice(&ppqn.to_be_bytes());
+            writer.write_all(&hdr)?;
+
+            let on_ump = VoiceBuilder::midi2_note_on(0, 0, note, 0, 0x9000, 0);
+            let off_ump = VoiceBuilder::midi2_note_off(0, 0, note, 0, 0x0000, 0);
+
+            let mut track_buf = [0_u8; 256];
+            let mut cursor = 8;
+
+            track_buf[cursor] = 0x00;
+            cursor += 1;
+            track_buf[cursor..cursor + 4].copy_from_slice(&on_ump.data[0].to_be_bytes());
+            cursor += 4;
+            track_buf[cursor..cursor + 4].copy_from_slice(&on_ump.data[1].to_be_bytes());
+            cursor += 4;
+
+            let mut vlq_temp = [0_u8; 4];
+            let mut vlq_len = 0;
+            let mut v = ppqn as u32;
+            vlq_temp[vlq_len] = (v & 0x7F) as u8;
+            vlq_len += 1;
+            v >>= 7;
+            while v > 0 {
+                vlq_temp[vlq_len] = ((v & 0x7F) as u8) | 0x80;
+                vlq_len += 1;
+                v >>= 7;
+            }
+            for i in (0..vlq_len).rev() {
+                track_buf[cursor] = vlq_temp[i];
+                cursor += 1;
+            }
+
+            track_buf[cursor..cursor + 4].copy_from_slice(&off_ump.data[0].to_be_bytes());
+            cursor += 4;
+            track_buf[cursor..cursor + 4].copy_from_slice(&off_ump.data[1].to_be_bytes());
+            cursor += 4;
+
+            let payload_len = (cursor - 8) as u32;
+            track_buf[0..4].copy_from_slice(b"MTrk");
+            track_buf[4..8].copy_from_slice(&payload_len.to_be_bytes());
+
+            writer.write_all(&track_buf[..cursor])?;
+            writer.flush()?;
+            return Ok(());
+        }
     };
 
     let word_count = ump.word_count();

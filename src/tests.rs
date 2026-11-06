@@ -1916,6 +1916,111 @@ mod tests {
     }
 
     #[test]
+    fn test_phase8_midiclip_parser_and_builder() {
+        use crate::messages::UmpFactory;
+        use crate::midiclip::{
+            ClipTimeFormat, MidiClipBuilder, MidiClipEvent, MidiClipHeader, MidiClipTrackParser,
+            MIDI_CLIP_MAGIC,
+        };
+
+        let hdr = MidiClipHeader::new_ticks(0, 1, 480);
+        let hdr_bytes = hdr.to_bytes();
+        assert_eq!(&hdr_bytes[0..4], &MIDI_CLIP_MAGIC);
+
+        let (parsed_hdr, hdr_len) = MidiClipHeader::parse(&hdr_bytes).expect("parse header");
+        assert_eq!(hdr_len, 14);
+        assert_eq!(parsed_hdr.format, 0);
+        assert_eq!(parsed_hdr.num_tracks, 1);
+        assert_eq!(
+            parsed_hdr.time_format,
+            ClipTimeFormat::TicksPerQuarterNote(480)
+        );
+
+        let ev1 = MidiClipEvent::new(0, UmpFactory::midi2_note_on(0, 0, 60, 0, 0x8000, 0));
+        let ev2 = MidiClipEvent::new(240, UmpFactory::midi2_note_off(0, 0, 60, 0, 0x0000, 0));
+        let events = [ev1, ev2];
+
+        let mut track_buf = [0_u8; 128];
+        let track_len = MidiClipBuilder::write_track(&events, &mut track_buf).expect("write track");
+        assert!(track_len > 8);
+
+        let track_payload = &track_buf[8..track_len];
+        let mut count = 0;
+        for ev in MidiClipTrackParser::new(track_payload) {
+            if count == 0 {
+                assert_eq!(ev.delta_time, 0);
+                assert_eq!(ev.ump.data[0], ev1.ump.data[0]);
+            } else if count == 1 {
+                assert_eq!(ev.delta_time, 240);
+                assert_eq!(ev.ump.data[0], ev2.ump.data[0]);
+            }
+            count += 1;
+        }
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_phase8_extended_pe_resources() {
+        use crate::resource::{
+            write_controller_list_json, write_external_sync_json, write_local_on_json,
+            write_mode_json, write_program_list_json, ControllerDefinition, DeviceMode,
+            ProgramItem, SyncSource,
+        };
+
+        let mut buf = [0_u8; 256];
+
+        let len = write_mode_json(DeviceMode::Standard, &mut buf).expect("mode");
+        let s = core::str::from_utf8(&buf[..len]).expect("utf8");
+        assert_eq!(s, "{\"mode\":\"Standard\"}");
+
+        let progs = [ProgramItem {
+            program: 1,
+            bank_msb: 0,
+            bank_lsb: 1,
+            name: "Acoustic Piano",
+        }];
+        let len = write_program_list_json(&progs, &mut buf).expect("programs");
+        let s = core::str::from_utf8(&buf[..len]).expect("utf8");
+        assert!(s.contains("\"program\":1"));
+        assert!(s.contains("\"title\":\"Acoustic Piano\""));
+
+        let len = write_local_on_json(true, &mut buf).expect("local on");
+        let s = core::str::from_utf8(&buf[..len]).expect("utf8");
+        assert_eq!(s, "{\"localOn\":true}");
+
+        let len = write_external_sync_json(SyncSource::Internal, true, &mut buf).expect("sync");
+        let s = core::str::from_utf8(&buf[..len]).expect("utf8");
+        assert_eq!(s, "{\"source\":\"Internal\",\"active\":true}");
+
+        let ctrls = [ControllerDefinition {
+            index: 1,
+            name: "Modulation",
+            default_val: 0,
+            unit: "ratio",
+        }];
+        let len = write_controller_list_json(&ctrls, &mut buf).expect("controllers");
+        let s = core::str::from_utf8(&buf[..len]).expect("utf8");
+        assert!(s.contains("\"index\":1"));
+        assert!(s.contains("\"name\":\"Modulation\""));
+    }
+
+    #[test]
+    fn test_phase8_embedded_transport_trait() {
+        use crate::messages::UmpFactory;
+        use crate::transport::{EmbeddedTransport, MockTransport};
+
+        let mut transport = MockTransport::<16>::new();
+        let ump = UmpFactory::timing_clock(0);
+        transport.write_ump(&ump).expect("write ump");
+
+        let read_back = transport.read_ump().expect("read").expect("some");
+        assert_eq!(read_back.data[0], ump.data[0]);
+
+        assert!(transport.read_ump().expect("read").is_none());
+        assert!(EmbeddedTransport::flush(&mut transport).is_ok());
+    }
+
+    #[test]
     fn test_phase7_property_exchange_query_device_info_and_resource_list() {
         use crate::ci::CiDeviceInfo;
         use crate::ci_pe::{CiPe, MIDICI_PE_GET, MIDICI_PE_GETREPLY};

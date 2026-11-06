@@ -241,4 +241,51 @@ mod tests {
         assert_eq!((fb_info.data[1] >> 8) & 0x7F, 1);
         assert_eq!(fb_info.data[1] & 0xFF, 4);
     }
+
+    #[test]
+    fn test_specification_types() {
+        use crate::types::{
+            ChannelModeMessage, ChannelVoiceStatus, MidiCiSubId2, SystemMessageStatus,
+        };
+
+        assert_eq!(
+            ChannelVoiceStatus::from_u8(0x90),
+            Some(ChannelVoiceStatus::NoteOn)
+        );
+        assert_eq!(
+            ChannelVoiceStatus::from_u8(0x80),
+            Some(ChannelVoiceStatus::NoteOff)
+        );
+        assert_eq!(
+            ChannelVoiceStatus::from_u8(0x02),
+            Some(ChannelVoiceStatus::RegisteredParameterNumber)
+        );
+
+        assert_eq!(
+            SystemMessageStatus::from_u8(0xF8),
+            Some(SystemMessageStatus::TimingClock)
+        );
+        assert_eq!(
+            SystemMessageStatus::from_u8(0xFA),
+            Some(SystemMessageStatus::Start)
+        );
+
+        assert_eq!(
+            ChannelModeMessage::from_cc(120),
+            Some(ChannelModeMessage::AllSoundOff)
+        );
+        assert_eq!(
+            ChannelModeMessage::from_cc(123),
+            Some(ChannelModeMessage::AllNotesOff)
+        );
+
+        assert_eq!(
+            MidiCiSubId2::from_u8(0x70),
+            Some(MidiCiSubId2::DiscoveryInquiry)
+        );
+        assert_eq!(
+            MidiCiSubId2::from_u8(0x30),
+            Some(MidiCiSubId2::PropertyExchangeInquiry)
+        );
+    }
 }

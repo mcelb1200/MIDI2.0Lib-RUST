@@ -70,6 +70,20 @@ pub trait AsyncTransport {
     fn recv(&mut self) -> impl core::future::Future<Output = Result<Ump, TransportError>>;
 }
 
+/// Hardware-level non-blocking embedded transport abstraction (e.g. embedded-hal / embedded-io).
+pub trait EmbeddedTransport {
+    type Error: core::fmt::Debug;
+
+    /// Attempts to read incoming UMP packets without blocking.
+    fn read_ump(&mut self) -> Result<Option<Ump>, Self::Error>;
+
+    /// Sends a single UMP packet.
+    fn write_ump(&mut self, ump: &Ump) -> Result<(), Self::Error>;
+
+    /// Flushes any pending outbound buffers.
+    fn flush(&mut self) -> Result<(), Self::Error>;
+}
+
 /// A zero-allocation, bounded ringbuffer transport for testing and local loopback.
 #[derive(Debug)]
 pub struct MockTransport<const CAP: usize> {
@@ -162,5 +176,24 @@ impl<const CAP: usize> Transport for MockTransport<CAP> {
         self.count -= 1;
 
         Ok(Some(ump))
+    }
+}
+
+impl<const CAP: usize> EmbeddedTransport for MockTransport<CAP> {
+    type Error = TransportError;
+
+    #[inline]
+    fn read_ump(&mut self) -> Result<Option<Ump>, Self::Error> {
+        self.recv()
+    }
+
+    #[inline]
+    fn write_ump(&mut self, ump: &Ump) -> Result<(), Self::Error> {
+        self.send(core::slice::from_ref(ump))
+    }
+
+    #[inline]
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        Transport::flush(self)
     }
 }

@@ -19,7 +19,10 @@ use crate::ci_pe::{
 };
 use crate::profile::ProfileManager;
 use crate::resource::{
-    write_channel_list_json, write_resource_list_json, DeviceInfoResource, StandardResource,
+    write_channel_list_json, write_controller_list_json, write_external_sync_json,
+    write_local_on_json, write_mode_json, write_program_list_json, write_resource_list_json,
+    ControllerDefinition, DeviceInfoResource, DeviceMode, ProgramItem, StandardResource,
+    SyncSource,
 };
 use crate::stream::{
     FunctionBlock, StreamFactory, StreamTextChunker, STATUS_ENDPOINT_DISCOVERY,
@@ -447,7 +450,16 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
                 dev_res.write_json(&mut body_buf)
             }
             Some(StandardResource::ResourceList) => {
-                let list = ["DeviceInfo", "ResourceList", "ChannelList"];
+                let list = [
+                    "DeviceInfo",
+                    "ResourceList",
+                    "ChannelList",
+                    "Mode",
+                    "ProgramList",
+                    "LocalOn",
+                    "ExternalSync",
+                    "ControllerList",
+                ];
                 write_resource_list_json(&list, &mut body_buf)
             }
             Some(StandardResource::ChannelList) => {
@@ -462,6 +474,37 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
                     mask = 0x0001;
                 }
                 write_channel_list_json(mask, &mut body_buf)
+            }
+            Some(StandardResource::Mode) => write_mode_json(DeviceMode::Standard, &mut body_buf),
+            Some(StandardResource::ProgramList) => {
+                let default_programs = [ProgramItem {
+                    program: 0,
+                    bank_msb: 0,
+                    bank_lsb: 0,
+                    name: "Default Preset",
+                }];
+                write_program_list_json(&default_programs, &mut body_buf)
+            }
+            Some(StandardResource::LocalOn) => write_local_on_json(true, &mut body_buf),
+            Some(StandardResource::ExternalSync) => {
+                write_external_sync_json(SyncSource::Internal, true, &mut body_buf)
+            }
+            Some(StandardResource::ControllerList) => {
+                let default_controllers = [
+                    ControllerDefinition {
+                        index: 1,
+                        name: "Modulation Wheel",
+                        default_val: 0,
+                        unit: "ratio",
+                    },
+                    ControllerDefinition {
+                        index: 7,
+                        name: "Channel Volume",
+                        default_val: 100,
+                        unit: "ratio",
+                    },
+                ];
+                write_controller_list_json(&default_controllers, &mut body_buf)
             }
             _ => None,
         };

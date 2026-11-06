@@ -15,6 +15,8 @@ Currently, `el_midi2` has completed:
 - **Phase 4 (Stream & Transport)**: UMP Stream messages (MT=0xF), Endpoint Discovery, Function Blocks, and core `Transport` / `MockTransport` traits.
 - **Phase 5 (Property Exchange & Process Inquiry)**: Zero-allocation SAX JSON tokenizer, transaction management, subscription management, Property Exchange chunking, and Process Inquiry MIDI message reports.
 - **Phase 6 (Embedded Transport Adapters & Hardware Interfaces)**: USB-MIDI 2.0 Group Terminal Block descriptors and packet framing, Serial UART / DIN / TRS bidirectional byte-to-UMP conversion with running status and real-time interleaving, and DMA-friendly lock-free SPSC packet queues with zero-copy slice leasing.
+- **Phase 7 (Embedded Device Engine & Turnkey Runtime)**: `Midi2Device` high-level coordinator, standard embedded profile handlers (Drawbar Organ, Analog Synth, GM), and procedural Property Exchange providers (`DeviceInfo`, `ResourceList`, `ChannelList`).
+- **Phase 8 (Extended Specifications & MIDI Clip Files)**: M2-116 MIDI Clip File (`.midiclip`) parsing/generation, exhaustive protocol status types (`el_core::types`), extended Property Exchange resources (`Mode`, `ProgramList`, `LocalOn`, `DeviceState`, `ExternalSync`, `ControllerList`), and embedded non-blocking `EmbeddedTransport` trait.
 
 ## Features
 
