@@ -90,11 +90,15 @@ mod tests {
 
         let ump = UmpFactory::midi2_note_on(0, 0, 60, 0, 0x8000, 0);
         let mut out_pkt = [0_u8; 64];
-        let len = usb.fill_usb_in_packet(&[ump], &mut out_pkt).expect("fill in");
+        let len = usb
+            .fill_usb_in_packet(&[ump], &mut out_pkt)
+            .expect("fill in");
         assert_eq!(len, 8);
 
         // Feed to OUT endpoint packet handler
-        let ingested = usb.handle_usb_out_packet(&out_pkt[..len]).expect("handle out");
+        let ingested = usb
+            .handle_usb_out_packet(&out_pkt[..len])
+            .expect("handle out");
         assert_eq!(ingested, 1);
 
         let rec = usb.read_ump().expect("read ok").expect("some ump");
