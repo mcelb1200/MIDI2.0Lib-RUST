@@ -7,6 +7,7 @@
 
 pub mod builder;
 pub mod parser;
+pub mod types;
 pub mod ump;
 pub mod utils;
 
