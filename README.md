@@ -17,10 +17,15 @@ Currently, `el_midi2` has completed:
 - **Phase 6 (Embedded Transport Adapters & Hardware Interfaces)**: USB-MIDI 2.0 Group Terminal Block descriptors and packet framing, Serial UART / DIN / TRS bidirectional byte-to-UMP conversion with running status and real-time interleaving, and DMA-friendly lock-free SPSC packet queues with zero-copy slice leasing.
 - **Phase 7 (Embedded Device Engine & Turnkey Runtime)**: `Midi2Device` high-level coordinator, standard embedded profile handlers (Drawbar Organ, Analog Synth, GM), and procedural Property Exchange providers (`DeviceInfo`, `ResourceList`, `ChannelList`).
 - **Phase 8 (Extended Specifications & MIDI Clip Files)**: M2-116 MIDI Clip File (`.midiclip`) parsing/generation, exhaustive protocol status types (`el_core::types`), extended Property Exchange resources (`Mode`, `ProgramList`, `LocalOn`, `DeviceState`, `ExternalSync`, `ControllerList`), and embedded non-blocking `EmbeddedTransport` trait.
+- **Phase 9 (Network Transports & ESP32 Board Support)**:
+  - **Session 9.1 (Network Transports)**: RTP-MIDI (RFC 6295) and Network MIDI 2.0 (M2-124) UDP UMP packetization, AppleMIDI session protocol (`IN`, `OK`, `NO`, `BY`), clock synchronization (`CK0`, `CK1`, `CK2`), and zero-allocation network transports.
+  - **Session 9.2 (Hardware Peripheral Drivers & ESP32 BSP)**: `el_bsp_esp32` board support crate covering Espressif ESP32 hardware peripherals for both **Xtensa** (ESP32, ESP32-S2, ESP32-S3) and **RISC-V** (ESP32-C3, ESP32-C6, ESP32-H2) microcontrollers, including UART FIFOs with running status and real-time interleaving, USB-OTG MIDI 2.0 with Group Terminal Blocks, and WiFi UDP Network MIDI adapters.
 
 ## Features
 
 - **UMP (Universal MIDI Packet) Support**: Full support for all defined UMP message types (32, 64, 96, 128-bit).
+- **Network MIDI 2.0 & AppleMIDI**: Native UDP packetization of UMPs, session negotiation, and 100-microsecond sample-accurate clock sync.
+- **Microcontroller Board Support**: Turnkey peripheral drivers for ESP32 (Xtensa & RISC-V) with zero dynamic allocation.
 - **Message Factory**: Easy-to-use factory methods for creating MIDI 1.0 and MIDI 2.0 Channel Voice messages, System messages, and more.
 - **Stream Parsing**: Efficient iterator-based parser for converting streams of `u32` words into valid UMPs.
 - **Utilities**: Helper functions for optimized bit scaling (up/down) and constant definitions for MIDI status bytes.

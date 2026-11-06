@@ -6,10 +6,15 @@
 //! - Serial UART / DIN / TRS Byte-Stream Transport & Bi-Directional Adapter (`serial`)
 //! - DMA-Friendly Ringbuffers & Interrupt-Safe Lock-Free Queues (`queue`)
 
+pub mod network;
 pub mod queue;
 pub mod serial;
 pub mod usb;
 
+pub use network::{
+    AppleMidiCommand, AppleMidiMessage, AppleMidiSession, ClockSync, ClockSyncPacket,
+    NetworkMidiPacket, NetworkTransport, RtpMidiHeader, SessionRole, SessionState,
+};
 pub use queue::PacketQueue;
 pub use serial::{ByteStreamToUmp, UmpToByteStream};
 pub use usb::{

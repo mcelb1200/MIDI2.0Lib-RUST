@@ -152,10 +152,14 @@ We are building `el_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 
 The foundational and extended MIDI 2.0 specifications across the complete standard suite (M2-100 through M2-117, USB-MIDI 2.0, MIDI-CI v1.2, Property Exchange, and MIDI Clip Files) are fully implemented and verified in safe, idiomatic Rust. Future planned enhancements:
 
-### Session 9.1: Network Transports (RTP MIDI / Network MIDI 2.0)
-- Session Initiation Protocol (SIP) / mDNS discovery integration.
-- Bounded RTP packetization for UMP over UDP/IP.
+### ✅ Session 9.1: Network Transports (RTP MIDI / Network MIDI 2.0)
+**Prompt:** "Implement RTP MIDI (RFC 6295) and Network MIDI 2.0 (M2-124) UDP UMP packetization and AppleMIDI session protocol state machines in `src/transport/network.rs`. Support session invitation sequences (`IN`, `OK`, `NO`, `BY`), clock synchronization (`CK0`, `CK1`, `CK2`), latency offset calculations, and zero-allocation packet packing/unpacking."
+**Definition of Done:** Network transport handles session handshakes, clock synchronization offset calculation, and bit-accurate RTP UMP packet framing over UDP in unit tests.
 
-### Session 9.2: Hardware Peripheral Drivers & Board Support Crates
-- `el_midi2_rp2040`: Direct PIO and USB-MIDI 2.0 driver for RP2040 / Raspberry Pi Pico.
-- `el_midi2_stm32`: DMA-backed UART and USB-FS/HS peripheral bindings for STM32.
+### ✅ Session 9.2: Hardware Peripheral Drivers & Board Support Crates (ESP32 Xtensa & RISC-V)
+**Prompt:** "Implement `el_bsp_esp32` board support crate covering Espressif ESP32 hardware peripherals for MIDI 2.0. Provide zero-allocation hardware UART FIFO drivers with running status and real-time interleaving for MIDI 1.0 (31,250 baud) and high-speed serial UMP, USB-OTG USB-MIDI 2.0 drivers with Group Terminal Blocks, and WiFi UDP Network MIDI 2.0 adapters for both Xtensa (ESP32, ESP32-S3) and RISC-V (ESP32-C3, ESP32-C6) architectures."
+**Definition of Done:** `el_bsp_esp32` compiles in `no_std`, passes unit tests, and integrates seamlessly with `Transport` and `EmbeddedTransport`.
+
+### 🔮 Future Sessions
+- `el_bsp_rp2040`: Direct PIO and USB-MIDI 2.0 driver for RP2040 / Raspberry Pi Pico.
+- `el_bsp_stm32`: DMA-backed UART and USB-FS/HS peripheral bindings for STM32.
