@@ -11,8 +11,9 @@ This library is a Rust port of an existing C++ MIDI 2.0 library, focusing on saf
 Currently, `am_midi2` has completed:
 - **Phase 1 (The Foundation)**: UMP containers, core bit-manipulation, and utility primitives.
 - **Phase 2 (Protocol Logic)**: Creation of MIDI 1.0 and 2.0 Channel Voice messages, System Common/Realtime messages, Utility messages, and parameter messages (CC, RPN, NRPN, Pitch Bend).
-
-Future phases will address **Phase 3 (MIDI-CI)** and **Phase 4 (Stream & Transport)** to fully implement the specification.
+- **Phase 3 (MIDI-CI)**: SysEx7 & SysEx8 / MDS collectors and chunkers, CI Header serialization/parsing, Discovery Inquiry/Reply, Protocol Negotiation, and Profile Configuration.
+- **Phase 4 (Stream & Transport)**: UMP Stream messages (MT=0xF), Endpoint Discovery, Function Blocks, and core `Transport` / `MockTransport` traits.
+- **Phase 5 (Property Exchange & Process Inquiry)**: Zero-allocation SAX JSON tokenizer, transaction management, subscription management, Property Exchange chunking, and Process Inquiry MIDI message reports.
 
 ## Features
 

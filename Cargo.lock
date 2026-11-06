@@ -205,6 +205,7 @@ dependencies = [
 name = "el_ci_sim"
 version = "0.1.0"
 dependencies = [
+ "am_midi2",
  "clap",
  "el_core",
  "heapless",

@@ -1,9 +1,11 @@
 #![no_std]
 pub mod buffer;
 pub mod ci;
+pub mod ci_pe;
 pub mod messages;
 pub mod stream;
 pub mod sysex;
+pub mod transport;
 pub mod ump;
 pub mod utils;
 

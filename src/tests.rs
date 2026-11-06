@@ -1319,4 +1319,214 @@ mod tests {
             .unwrap();
         assert_eq!(initiator.enabled_profiles().len(), 0);
     }
+
+    #[test]
+    fn test_transport_and_mock_transport() {
+        use crate::stream::StreamFactory;
+        use crate::transport::{MockTransport, Transport, TransportError};
+
+        let mut transport = MockTransport::<16>::new();
+        assert_eq!(transport.len(), 0);
+        assert!(transport.is_empty());
+
+        let disc = StreamFactory::endpoint_discovery(1, 1, 0xFF);
+        let notify = StreamFactory::stream_config_notify(2, true, true);
+        let batch = [disc, notify];
+
+        // Send batch
+        assert!(transport.send(&batch).is_ok());
+        assert_eq!(transport.len(), 2);
+
+        // Receive sequentially
+        let r1 = transport.recv().expect("recv ok").expect("some packet");
+        assert_eq!(r1, disc);
+        assert_eq!(transport.len(), 1);
+
+        let r2 = transport.recv().expect("recv ok").expect("some packet");
+        assert_eq!(r2, notify);
+        assert_eq!(transport.len(), 0);
+
+        // Receive from empty returns None
+        assert_eq!(transport.recv().expect("recv ok"), None);
+
+        // Buffer full error
+        let full_batch = [disc; 17];
+        assert_eq!(
+            transport.send(&full_batch),
+            Err(TransportError::TxBufferFull)
+        );
+
+        // Disconnected error
+        transport.set_connected(false);
+        assert_eq!(transport.send(&[disc]), Err(TransportError::NotConnected));
+        assert_eq!(transport.recv(), Err(TransportError::NotConnected));
+    }
+
+    #[test]
+    fn test_ci_pe_json_tokenizer_and_header() {
+        use crate::ci_pe::{JsonTokenType, JsonTokenizer, PeHeader};
+
+        let json = b"{\"resource\":\"DeviceInfo\",\"resId\":\"dev1\",\"action\":\"get\",\"status\":200,\"cacheTime\":60}";
+        let mut tok = JsonTokenizer::new(json);
+
+        assert_eq!(tok.next(), Some(JsonTokenType::StartObject));
+        assert_eq!(tok.next(), Some(JsonTokenType::Key("resource")));
+        assert_eq!(tok.next(), Some(JsonTokenType::StringValue("DeviceInfo")));
+        assert_eq!(tok.next(), Some(JsonTokenType::Key("resId")));
+        assert_eq!(tok.next(), Some(JsonTokenType::StringValue("dev1")));
+        assert_eq!(tok.next(), Some(JsonTokenType::Key("action")));
+        assert_eq!(tok.next(), Some(JsonTokenType::StringValue("get")));
+        assert_eq!(tok.next(), Some(JsonTokenType::Key("status")));
+        assert_eq!(tok.next(), Some(JsonTokenType::NumberValue(200)));
+        assert_eq!(tok.next(), Some(JsonTokenType::Key("cacheTime")));
+        assert_eq!(tok.next(), Some(JsonTokenType::NumberValue(60)));
+        assert_eq!(tok.next(), Some(JsonTokenType::EndObject));
+        assert_eq!(tok.next(), None);
+
+        // Header view parse
+        let hdr = PeHeader::parse(json);
+        assert_eq!(hdr.resource, Some("DeviceInfo"));
+        assert_eq!(hdr.res_id, Some("dev1"));
+        assert_eq!(hdr.action, Some("get"));
+        assert_eq!(hdr.status, Some(200));
+        assert_eq!(hdr.cache_time, Some(60));
+    }
+
+    #[test]
+    fn test_ci_pe_transaction_manager() {
+        use crate::ci_pe::PeTransactionManager;
+
+        let mut mgr = PeTransactionManager::<4>::new();
+        assert_eq!(mgr.active_count(), 0);
+
+        let _id1 = mgr.start_request(0x1000, 10).expect("req 1");
+        let id2 = mgr.start_request(0x2000, 12).expect("req 2");
+        let _id3 = mgr.start_request(0x3000, 15).expect("req 3");
+        let _id4 = mgr.start_request(0x4000, 20).expect("req 4");
+
+        assert_eq!(mgr.active_count(), 4);
+        // Exceeding capacity returns None
+        assert_eq!(mgr.start_request(0x5000, 22), None);
+
+        // Complete request 2
+        assert!(mgr.complete_request(id2, 0x2000));
+        assert_eq!(mgr.active_count(), 3);
+
+        // Matching unknown request fails
+        assert!(!mgr.complete_request(99, 0x9999));
+
+        // Timeouts
+        mgr.clean_timeouts(25, 11); // id1 (10) timed out since 25 - 10 = 15 >= 11
+        assert_eq!(mgr.active_count(), 2);
+    }
+
+    #[test]
+    fn test_ci_pe_subscription_manager() {
+        use crate::ci_pe::{hash_resource, SubscriptionManager};
+
+        let mut mgr = SubscriptionManager::<4>::new();
+        let hash_dev = hash_resource("DeviceInfo");
+        let hash_modes = hash_resource("Mode");
+
+        assert_ne!(hash_dev, hash_modes);
+
+        assert!(mgr.add_subscription(0x111, hash_dev));
+        assert!(mgr.add_subscription(0x222, hash_dev));
+        assert!(mgr.add_subscription(0x333, hash_modes));
+        assert_eq!(mgr.len(), 3);
+
+        // Query subscribers
+        let mut subs = [0_u32; 4];
+        let n = mgr.get_subscribers(hash_dev, &mut subs);
+        assert_eq!(n, 2);
+        assert_eq!(&subs[..2], &[0x111, 0x222]);
+
+        // Remove subscription
+        assert!(mgr.remove_subscription(0x111, hash_dev));
+        assert_eq!(mgr.len(), 2);
+        let n2 = mgr.get_subscribers(hash_dev, &mut subs);
+        assert_eq!(n2, 1);
+        assert_eq!(subs[0], 0x222);
+    }
+
+    #[test]
+    fn test_ci_pe_message_serialization_and_chunking() {
+        use crate::ci_pe::{CiPe, PeReplyChunker, MIDICI_PE_GET, MIDICI_PE_GETREPLY};
+        use crate::sysex::SysEx7Receiver;
+
+        let src_muid = 0x11111;
+        let dst_muid = 0x22222;
+        let json_header = b"{\"resource\":\"ResourceList\",\"status\":200}";
+
+        // 1. Serialize Header-Only Get message
+        let mut buf = [0_u8; 128];
+        let len = CiPe::serialize_pe_header_only(
+            &mut buf,
+            MIDICI_PE_GET,
+            2,
+            src_muid,
+            dst_muid,
+            7,
+            json_header,
+        )
+        .expect("serialize pe get");
+
+        let (parsed_hdr, pe_msg) = CiPe::parse_pe_message(&buf[..len]).expect("parse pe message");
+        assert_eq!(parsed_hdr.ci_type, MIDICI_PE_GET);
+        assert_eq!(parsed_hdr.source_muid, src_muid);
+        assert_eq!(pe_msg.request_id, 7);
+        assert_eq!(pe_msg.header.resource, Some("ResourceList"));
+        assert_eq!(pe_msg.header.status, Some(200));
+        assert_eq!(pe_msg.body, None);
+
+        // 2. Serialize Message with Body (Get Reply)
+        let body = b"{\"resources\":[\"DeviceInfo\",\"ChannelList\"]}";
+        let mut reply_buf = [0_u8; 256];
+        let rep_len = CiPe::serialize_pe_with_body(
+            &mut reply_buf,
+            MIDICI_PE_GETREPLY,
+            2,
+            dst_muid,
+            src_muid,
+            7,
+            json_header,
+            1,
+            1,
+            body,
+        )
+        .expect("serialize get reply");
+
+        let (_, rep_msg) = CiPe::parse_pe_message(&reply_buf[..rep_len]).expect("parse reply");
+        assert_eq!(rep_msg.request_id, 7);
+        assert_eq!(rep_msg.body, Some(&body[..]));
+
+        // 3. SysEx7 chunking and reassembly
+        let chunker = PeReplyChunker::new_sysex7(3, &reply_buf[..rep_len]);
+        let mut rx = SysEx7Receiver::<256>::new();
+        for ump in chunker {
+            let _ = rx.process_ump(&ump);
+        }
+        assert_eq!(rx.payload(), &reply_buf[..rep_len]);
+    }
+
+    #[test]
+    fn test_ci_process_inquiry_messages() {
+        use crate::ci_pe::{CiProcessInquiry, MIDICI_PI_CAPABILITY, MIDICI_PI_MM_REPORT};
+
+        // PI Capabilities Request & Reply
+        let req = CiProcessInquiry::build_capabilities_request(0x10, 0x20, 2);
+        assert_eq!(req[3], MIDICI_PI_CAPABILITY);
+
+        let rep = CiProcessInquiry::build_capabilities_reply(0x20, 0x10, 2, 0x03);
+        assert_eq!(rep[13], 0x03);
+
+        // MIDI Message Report
+        let report =
+            CiProcessInquiry::build_midi_message_report(0x10, 0x20, 0x7F, 2, 0, 0x7E, 0x7F, 0x7F);
+        assert_eq!(report[3], MIDICI_PI_MM_REPORT);
+        assert_eq!(report[13], 0); // MDC
+        assert_eq!(report[14], 0x7E); // systemBitmap
+        assert_eq!(report[16], 0x7F); // chanContBitmap
+        assert_eq!(report[17], 0x7F); // chanNoteBitmap
+    }
 }
