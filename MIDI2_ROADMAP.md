@@ -120,15 +120,15 @@ We are building `el_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 ## 🎛 Phase 7: Embedded MIDI 2.0 Device Engine & High-Level Runtime
 **Goal:** Turnkey embedded device runtime integrating Endpoint, Function Blocks, Profiles, and Transports into a unified system.
 
-### ⬜ Session 7.1: `Midi2Device` Coordinator
+### ✅ Session 7.1: `Midi2Device` Coordinator
 **Prompt:** "Implement a unified `Midi2Device<T: Transport, const NUM_FB: usize>` struct. Manages Endpoint info, up to `NUM_FB` Function Blocks, local MUID, CI state machine (Initiator + Responder), and active protocol. Provide a clean polling method `device.poll()` to process incoming UMPs and emit responses."
 **Definition of Done:** High-level test simulating complete device startup: Endpoint Discovery -> Stream Config -> Function Block Discovery -> CI Discovery -> Protocol switch to MIDI 2.0.
 
-### ⬜ Session 7.2: Standard Embedded Profile Handlers
+### ✅ Session 7.2: Standard Embedded Profile Handlers
 **Prompt:** "Implement standard profile managers for common embedded scenarios (e.g., Default Profile, Drawbar Organ, Analog Synth, General MIDI). Provide hooks for parameter updates and profile-specific data callbacks without heap allocations."
 **Definition of Done:** Test enabling a standard profile on a Function Block and responding to Profile Inquiries and Profile On/Off messages.
 
-### ⬜ Session 7.3: Standard Resources & Device Identity Provider
+### ✅ Session 7.3: Standard Resources & Device Identity Provider
 **Prompt:** "Implement default Property Exchange resource providers: `DeviceInfo`, `ResourceList`, and `ChannelList`. Implement procedural string generators that write JSON chunks directly into SysEx UMP streams without assembling full JSON strings in RAM."
 **Definition of Done:** End-to-end Property Exchange query for `DeviceInfo` yielding a valid, bit-perfect response stream parsed and verified against spec.
 
@@ -140,3 +140,4 @@ We are building `el_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 - Completed Phase 4 (UMP Stream Messages, Endpoint Discovery/Notifications, Function Blocks, Function Block Discovery/Notifications, and Core Transport Traits & Mock Transport).
 - Completed Phase 5 (MIDI-CI Property Exchange: Zero-allocation SAX JSON tokenizer, Transaction Manager, Subscription Manager, SysEx Chunker, and Process Inquiry).
 - Completed Phase 6 (Embedded Transport Adapters & Hardware Interfaces: USB-MIDI 2.0 Group Terminal Blocks and packet framing, Serial UART/DIN/TRS bidirectional converters with running status and real-time interleaving, and DMA-friendly lock-free SPSC PacketQueue with zero-copy slice leasing).
+- Completed Phase 7 (Embedded MIDI 2.0 Device Engine & High-Level Runtime: `Midi2Device` turnkey coordinator, standard embedded profile handlers for Drawbar Organ/Analog Synth/GM, and procedural zero-allocation Property Exchange resource providers for `DeviceInfo`, `ResourceList`, and `ChannelList`).

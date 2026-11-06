@@ -2,7 +2,10 @@
 pub mod buffer;
 pub mod ci;
 pub mod ci_pe;
+pub mod device;
 pub mod messages;
+pub mod profile;
+pub mod resource;
 pub mod stream;
 pub mod sysex;
 pub mod transport;

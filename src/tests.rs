@@ -1731,4 +1731,288 @@ mod tests {
         assert_eq!(r, ump);
         assert_eq!(queue.len(), 3);
     }
+
+    #[test]
+    fn test_phase7_device_startup_and_protocol_switch() {
+        use crate::ci::CiDeviceInfo;
+        use crate::device::{ActiveProtocol, DeviceConfig, Midi2Device};
+        use crate::stream::{
+            FunctionBlock, FunctionBlockDirection, StreamFactory,
+            STATUS_ENDPOINT_INFO_NOTIFICATION, STATUS_STREAM_CONFIG_NOTIFICATION,
+        };
+        use crate::transport::{MockTransport, Transport};
+
+        let transport = MockTransport::<64>::new();
+        let dev_info = CiDeviceInfo {
+            manufacturer_id: [0x00, 0x02, 0x03],
+            family_id: [0x01, 0x00],
+            model_id: [0x02, 0x00],
+            version: [0x01, 0x00, 0x00, 0x00],
+            ci_support: 0x07,
+            max_sysex: 512,
+            output_path_id: 1,
+            fb_idx: 0,
+        };
+
+        let config = DeviceConfig {
+            name: "Grand Synth Pro",
+            product_instance_id: "GSP-001-XYZ",
+            manufacturer: "Acme Synths",
+            model: "GSP-001",
+            serial_number: "SN-987654",
+            software_revision: "2.0.0",
+            local_muid: 0x1234567,
+            ci_info: dev_info,
+        };
+
+        let mut device = Midi2Device::<MockTransport<64>, 4>::new(transport, config);
+        assert_eq!(device.active_protocol(), ActiveProtocol::Midi1_0);
+
+        // Add a Function Block
+        let fb = FunctionBlock::new(0, FunctionBlockDirection::Bidirectional, 0, 1)
+            .midi_ci_version(2)
+            .max_s8_streams(8);
+        assert!(device.add_function_block(fb));
+
+        // 1. Endpoint Discovery Request (Filter = 0x0F: all endpoint notifications)
+        let disc_req = StreamFactory::endpoint_discovery(1, 1, 0x0F);
+        device.transport_mut().send(&[disc_req]).unwrap();
+
+        // Poll device
+        let polled = device.poll().expect("poll ok");
+        assert!(polled);
+
+        // Verify response packets in transport
+        // 1: Endpoint Info, 2: Device ID, 3: Endpoint Name, 4: Product Instance ID
+        let mut responses = alloc::vec::Vec::new();
+        while let Ok(Some(ump)) = device.transport_mut().recv() {
+            responses.push(ump);
+        }
+        assert!(responses.len() >= 4);
+        assert_eq!(
+            (responses[0].data[0] >> 16) & 0x3FF,
+            STATUS_ENDPOINT_INFO_NOTIFICATION as u32
+        );
+
+        // 2. Stream Configuration Request -> Protocol switch to MIDI 2.0
+        let cfg_req = StreamFactory::stream_config_request(2, true, true);
+        device.transport_mut().send(&[cfg_req]).unwrap();
+
+        let polled = device.poll().expect("poll ok");
+        assert!(polled);
+        assert_eq!(device.active_protocol(), ActiveProtocol::Midi2_0);
+
+        let cfg_reply = device
+            .transport_mut()
+            .recv()
+            .unwrap()
+            .expect("reply packet");
+        assert_eq!(
+            (cfg_reply.data[0] >> 16) & 0x3FF,
+            STATUS_STREAM_CONFIG_NOTIFICATION as u32
+        );
+        assert_eq!((cfg_reply.data[0] >> 8) & 0xFF, 2); // MIDI 2.0 confirmed
+
+        // 3. Function Block Discovery
+        let fb_disc = StreamFactory::function_block_discovery(0, 0x01);
+        device.transport_mut().send(&[fb_disc]).unwrap();
+
+        assert!(device.poll().expect("poll ok"));
+        let fb_reply = device
+            .transport_mut()
+            .recv()
+            .unwrap()
+            .expect("reply packet");
+        assert_eq!(
+            (fb_reply.data[0] >> 16) & 0x3FF,
+            crate::stream::STATUS_FUNCTION_BLOCK_INFO_NOTIFICATION as u32
+        );
+        assert_eq!((fb_reply.data[0] >> 8) & 0x7F, 0); // FB index 0
+    }
+
+    #[test]
+    fn test_phase7_profile_management_and_ci_handshake() {
+        use crate::ci::*;
+        use crate::device::{DeviceConfig, Midi2Device};
+        use crate::profile::{PROFILE_ANALOG_SYNTH, PROFILE_DRAWBAR_ORGAN};
+        use crate::sysex::{SysEx7Chunker, SysEx7Receiver};
+        use crate::transport::{MockTransport, Transport};
+
+        let transport = MockTransport::<128>::new();
+        let dev_info = CiDeviceInfo::default();
+        let config = DeviceConfig {
+            name: "Drawbar Master",
+            product_instance_id: "DM-888",
+            manufacturer: "Hammond Style",
+            model: "DM-1",
+            serial_number: "DM-001",
+            software_revision: "1.0",
+            local_muid: 0x2222222,
+            ci_info: dev_info,
+        };
+
+        let mut device = Midi2Device::<MockTransport<128>, 2>::new(transport, config);
+
+        // Register profiles
+        assert!(device.register_profile(PROFILE_DRAWBAR_ORGAN));
+        assert!(device.register_profile(PROFILE_ANALOG_SYNTH));
+
+        // Adjust organ drawbar state directly
+        device.profile_manager_mut().organ_mut().drawbars = [8, 8, 8, 8, 0, 0, 0, 0, 0];
+        assert_eq!(
+            device.profile_manager().organ().drawbars,
+            [8, 8, 8, 8, 0, 0, 0, 0, 0]
+        );
+
+        // 1. Send Profile Inquiry to device
+        let prof_inq = CiProfile::build_inquiry_payload(0x1111111, 0x2222222, 0, 2);
+        let chunker = SysEx7Chunker::new(0, &prof_inq);
+        for ump in chunker {
+            device.transport_mut().send(&[ump]).unwrap();
+            device.poll().unwrap();
+        }
+
+        // Collect reply SysEx UMPs
+        let mut rx = SysEx7Receiver::<128>::new();
+        while let Ok(Some(u)) = device.transport_mut().recv() {
+            let _ = rx.process_ump(&u);
+        }
+        let reply_payload = rx.payload();
+        assert!(reply_payload.len() >= 13);
+        assert_eq!(reply_payload[3], MIDICI_PROFILE_INQUIRYREPLY);
+
+        // 2. Set Profile On (Drawbar Organ on channel 0)
+        let (set_on, len) =
+            CiProfile::build_set_profile_on(0x1111111, 0x2222222, 0, 2, PROFILE_DRAWBAR_ORGAN, 1);
+        let chunker = SysEx7Chunker::new(0, &set_on[..len]);
+        for ump in chunker {
+            device.transport_mut().send(&[ump]).unwrap();
+            device.poll().unwrap();
+        }
+
+        let mut rx_report = SysEx7Receiver::<128>::new();
+        while let Ok(Some(u)) = device.transport_mut().recv() {
+            let _ = rx_report.process_ump(&u);
+        }
+        let report_payload = rx_report.payload();
+        assert_eq!(report_payload[3], MIDICI_PROFILE_ENABLED);
+        assert_eq!(&report_payload[13..18], PROFILE_DRAWBAR_ORGAN.as_bytes());
+
+        // 3. Set Profile Off
+        let (set_off, len_off) =
+            CiProfile::build_set_profile_off(0x1111111, 0x2222222, 0, 2, PROFILE_DRAWBAR_ORGAN);
+        let chunker = SysEx7Chunker::new(0, &set_off[..len_off]);
+        for ump in chunker {
+            device.transport_mut().send(&[ump]).unwrap();
+            device.poll().unwrap();
+        }
+
+        let mut rx_dis = SysEx7Receiver::<128>::new();
+        while let Ok(Some(u)) = device.transport_mut().recv() {
+            let _ = rx_dis.process_ump(&u);
+        }
+        let dis_payload = rx_dis.payload();
+        assert_eq!(dis_payload[3], MIDICI_PROFILE_DISABLED);
+    }
+
+    #[test]
+    fn test_phase7_property_exchange_query_device_info_and_resource_list() {
+        use crate::ci::CiDeviceInfo;
+        use crate::ci_pe::{CiPe, MIDICI_PE_GET, MIDICI_PE_GETREPLY};
+        use crate::device::{DeviceConfig, Midi2Device};
+        use crate::sysex::{SysEx7Chunker, SysEx7Receiver};
+        use crate::transport::{MockTransport, Transport};
+
+        let transport = MockTransport::<128>::new();
+        let dev_info = CiDeviceInfo {
+            manufacturer_id: [0x42, 0x11, 0x22],
+            family_id: [0x01, 0x02],
+            model_id: [0x03, 0x04],
+            version: [0x01, 0x00, 0x00, 0x00],
+            ci_support: 0x07,
+            max_sysex: 1024,
+            output_path_id: 0,
+            fb_idx: 0,
+        };
+
+        let config = DeviceConfig {
+            name: "StudioSynth",
+            product_instance_id: "SS-2026",
+            manufacturer: "DSP Labs",
+            model: "SS-1",
+            serial_number: "SN-42",
+            software_revision: "3.1.4",
+            local_muid: 0x3333333,
+            ci_info: dev_info,
+        };
+
+        let mut device = Midi2Device::<MockTransport<128>, 2>::new(transport, config);
+
+        // 1. Query DeviceInfo via PE Get
+        let mut pe_get_buf = [0_u8; 128];
+        let get_len = CiPe::serialize_pe_header_only(
+            &mut pe_get_buf,
+            MIDICI_PE_GET,
+            2,
+            0x1111111,
+            0x3333333,
+            5,
+            b"{\"resource\":\"DeviceInfo\"}",
+        )
+        .expect("serialize pe get");
+
+        let chunker = SysEx7Chunker::new(0, &pe_get_buf[..get_len]);
+        for ump in chunker {
+            device.transport_mut().send(&[ump]).unwrap();
+            device.poll().unwrap();
+        }
+
+        let mut rx = SysEx7Receiver::<384>::new();
+        while let Ok(Some(u)) = device.transport_mut().recv() {
+            let _ = rx.process_ump(&u);
+        }
+
+        let (hdr, pe_msg) = CiPe::parse_pe_message(rx.payload()).expect("parse reply");
+        assert_eq!(hdr.ci_type, MIDICI_PE_GETREPLY);
+        assert_eq!(pe_msg.request_id, 5);
+        assert_eq!(pe_msg.header.status, Some(200));
+
+        let body = pe_msg.body.expect("body exists");
+        let body_str = core::str::from_utf8(body).expect("valid utf8");
+        assert!(body_str.contains("\"manufacturer\":\"DSP Labs\""));
+        assert!(body_str.contains("\"model\":\"SS-1\""));
+        assert!(body_str.contains("\"serialNumber\":\"SN-42\""));
+        assert!(body_str.contains("\"maxSysEx\":1024"));
+
+        // 2. Query ResourceList
+        let get_list_len = CiPe::serialize_pe_header_only(
+            &mut pe_get_buf,
+            MIDICI_PE_GET,
+            2,
+            0x1111111,
+            0x3333333,
+            6,
+            b"{\"resource\":\"ResourceList\"}",
+        )
+        .expect("serialize pe get");
+
+        let chunker2 = SysEx7Chunker::new(0, &pe_get_buf[..get_list_len]);
+        for ump in chunker2 {
+            device.transport_mut().send(&[ump]).unwrap();
+            device.poll().unwrap();
+        }
+
+        let mut rx_list = SysEx7Receiver::<384>::new();
+        while let Ok(Some(u)) = device.transport_mut().recv() {
+            let _ = rx_list.process_ump(&u);
+        }
+
+        let (_, list_msg) = CiPe::parse_pe_message(rx_list.payload()).expect("parse list reply");
+        assert_eq!(list_msg.request_id, 6);
+        assert_eq!(list_msg.header.status, Some(200));
+        let list_body = core::str::from_utf8(list_msg.body.unwrap()).unwrap();
+        assert!(list_body.contains("DeviceInfo"));
+        assert!(list_body.contains("ResourceList"));
+        assert!(list_body.contains("ChannelList"));
+    }
 }
