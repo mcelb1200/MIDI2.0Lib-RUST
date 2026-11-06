@@ -13,7 +13,7 @@ The following document is designed to be your Master Development Log. It serves 
 ## 🛠 Global Context (Paste at start of every session)
 
 **Context for AI Session:**
-We are building `am_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library in Rust.
+We are building `el_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library in Rust.
 
 **Core Constraints:**
 * **no_std Support:** The core library must support no_std (embedded targets). Use alloc feature flags only where necessary (e.g., large SysEx buffers).

@@ -1,8 +1,8 @@
-use am_midi2::ci_pe::{
+use clap::{Parser, Subcommand};
+use el_midi2::ci_pe::{
     hash_resource, CiPe, CiProcessInquiry, PeReplyChunker, PeTransactionManager,
     SubscriptionManager, MIDICI_PE_GET, MIDICI_PE_SET, MIDICI_PE_SUB,
 };
-use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about = "MIDI-CI Capability Inquiry Simulator", long_about = None)]

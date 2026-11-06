@@ -1,7 +1,7 @@
 # Phase A Implementation Plan: Foundation & Scaffolding
 
 ## 1. Objective
-To scaffold the `am_midi2` workspace and develop the core foundation (`el_core`) for the `el_` suite of cross-platform MIDI 1.0 and 2.0 CLI tools. This phase also includes the implementation of the `el_dump` (Stream Analyzer) and `el_gen` (Message Generator) CLI utilities. The resulting code must be strictly `no_std` compatible, zero-allocation in hot paths, and suitable for stage-ready embedded hardware following MISRA 2023 equivalents.
+To scaffold the `el_midi2` workspace and develop the core foundation (`el_core`) for the `el_` suite of cross-platform MIDI 1.0 and 2.0 CLI tools. This phase also includes the implementation of the `el_dump` (Stream Analyzer) and `el_gen` (Message Generator) CLI utilities. The resulting code must be strictly `no_std` compatible, zero-allocation in hot paths, and suitable for stage-ready embedded hardware following MISRA 2023 equivalents.
 
 ## 2. Architecture & Workspace Scaffolding
 

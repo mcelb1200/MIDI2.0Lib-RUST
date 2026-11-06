@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-am_midi2 = { path = ".." }
+el_midi2 = { path = ".." }
 el_core = { path = "../el_core" }
 heapless = "0.8"
 clap = { version = "4.4", features = ["derive"] }
