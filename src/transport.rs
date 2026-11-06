@@ -75,8 +75,11 @@ impl<const CAP: usize> Default for MockTransport<CAP> {
 
 impl<const CAP: usize> MockTransport<CAP> {
     /// Creates a new, connected `MockTransport` with capacity `CAP`.
+    ///
+    /// Compile-time asserts that `CAP > 0` to prevent division or modulo by zero.
     #[must_use]
     pub const fn new() -> Self {
+        assert!(CAP > 0, "MockTransport capacity must be greater than 0");
         Self {
             buffer: [Ump { data: [0; 4] }; CAP],
             head: 0,
