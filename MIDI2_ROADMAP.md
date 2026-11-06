@@ -13,7 +13,7 @@ The following document is designed to be your Master Development Log. It serves 
 ## 🛠 Global Context (Paste at start of every session)
 
 **Context for AI Session:**
-We are building `am_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library in Rust.
+We are building `el_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library in Rust.
 
 **Core Constraints:**
 * **no_std Support:** The core library must support no_std (embedded targets). Use alloc feature flags only where necessary (e.g., large SysEx buffers).
@@ -79,26 +79,26 @@ We are building `am_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 **Prompt:** "Implement a FunctionBlock struct. This helps a device describe its internal topology. It needs to store: Block Direction (Input/Output), MI (MIDI 1/2), Group First, and Group Count."
 **Definition of Done:** A helper that generates the Function Block Info Notification message.
 
-### ⬜ Session 4.3: Core Transport Traits & Mock Transport
+### ✅ Session 4.3: Core Transport Traits & Mock Transport
 **Prompt:** "Define a `Transport` trait and `AsyncTransport` trait suitable for both synchronous polling and interrupt/DMA driven embedded runtimes. Methods: `send(&[Ump]) -> Result<(), TransportError>` and `recv() -> Option<Ump>`. Implement a zero-allocation `MockTransport` with bounded internal ringbuffers for testing. Add integration test verifying endpoint discovery over `MockTransport`."
 **Definition of Done:** `Transport` trait and `MockTransport` tested and working with zero allocations.
 
 ## 📦 Phase 5: MIDI-CI Property Exchange (PE) & Process Inquiry
 **Goal:** Full bidirectional parameter exchange, discovery, and state synchronisation under strict embedded `no_std` constraints.
 
-### ⬜ Session 5.1: Zero-Allocation SAX/Streaming JSON Tokenizer
+### ✅ Session 5.1: Zero-Allocation SAX/Streaming JSON Tokenizer
 **Prompt:** "Implement a lightweight, no_std SAX-style JSON tokenizer in `ci::pe::json`. Capable of parsing Property Exchange headers and simple value bodies directly from byte slices without memory allocation (`alloc`). Support extracting string slices for `resource`, `resId`, `action`, `status`, and integer values."
 **Definition of Done:** Tokenizer extracts keys and values from realistic PE JSON header payloads with zero heap allocation.
 
-### 5.2 Session 5.2: PE Transaction Manager & Request Pools
+### ✅ Session 5.2: PE Transaction Manager & Request Pools
 **Prompt:** "Implement `PeTransactionManager<const MAX_CONCURRENT: usize>` to manage asynchronous Request IDs without hash maps. Support matching Inquiries (Get, Set, Subscribe) to Replies and handling timeouts. Implement `PeHeader` and `PeMessage` view types."
 **Definition of Done:** Unit test exercising concurrent Request ID allocation, matching, release, and pool exhaustion guards.
 
-### ⬜ Session 5.3: Property Chunking, Streaming & Subscriptions
+### ✅ Session 5.3: Property Chunking, Streaming & Subscriptions
 **Prompt:** "Implement `PeReplyChunker` that streams arbitrary property bodies across multiple MT=0x3 (SysEx7) or MT=0x5 (SysEx8) UMP packets. Implement `SubscriptionManager<const MAX_SUBS: usize>` using resource string hashes (`u32`) for low-memory embedded subscriber tracking."
 **Definition of Done:** A test that streams a simulated preset file across multiple UMP SysEx chunks and delivers notifications to registered subscribers.
 
-### ⬜ Session 5.4: MIDI-CI Process Inquiry (PI)
+### ✅ Session 5.4: MIDI-CI Process Inquiry (PI)
 **Prompt:** "Implement MIDI-CI Process Inquiry messages: MIDI Message Report Inquiry/Reply (Sub-ID 0x40/0x41). This allows querying which MIDI 1.0 or MIDI 2.0 messages (Channel Voice, System Common, SysEx, etc.) are supported across groups and channels. Generate the 7-bit bitmap representation for supported messages."
 **Definition of Done:** Serialization and parsing of MIDI Message Report Inquiry and Reply packets.
 
@@ -137,5 +137,6 @@ We are building `am_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 - Initialized Rust port with Core primitives and utility methods, effectively completing Phase 1 and 2.
 - Transitioned CI/CD workflows and developed `TOOLS_PLAN.md` for broader standard compliance and tooling support.
 - Completed Phase 3 (SysEx7, SysEx8 / MDS, CI Discovery, Protocol Negotiation, and Profile Configuration).
-- Completed Phase 4 Sessions 4.1 & 4.2 (UMP Stream Messages, Endpoint Discovery/Notifications, Function Blocks, and Function Block Discovery/Notifications).
-- Enriched Master Development Log with complete Phase 5 (Property Exchange & Process Inquiry), Phase 6 (USB-MIDI 2.0, Serial UART, DMA queues), and Phase 7 (Unified `Midi2Device` embedded engine).
+- Completed Phase 4 (UMP Stream Messages, Endpoint Discovery/Notifications, Function Blocks, Function Block Discovery/Notifications, and Core Transport Traits & Mock Transport).
+- Completed Phase 5 (MIDI-CI Property Exchange: Zero-allocation SAX JSON tokenizer, Transaction Manager, Subscription Manager, SysEx Chunker, and Process Inquiry).
+- Enriched Master Development Log with complete Phase 6 (USB-MIDI 2.0, Serial UART, DMA queues), and Phase 7 (Unified `Midi2Device` embedded engine).

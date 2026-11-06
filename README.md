@@ -8,11 +8,12 @@ This library is a Rust port of an existing C++ MIDI 2.0 library, focusing on saf
 
 ## State of the Port
 
-Currently, `am_midi2` has completed:
+Currently, `el_midi2` has completed:
 - **Phase 1 (The Foundation)**: UMP containers, core bit-manipulation, and utility primitives.
 - **Phase 2 (Protocol Logic)**: Creation of MIDI 1.0 and 2.0 Channel Voice messages, System Common/Realtime messages, Utility messages, and parameter messages (CC, RPN, NRPN, Pitch Bend).
-
-Future phases will address **Phase 3 (MIDI-CI)** and **Phase 4 (Stream & Transport)** to fully implement the specification.
+- **Phase 3 (MIDI-CI)**: SysEx7 & SysEx8 / MDS collectors and chunkers, CI Header serialization/parsing, Discovery Inquiry/Reply, Protocol Negotiation, and Profile Configuration.
+- **Phase 4 (Stream & Transport)**: UMP Stream messages (MT=0xF), Endpoint Discovery, Function Blocks, and core `Transport` / `MockTransport` traits.
+- **Phase 5 (Property Exchange & Process Inquiry)**: Zero-allocation SAX JSON tokenizer, transaction management, subscription management, Property Exchange chunking, and Process Inquiry MIDI message reports.
 
 ## Features
 
@@ -28,13 +29,13 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-am_midi2 = "0.1.0"
+el_midi2 = "0.1.0"
 ```
 
 ### Example: Creating Messages
 
 ```rust
-use am_midi2::messages::UmpFactory;
+use el_midi2::messages::UmpFactory;
 
 fn main() {
     // Create a MIDI 2.0 Note On message
@@ -48,7 +49,7 @@ fn main() {
 ### Example: Parsing a Stream
 
 ```rust
-use am_midi2::buffer::UmpStreamParser;
+use el_midi2::buffer::UmpStreamParser;
 
 fn main() {
     let raw_data = vec![0x20903C64, 0x40903C00, 0x80000000];

@@ -1,8 +1,8 @@
-# User Guide for am_midi2
+# User Guide for el_midi2
 
 ## Introduction
 
-`am_midi2` is a lightweight, `no_std` compatible Rust library for working with MIDI 2.0. It provides the building blocks for creating MIDI 2.0 devices and applications, handling Universal MIDI Packets (UMP), message creation, and stream parsing.
+`el_midi2` is a lightweight, `no_std` compatible Rust library for working with MIDI 2.0. It provides the building blocks for creating MIDI 2.0 devices and applications, handling Universal MIDI Packets (UMP), message creation, and stream parsing.
 
 This library is designed to be efficient and portable, suitable for embedded systems as well as desktop applications.
 
@@ -10,11 +10,11 @@ This library is designed to be efficient and portable, suitable for embedded sys
 
 ### Installation
 
-Add `am_midi2` to your `Cargo.toml`:
+Add `el_midi2` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-am_midi2 = { path = "." } # Or the crates.io version when available
+el_midi2 = { path = "." } # Or the crates.io version when available
 ```
 
 ### Basic Concepts
@@ -34,7 +34,7 @@ The `messages::UmpFactory` provides helper methods to create common MIDI message
 #### MIDI 1.0 Channel Voice
 
 ```rust
-use am_midi2::messages::UmpFactory;
+use el_midi2::messages::UmpFactory;
 
 // Create a Note On message on Group 0, Channel 0, Note 60 (Middle C), Velocity 100
 let note_on = UmpFactory::midi1_note_on(0, 0, 60, 100);
@@ -43,7 +43,7 @@ let note_on = UmpFactory::midi1_note_on(0, 0, 60, 100);
 #### MIDI 2.0 Channel Voice
 
 ```rust
-use am_midi2::messages::UmpFactory;
+use el_midi2::messages::UmpFactory;
 
 // Create a MIDI 2.0 Note On message with high-resolution velocity
 // Group 0, Channel 0, Note 60, Attribute Type 0, Velocity 0x8000 (mid), Attribute Data 0
@@ -57,7 +57,7 @@ let pitch_bend = UmpFactory::midi2_pitch_bend(0, 0, 0x80000000);
 #### System Common & Utility Messages
 
 ```rust
-use am_midi2::messages::UmpFactory;
+use el_midi2::messages::UmpFactory;
 
 // Create a MIDI Timing Clock message on Group 0
 let clock = UmpFactory::timing_clock(0);
@@ -71,8 +71,8 @@ let jr_timestamp = UmpFactory::jr_timestamp(12345);
 The `buffer::UmpStreamParser` allows you to parse a stream of 32-bit integers into `Ump` structs. This is useful when reading data from a hardware interface or network stream.
 
 ```rust
-use am_midi2::buffer::UmpStreamParser;
-use am_midi2::ump::MessageType;
+use el_midi2::buffer::UmpStreamParser;
+use el_midi2::ump::MessageType;
 
 let raw_data = vec![
     0x20903C64, // MIDI 1.0 Note On
@@ -96,10 +96,10 @@ for ump in parser {
 
 ### Utility Functions
 
-`am_midi2` provides utility functions for bit scaling, which is crucial for converting between MIDI 1.0 (7-bit) and MIDI 2.0 (16-bit or 32-bit) values. The library includes optimized fast paths for common parameters in rust hot paths.
+`el_midi2` provides utility functions for bit scaling, which is crucial for converting between MIDI 1.0 (7-bit) and MIDI 2.0 (16-bit or 32-bit) values. The library includes optimized fast paths for common parameters in rust hot paths.
 
 ```rust
-use am_midi2::utils::{scale_up, scale_down};
+use el_midi2::utils::{scale_up, scale_down};
 
 let val_7bit = 0x7F;
 let val_32bit = scale_up(val_7bit, 7, 32); // Scales to 0xFFFFFFFF
@@ -113,7 +113,7 @@ let back_to_7bit = scale_down(val_32bit, 32, 7); // Scales back to 0x7F
 You can manually inspect and modify UMP data using the `Ump` struct methods.
 
 ```rust
-use am_midi2::ump::{Ump, MessageType};
+use el_midi2::ump::{Ump, MessageType};
 
 let mut ump = Ump::new();
 ump.set_message_type(MessageType::Midi1ChannelVoice);

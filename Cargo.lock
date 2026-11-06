@@ -25,10 +25,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "am_midi2"
-version = "0.1.0"
-
-[[package]]
 name = "anstream"
 version = "0.6.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -207,6 +203,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "el_core",
+ "el_midi2",
  "heapless",
 ]
 
@@ -232,6 +229,10 @@ dependencies = [
  "clap",
  "el_core",
 ]
+
+[[package]]
+name = "el_midi2"
+version = "0.1.0"
 
 [[package]]
 name = "hash32"

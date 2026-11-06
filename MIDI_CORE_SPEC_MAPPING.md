@@ -228,7 +228,7 @@ pub struct ByteStreamToUmpParser {
 - **Real-Time Byte Interleaving:** In standard MIDI 1.0 streams, 1-byte System Real-Time messages (`0xF8` Clock, `0xFE` Active Sense, `0xFA` Start) can be interleaved anywhere inside a multi-byte message (even mid-SysEx or mid-NoteOn). The embedded parser immediately yields a 32-bit MT=0x1 UMP without corrupting the multi-byte accumulator.
 
 ### 7.3 Embedded HAL Trait Integration (`embedded-hal`)
-To make `am_midi2` universally portable across ARM Cortex-M (STM32, RP2040, nRF52), RISC-V (ESP32-C3, GD32), and AVR microcontrollers:
+To make `el_midi2` universally portable across ARM Cortex-M (STM32, RP2040, nRF52), RISC-V (ESP32-C3, GD32), and AVR microcontrollers:
 ```rust
 pub trait EmbeddedTransport {
     type Error: core::fmt::Debug;
@@ -247,7 +247,7 @@ pub trait EmbeddedTransport {
 ## 8. Embedded Device Architecture & Memory Budgets
 
 ### 8.1 Static Memory Footprint Allocations
-Embedded microcontrollers have strict RAM limitations (often 16KB to 256KB total SRAM). All buffers and state machines in `am_midi2` operate within guaranteed bounds:
+Embedded microcontrollers have strict RAM limitations (often 16KB to 256KB total SRAM). All buffers and state machines in `el_midi2` operate within guaranteed bounds:
 
 | Component | Embedded Allocation | Purpose |
 |---|---|---|

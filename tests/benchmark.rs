@@ -1,4 +1,4 @@
-use am_midi2::utils::scale_down;
+use el_midi2::utils::scale_down;
 use std::hint::black_box;
 use std::time::Instant;
 
