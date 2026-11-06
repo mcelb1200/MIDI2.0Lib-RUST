@@ -40,7 +40,7 @@ fn main() {
     // Create a MIDI 2.0 Note On message
     // Group 0, Channel 0, Note 60, Attribute Type 0, Velocity 0x8000, Attribute Data 0
     let ump = UmpFactory::midi2_note_on(0, 0, 60, 0, 0x8000, 0);
-    
+
     println!("UMP Data: {:08X} {:08X}", ump.data[0], ump.data[1]);
 }
 ```

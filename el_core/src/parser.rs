@@ -25,33 +25,24 @@ where
 {
     type Item = Ump;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let w1 = self.stream.next()?;
 
-        // Fast-path MessageType extraction without branching or enum conversion overhead
-        // Grouping matching directly on the MT bounds limits memory lookup overhead
-        // and enables the compiler to generate an optimized branch table.
+        use crate::ump::MessageType;
+        let count = MessageType::from_u32(w1).word_count();
+
+        // ⚡ Bolt Optimization: Removed unrolled match blocks and replaced them with
+        // an explicitly zero-initialized array followed by a tight `for` loop. For mixed-length
+        // streams, this eliminates severe branch prediction overhead caused by evaluating the
+        // length and jumping to different array initializations, improving parsing speed.
         // We explicitly return None if the stream truncates mid-packet.
-        // ⚡ Bolt Optimization: removed redundant `& 0xF` mask and grouped pattern match ranges
-        match w1 >> 28 {
-            0x0..=0x2 | 0x6 | 0x7 => Some(Ump {
-                data: [w1, 0, 0, 0],
-            }),
-            0x3..=0x4 | 0x8..=0xA => Some(Ump {
-                data: [w1, self.stream.next()?, 0, 0],
-            }),
-            0xB..=0xC => Some(Ump {
-                data: [w1, self.stream.next()?, self.stream.next()?, 0],
-            }),
-            0x5 | 0xD..=0xF => Some(Ump {
-                data: [
-                    w1,
-                    self.stream.next()?,
-                    self.stream.next()?,
-                    self.stream.next()?,
-                ],
-            }),
-            _ => None, // Unreachable as max value of w1 >> 28 is 15 (0xF)
+        let mut data = [w1, 0, 0, 0];
+        #[allow(clippy::needless_range_loop)]
+        for i in 1..count {
+            data[i] = self.stream.next()?;
         }
+
+        Some(Ump { data })
     }
 }

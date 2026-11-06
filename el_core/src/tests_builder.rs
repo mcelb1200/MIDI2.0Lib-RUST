@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use crate::builder::{UtilityBuilder, VoiceBuilder};
+    use crate::builder::{FlexBuilder, UtilityBuilder, VoiceBuilder};
     use crate::ump::MessageType;
+    use crate::utils::{FLEXDATA_COMMON, FLEXDATA_COMMON_TEMPO, FLEXDATA_LYRIC};
 
     #[test]
     fn test_midi1_note_on() {
@@ -58,6 +59,42 @@ mod tests {
     }
 
     #[test]
+    fn test_midi2_per_note_pitch_bend() {
+        let ump = VoiceBuilder::midi2_per_note_pitch_bend(1, 2, 60, 0x8000_0000);
+        assert_eq!(ump.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(ump.group(), 1);
+        assert_eq!(ump.data[0], 0x41623C00);
+        assert_eq!(ump.data[1], 0x8000_0000);
+    }
+
+    #[test]
+    fn test_midi2_per_note_cc() {
+        let ump = VoiceBuilder::midi2_per_note_cc(1, 2, 60, 5, 0x1234_5678);
+        assert_eq!(ump.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(ump.group(), 1);
+        assert_eq!(ump.data[0], 0x41123C05);
+        assert_eq!(ump.data[1], 0x1234_5678);
+    }
+
+    #[test]
+    fn test_midi2_per_note_rpn() {
+        let ump = VoiceBuilder::midi2_per_note_rpn(1, 2, 60, 5, 0x1234_5678);
+        assert_eq!(ump.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(ump.group(), 1);
+        assert_eq!(ump.data[0], 0x41023C05);
+        assert_eq!(ump.data[1], 0x1234_5678);
+    }
+
+    #[test]
+    fn test_midi2_per_note_manage() {
+        let ump = VoiceBuilder::midi2_per_note_manage(1, 2, 60, 3);
+        assert_eq!(ump.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(ump.group(), 1);
+        assert_eq!(ump.data[0], 0x41F23C03);
+        assert_eq!(ump.data[1], 0);
+    }
+
+    #[test]
     fn test_input_masking() {
         // Pass out-of-bounds values (e.g., 0xFF where only 7 or 4 bits are expected)
         let ump = VoiceBuilder::midi1_note_on(0xFF, 0xFF, 0xFF, 0xFF);
@@ -79,5 +116,88 @@ mod tests {
         // group -> 0xF, channel -> 0xF, value -> split to 0x7F, 0x7F
         // MT=0x2, Status=0xE, w1 = 0x2FEF7F7F
         assert_eq!(ump3.data[0], 0x2FEF7F7F);
+
+        // Per-note masking checks
+        let ump4 = VoiceBuilder::midi2_per_note_cc(0xFF, 0xFF, 0xFF, 0xFF, 0xFFFF_FFFF);
+        assert_eq!(ump4.data[0], 0x4F1F7FFF);
+
+        let ump5 = VoiceBuilder::midi2_per_note_rpn(0xFF, 0xFF, 0xFF, 0xFF, 0xFFFF_FFFF);
+        assert_eq!(ump5.data[0], 0x4F0F7FFF);
+
+        let ump6 = VoiceBuilder::midi2_per_note_manage(0xFF, 0xFF, 0xFF, 0xFF);
+        assert_eq!(ump6.data[0], 0x4FFF7FFF);
+
+        let ump7 = VoiceBuilder::midi2_per_note_pitch_bend(0xFF, 0xFF, 0xFF, 0xFFFF_FFFF);
+        assert_eq!(ump7.data[0], 0x4F6F7F00);
+    }
+
+    #[test]
+    fn test_flex_builder() {
+        // Header
+        let header = FlexBuilder::header(1, 0, 1, 2, FLEXDATA_COMMON, FLEXDATA_COMMON_TEMPO);
+        assert_eq!(header, 0xD1120000);
+
+        // Tempo
+        let tempo = FlexBuilder::tempo(1, 2, 0, 1, 0x12345678);
+        assert_eq!(tempo.message_type(), MessageType::ReservedD);
+        assert_eq!(tempo.group(), 1);
+        assert_eq!(tempo.data[0], 0xD1120000);
+        assert_eq!(tempo.data[1], 0x12345678);
+        assert_eq!(tempo.data[2], 0);
+        assert_eq!(tempo.data[3], 0);
+
+        // Time Signature
+        let timesig = FlexBuilder::time_sig(1, 2, 0, 1, 4, 4, 8);
+        assert_eq!(timesig.message_type(), MessageType::ReservedD);
+        assert_eq!(timesig.data[0], 0xD1120001);
+        assert_eq!(timesig.data[1], 0x04040800);
+        assert_eq!(timesig.data[2], 0);
+        assert_eq!(timesig.data[3], 0);
+
+        // Metronome
+        let metronome = FlexBuilder::metronome(1, 2, 0, 1, 10, 11, 12, 13, 14, 15);
+        assert_eq!(metronome.message_type(), MessageType::ReservedD);
+        assert_eq!(metronome.data[0], 0xD1120002);
+        assert_eq!(metronome.data[1], 0x0A0B0C0D);
+        assert_eq!(metronome.data[2], 0x0E0F0000);
+        assert_eq!(metronome.data[3], 0);
+
+        // Key Signature
+        let keysig = FlexBuilder::key_sig(1, 2, 0, 1, 5, 2);
+        assert_eq!(keysig.message_type(), MessageType::ReservedD);
+        assert_eq!(keysig.data[0], 0xD1120005);
+        assert_eq!(keysig.data[1], 0x05020000);
+        assert_eq!(keysig.data[2], 0);
+        assert_eq!(keysig.data[3], 0);
+
+        // Chord
+        let chord = FlexBuilder::chord(
+            1, 2, 0, 1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2,
+        );
+        assert_eq!(chord.message_type(), MessageType::ReservedD);
+        assert_eq!(chord.data[0], 0xD1120006);
+        assert_eq!(chord.data[1], 0x12034567);
+        assert_eq!(chord.data[2], 0x89AB0000);
+        assert_eq!(chord.data[3], 0xCD0EF012);
+
+        // Text
+        let text = b"Hello";
+        let text_ump = FlexBuilder::text(1, 2, 0, 1, FLEXDATA_LYRIC, 0, text);
+        assert_eq!(text_ump.message_type(), MessageType::ReservedD);
+        assert_eq!(text_ump.data[0], 0xD1120200);
+        assert_eq!(text_ump.data[1], 0x48656C6C);
+        assert_eq!(text_ump.data[2], 0x6F000000);
+        assert_eq!(text_ump.data[3], 0);
+
+        // Lyric text helper
+        let lyric_ump = FlexBuilder::lyric(1, 2, 0, 1, 0, text);
+        assert_eq!(lyric_ump.data, text_ump.data);
+
+        // Performance text helper
+        let perf_ump = FlexBuilder::performance(1, 2, 0, 1, 0, text);
+        assert_eq!(perf_ump.data[0], 0xD1120100);
+        assert_eq!(perf_ump.data[1], 0x48656C6C);
+        assert_eq!(perf_ump.data[2], 0x6F000000);
+        assert_eq!(perf_ump.data[3], 0);
     }
 }

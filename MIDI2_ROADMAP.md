@@ -56,15 +56,15 @@ We are building `am_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 ## 🤝 Phase 3: MIDI-CI (Capability Inquiry)
 **Goal:** The handshake. This is the hardest part involving multi-packet logic.
 
-### ⬜ Session 3.1: System Exclusive (SysEx) Manager
+### ✅ Session 3.1: System Exclusive (SysEx) Manager
 **Prompt:** "Implement the sysex module. MIDI 2.0 sends SysEx in 64-bit (MT 0x3) or 128-bit (MT 0x5) Data packets. We need a SysExBuilder that takes a `&[u8]` payload and returns an `Iterator<Item = Ump>` to chunk the data into packets (Start, Continue, End). Also need a SysExCollector state machine to reassemble incoming packets."
 **Definition of Done:** A test that takes a long string, chunks it into 10 UMPs, and reassembles it back to the string.
 
-### ⬜ Session 3.2: Discovery & Protocol Negotiation
+### ✅ Session 3.2: Discovery & Protocol Negotiation
 **Prompt:** "Implement the ci module basics. Define the Universal SysEx header for MIDI-CI (0x7E, 0x0D, ...). Create a struct CiDiscovery that generates the 'Discovery Inquiry' message. Create a state machine CiInitiator that transitions: Uninitialized -> DiscoverySent -> DiscoveryReceived -> Negotiating."
 **Definition of Done:** A state machine that advances when fed simulated valid CI responses.
 
-### ⬜ Session 3.3: Profile Configuration
+### ✅ Session 3.3: Profile Configuration
 **Prompt:** "Implement MIDI-CI Profile Configuration messages. We need struct definitions for ProfileInquiry, ProfileOn, ProfileOff, and ProfileEnabledReport. These use the SysEx mechanism built in Session 3.1."
 **Definition of Done:** Ability to generate the SysEx payload for turning on a specific Profile ID.
 
