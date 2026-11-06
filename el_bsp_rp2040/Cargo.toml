@@ -1,0 +1,10 @@
+[package]
+name = "el_bsp_rp2040"
+version = "0.1.0"
+edition = "2021"
+description = "Board Support Package and Peripheral Drivers for Raspberry Pi RP2040 MIDI 2.0"
+
+[dependencies]
+el_core = { path = "../el_core" }
+el_midi2 = { path = ".." }
+heapless = "0.8"

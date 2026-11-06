@@ -20,12 +20,13 @@ Currently, `el_midi2` has completed:
 - **Phase 9 (Network Transports & ESP32 Board Support)**:
   - **Session 9.1 (Network Transports)**: RTP-MIDI (RFC 6295) and Network MIDI 2.0 (M2-124) UDP UMP packetization, AppleMIDI session protocol (`IN`, `OK`, `NO`, `BY`), clock synchronization (`CK0`, `CK1`, `CK2`), and zero-allocation network transports.
   - **Session 9.2 (Hardware Peripheral Drivers & ESP32 BSP)**: `el_bsp_esp32` board support crate covering Espressif ESP32 hardware peripherals for both **Xtensa** (ESP32, ESP32-S2, ESP32-S3) and **RISC-V** (ESP32-C3, ESP32-C6, ESP32-H2) microcontrollers, including UART FIFOs with running status and real-time interleaving, USB-OTG MIDI 2.0 with Group Terminal Blocks, and WiFi UDP Network MIDI adapters.
+  - **Session 9.3 (RP2040 Board Support)**: `el_bsp_rp2040` board support crate covering Raspberry Pi RP2040 microcontrollers, including direct Programmable I/O (PIO) state machines for jitter-free 31,250 baud MIDI 1.0 / high-speed serial UMP, and native USB-MIDI 2.0 device drivers with Group Terminal Blocks.
 
 ## Features
 
 - **UMP (Universal MIDI Packet) Support**: Full support for all defined UMP message types (32, 64, 96, 128-bit).
 - **Network MIDI 2.0 & AppleMIDI**: Native UDP packetization of UMPs, session negotiation, and 100-microsecond sample-accurate clock sync.
-- **Microcontroller Board Support**: Turnkey peripheral drivers for ESP32 (Xtensa & RISC-V) with zero dynamic allocation.
+- **Microcontroller Board Support**: Turnkey peripheral drivers for ESP32 (Xtensa & RISC-V) and Raspberry Pi RP2040 (PIO & USB) with zero dynamic allocation.
 - **Message Factory**: Easy-to-use factory methods for creating MIDI 1.0 and MIDI 2.0 Channel Voice messages, System messages, and more.
 - **Stream Parsing**: Efficient iterator-based parser for converting streams of `u32` words into valid UMPs.
 - **Utilities**: Helper functions for optimized bit scaling (up/down) and constant definitions for MIDI status bytes.
