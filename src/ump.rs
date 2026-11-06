@@ -129,6 +129,26 @@ impl Ump {
         Self { data: [0; 4] }
     }
 
+    /// Calculates the word count for a message given its first word.
+    #[must_use]
+    #[inline]
+    pub const fn calculate_word_count(w0: u32) -> usize {
+        match w0 >> 28 {
+            0x0 | 0x1 | 0x2 | 0x6 | 0x7 => 1,
+            0x3 | 0x4 | 0x8 | 0x9 | 0xA => 2,
+            0xB | 0xC => 3,
+            0x5 | 0xD | 0xE | 0xF => 4,
+            _ => unreachable!(),
+        }
+    }
+
+    /// Returns the number of valid 32-bit words for this UMP packet.
+    #[must_use]
+    #[inline]
+    pub const fn word_count(&self) -> usize {
+        Self::calculate_word_count(self.data[0])
+    }
+
     /// Gets the Message Type of the UMP.
     ///
     /// # Returns

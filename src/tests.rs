@@ -1529,4 +1529,206 @@ mod tests {
         assert_eq!(report[16], 0x7F); // chanContBitmap
         assert_eq!(report[17], 0x7F); // chanNoteBitmap
     }
+
+    #[test]
+    fn test_phase6_usb_descriptors_and_packet_framing() {
+        use crate::transport::usb::{
+            GroupTerminalBlock, GroupTerminalBlockType, GroupTerminalProtocol,
+            UsbMidi2HeaderDescriptor, UsbMidiPacketPacker,
+        };
+
+        // 1. Group Terminal Block Descriptor Serialization & Parsing
+        let gtb = GroupTerminalBlock::new(1, GroupTerminalBlockType::Bidirectional, 0, 4)
+            .protocol(GroupTerminalProtocol::Midi2_0)
+            .max_sysex8_streams(8)
+            .string_index(2);
+
+        let mut gtb_buf = [0_u8; 13];
+        gtb.serialize(&mut gtb_buf);
+        assert_eq!(gtb_buf[0], 13);
+        assert_eq!(gtb_buf[1], 0x24);
+        assert_eq!(gtb_buf[2], 0x03);
+        assert_eq!(gtb_buf[3], 1);
+        assert_eq!(gtb_buf[4], 0); // Bidirectional
+        assert_eq!(gtb_buf[5], 0); // First group
+        assert_eq!(gtb_buf[6], 4); // Group count
+        assert_eq!(gtb_buf[7], 2); // String idx
+        assert_eq!(gtb_buf[8], 2); // MIDI 2.0
+        assert_eq!(gtb_buf[9], 8); // Max SysEx8 streams
+
+        let parsed_gtb = GroupTerminalBlock::parse(&gtb_buf).expect("parse gtb");
+        assert_eq!(parsed_gtb, gtb);
+
+        // 2. USB-MIDI 2.0 Header Descriptor
+        let hdr = UsbMidi2HeaderDescriptor::new(13 + 7);
+        let mut hdr_buf = [0_u8; 7];
+        hdr.serialize(&mut hdr_buf);
+        assert_eq!(hdr_buf[0], 7);
+        assert_eq!(hdr_buf[1], 0x24);
+        assert_eq!(hdr_buf[2], 0x01);
+        assert_eq!(hdr_buf[3], 0x00);
+        assert_eq!(hdr_buf[4], 0x02); // 0x0200
+        assert_eq!(hdr_buf[5], 20);
+        assert_eq!(hdr_buf[6], 0);
+
+        let parsed_hdr = UsbMidi2HeaderDescriptor::parse(&hdr_buf).expect("parse header");
+        assert_eq!(parsed_hdr, hdr);
+
+        // 3. Zero-Copy Packet Packing and Unpacking
+        let mut ump1 = crate::ump::Ump::new();
+        ump1.data[0] = 0x20903C64; // 1 word
+        let mut ump2 = crate::ump::Ump::new();
+        ump2.data[0] = 0x40903C00; // 2 words
+        ump2.data[1] = 0x12340000;
+
+        let umps = [ump1, ump2];
+        let mut raw_usb_buf = [0_u8; 64];
+        let bytes_written =
+            UsbMidiPacketPacker::pack_umps(&umps, &mut raw_usb_buf).expect("pack umps");
+        assert_eq!(bytes_written, (1 + 2) * 4); // 12 bytes
+
+        // Unpack sequentially
+        let (unpacked1, len1) =
+            UsbMidiPacketPacker::unpack_ump(&raw_usb_buf[..bytes_written]).expect("unpack 1");
+        assert_eq!(len1, 4);
+        assert_eq!(unpacked1.data[0], ump1.data[0]);
+
+        let (unpacked2, len2) =
+            UsbMidiPacketPacker::unpack_ump(&raw_usb_buf[len1..bytes_written]).expect("unpack 2");
+        assert_eq!(len2, 8);
+        assert_eq!(unpacked2.data[0], ump2.data[0]);
+        assert_eq!(unpacked2.data[1], ump2.data[1]);
+    }
+
+    #[test]
+    fn test_phase6_serial_bytestream_to_ump_and_interleaving() {
+        use crate::transport::serial::{ByteStreamToUmp, UmpToByteStream};
+
+        let mut bs_to_ump = ByteStreamToUmp::new(2);
+
+        // 1. MIDI 1.0 Note On (3 bytes: 0x90, 0x3C, 0x64) with running status (0x3E, 0x50)
+        let stream = [
+            0x90, 0x3C, 0x64, // Note On Ch0, Note 60, Vel 100
+            0xF8, // Real-time Timing Clock interleaved!
+            0x3E, 0x50, // Running status Note On Ch0, Note 62, Vel 80
+        ];
+
+        for &b in &stream {
+            bs_to_ump.process_byte(b);
+        }
+
+        assert_eq!(bs_to_ump.len(), 3);
+
+        // First packet: Note On
+        let u1 = bs_to_ump.pop_ump().expect("msg 1");
+        assert_eq!(u1.message_type(), MessageType::Midi1ChannelVoice);
+        assert_eq!(u1.group(), 2);
+        assert_eq!((u1.data[0] >> 16) & 0xFF, 0x90);
+        assert_eq!((u1.data[0] >> 8) & 0x7F, 60);
+        assert_eq!(u1.data[0] & 0x7F, 100);
+
+        // Second packet: Interleaved Timing Clock (MT=0x1)
+        let u_rt = bs_to_ump.pop_ump().expect("rt msg");
+        assert_eq!(u_rt.message_type(), MessageType::System);
+        assert_eq!((u_rt.data[0] >> 16) & 0xFF, 0xF8);
+
+        // Third packet: Running status Note On
+        let u2 = bs_to_ump.pop_ump().expect("msg 2");
+        assert_eq!(u2.message_type(), MessageType::Midi1ChannelVoice);
+        assert_eq!(u2.group(), 2);
+        assert_eq!((u2.data[0] >> 16) & 0xFF, 0x90);
+        assert_eq!((u2.data[0] >> 8) & 0x7F, 62);
+        assert_eq!(u2.data[0] & 0x7F, 80);
+
+        // 2. SysEx7 chunking from serial bytes
+        let sysex_stream = [0xF0, 0x01, 0x02, 0x03, 0xF7];
+        for &b in &sysex_stream {
+            bs_to_ump.process_byte(b);
+        }
+        assert_eq!(bs_to_ump.len(), 1);
+        let u_sysex = bs_to_ump.pop_ump().expect("sysex msg");
+        assert_eq!(u_sysex.message_type(), MessageType::SysEx7);
+        assert_eq!((u_sysex.data[0] >> 20) & 0xF, 0); // Complete
+        assert_eq!((u_sysex.data[0] >> 16) & 0xF, 3); // 3 bytes
+        assert_eq!((u_sysex.data[0] >> 8) & 0x7F, 1);
+        assert_eq!(u_sysex.data[0] & 0x7F, 2);
+        assert_eq!((u_sysex.data[1] >> 24) & 0x7F, 3);
+
+        // 3. UmpToByteStream: Down-conversion of MIDI 2.0 Note On & SysEx7
+        let mut ump_to_bs = UmpToByteStream::new();
+        ump_to_bs.enable_running_status = true;
+
+        // Process Note On (MT=4, Grp 0, Ch 1, Note 60, Vel 0x8000 -> MIDI 1.0 Vel 64)
+        let m2_note_on = UmpFactory::midi2_note_on(0, 1, 60, 0, 0x8000, 0);
+        ump_to_bs.process_ump(&m2_note_on);
+
+        // Reconstruct bytes
+        let mut out_bytes = alloc::vec::Vec::new();
+        while let Some(b) = ump_to_bs.pop_byte() {
+            out_bytes.push(b);
+        }
+        assert_eq!(out_bytes, alloc::vec![0x91, 60, 64]);
+
+        // Process SysEx7 UMP back to bytes
+        ump_to_bs.process_ump(&u_sysex);
+        let mut sysex_out = alloc::vec::Vec::new();
+        while let Some(b) = ump_to_bs.pop_byte() {
+            sysex_out.push(b);
+        }
+        assert_eq!(sysex_out, alloc::vec![0xF0, 0x01, 0x02, 0x03, 0xF7]);
+    }
+
+    #[test]
+    fn test_phase6_dma_packet_queue_and_slice_leasing() {
+        use crate::transport::queue::PacketQueue;
+        use crate::transport::Transport;
+
+        let mut queue = PacketQueue::<8>::new();
+        assert_eq!(queue.len(), 0);
+        assert_eq!(queue.capacity(), 7);
+        assert!(queue.is_empty());
+        assert!(!queue.is_full());
+
+        let mut ump = crate::ump::Ump::new();
+        ump.data[0] = 0x20903C64;
+
+        // Push and Pop
+        assert!(queue.push(ump).is_ok());
+        assert_eq!(queue.len(), 1);
+        let popped = queue.pop().expect("pop ump");
+        assert_eq!(popped, ump);
+        assert_eq!(queue.len(), 0);
+
+        // DMA Slice Leasing: grant_write and commit_write
+        let (ptr_write, available_write) = queue.grant_write();
+        assert_eq!(available_write, 7);
+        unsafe {
+            let slice = core::slice::from_raw_parts_mut(ptr_write, available_write);
+            for (i, item) in slice.iter_mut().enumerate().take(3) {
+                item.data[0] = 0x20900000 | (i as u32);
+            }
+        }
+        queue.commit_write(3);
+        assert_eq!(queue.len(), 3);
+
+        // DMA Slice Leasing: grant_read and commit_read
+        let (ptr_read, available_read) = queue.grant_read();
+        assert_eq!(available_read, 3);
+        unsafe {
+            let slice = core::slice::from_raw_parts(ptr_read, available_read);
+            assert_eq!(slice[0].data[0], 0x20900000);
+            assert_eq!(slice[1].data[0], 0x20900001);
+            assert_eq!(slice[2].data[0], 0x20900002);
+        }
+        queue.commit_read(3);
+        assert_eq!(queue.len(), 0);
+
+        // Transport trait implementation
+        let batch = [ump; 4];
+        assert!(queue.send(&batch).is_ok());
+        assert_eq!(queue.len(), 4);
+        let r = queue.recv().expect("recv ok").expect("some packet");
+        assert_eq!(r, ump);
+        assert_eq!(queue.len(), 3);
+    }
 }

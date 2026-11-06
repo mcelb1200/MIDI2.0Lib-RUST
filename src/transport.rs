@@ -1,7 +1,20 @@
-//! MIDI 2.0 Core Transport Traits and Mock Transport
+//! MIDI 2.0 Core Transport Traits, Embedded Adapters, and Hardware Interfaces
 //!
 //! Provides hardware- and platform-agnostic abstractions for transmitting and receiving
-//! Universal MIDI Packets (UMP) under `no_std` embedded environments.
+//! Universal MIDI Packets (UMP) under `no_std` embedded environments, including:
+//! - USB-MIDI 2.0 Class Specification & Group Terminal Blocks (`usb`)
+//! - Serial UART / DIN / TRS Byte-Stream Transport & Bi-Directional Adapter (`serial`)
+//! - DMA-Friendly Ringbuffers & Interrupt-Safe Lock-Free Queues (`queue`)
+
+pub mod queue;
+pub mod serial;
+pub mod usb;
+
+pub use queue::PacketQueue;
+pub use serial::{ByteStreamToUmp, UmpToByteStream};
+pub use usb::{
+    GroupTerminalBlock, GroupTerminalBlockType, GroupTerminalProtocol, UsbMidiPacketPacker,
+};
 
 use crate::ump::Ump;
 
