@@ -453,3 +453,55 @@ impl FlexBuilder {
         Self::text(group, channel, form, addrs, FLEXDATA_LYRIC, status, text)
     }
 }
+
+pub struct StreamBuilder;
+
+impl StreamBuilder {
+    /// Creates an Endpoint Discovery UMP message.
+    #[must_use]
+    #[inline]
+    pub fn endpoint_discovery(ump_version_major: u8, ump_version_minor: u8, filter: u8) -> Ump {
+        let w0 = (0xF_u32 << 28) | ((ump_version_major as u32) << 8) | (ump_version_minor as u32);
+        let w1 = (filter as u32) << 24;
+        Ump::new(w0, w1, 0, 0)
+    }
+
+    /// Creates a Function Block Discovery UMP message (Status=0x010).
+    #[must_use]
+    #[inline]
+    pub fn function_block_discovery(fb_idx: u8, filter: u8) -> Ump {
+        let w0 = (0xF_u32 << 28) | (0x010_u32 << 16) | ((fb_idx as u32) << 8) | (filter as u32);
+        Ump::new(w0, 0, 0, 0)
+    }
+
+    /// Creates a Function Block Info Notification UMP message (Status=0x011).
+    #[must_use]
+    #[inline]
+    #[allow(clippy::too_many_arguments)]
+    pub fn function_block_info_notify(
+        fb_idx: u8,
+        active: bool,
+        direction: u8,
+        sender: bool,
+        receiver: bool,
+        first_group: u8,
+        group_length: u8,
+        midi_ci_version: u8,
+        is_midi1: u8,
+        max_s8_streams: u8,
+    ) -> Ump {
+        let w0 = (0xF_u32 << 28)
+            | (0x011_u32 << 16)
+            | ((active as u32) << 15)
+            | (((fb_idx & 0x7F) as u32) << 8)
+            | ((sender as u32) << 5)
+            | ((receiver as u32) << 4)
+            | (((is_midi1 & 0x3) as u32) << 2)
+            | ((direction & 0x3) as u32);
+        let w1 = (((first_group & 0x1F) as u32) << 24)
+            | (((group_length & 0x1F) as u32) << 16)
+            | (((midi_ci_version & 0x7F) as u32) << 8)
+            | (max_s8_streams as u32);
+        Ump::new(w0, w1, 0, 0)
+    }
+}

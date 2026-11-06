@@ -200,4 +200,45 @@ mod tests {
         assert_eq!(perf_ump.data[2], 0x6F000000);
         assert_eq!(perf_ump.data[3], 0);
     }
+
+    #[test]
+    fn test_stream_builder_function_block() {
+        use crate::builder::StreamBuilder;
+        use crate::ump::MessageType;
+
+        // Endpoint discovery
+        let disc = StreamBuilder::endpoint_discovery(1, 0, 0x1F);
+        assert_eq!(disc.message_type(), MessageType::UmpStream);
+        assert_eq!(disc.data[0], 0xF0000100);
+        assert_eq!(disc.data[1], 0x1F000000);
+
+        // Function block discovery
+        let fb_disc = StreamBuilder::function_block_discovery(2, 0x01);
+        assert_eq!(fb_disc.message_type(), MessageType::UmpStream);
+        assert_eq!(fb_disc.data[0], 0xF0100201);
+        assert_eq!(fb_disc.data[1], 0);
+
+        // Function block info notify
+        let fb_info = StreamBuilder::function_block_info_notify(
+            3,    // fb_idx
+            true, // active
+            2,    // bidirectional
+            true, // sender
+            true, // receiver
+            1,    // first group
+            2,    // group length
+            1,    // midi_ci_version
+            0,    // is_midi1
+            4,    // max_s8_streams
+        );
+        assert_eq!(fb_info.message_type(), MessageType::UmpStream);
+        assert_eq!((fb_info.data[0] >> 16) & 0x3FF, 0x011);
+        assert_eq!((fb_info.data[0] >> 15) & 0x1, 1);
+        assert_eq!((fb_info.data[0] >> 8) & 0x7F, 3);
+        assert_eq!(fb_info.data[0] & 0x3, 2);
+        assert_eq!((fb_info.data[1] >> 24) & 0x1F, 1);
+        assert_eq!((fb_info.data[1] >> 16) & 0x1F, 2);
+        assert_eq!((fb_info.data[1] >> 8) & 0x7F, 1);
+        assert_eq!(fb_info.data[1] & 0xFF, 4);
+    }
 }

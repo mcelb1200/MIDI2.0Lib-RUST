@@ -71,11 +71,11 @@ We are building `am_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 ## 🔌 Phase 4: Stream & Transport
 **Goal:** Discovery of endpoints and sending data.
 
-### ⬜ Session 4.1: UMP Stream Messages
+### ✅ Session 4.1: UMP Stream Messages
 **Prompt:** "Implement Message Type 0xF (Stream). This includes EndpointDiscovery, EndpointInfo, DeviceIdentity, and FunctionBlockInfo. These are crucial for the DAW to know what the device is (e.g., 'I am a synth on Group 1')."
 **Definition of Done:** Structs that serialize to valid MT 0xF UMPs.
 
-### ⬜ Session 4.2: Function Blocks
+### ✅ Session 4.2: Function Blocks
 **Prompt:** "Implement a FunctionBlock struct. This helps a device describe its internal topology. It needs to store: Block Direction (Input/Output), MI (MIDI 1/2), Group First, and Group Count."
 **Definition of Done:** A helper that generates the Function Block Info Notification message.
 

@@ -43,6 +43,135 @@ impl StreamTextFormat {
     }
 }
 
+/// Direction of a Function Block.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum FunctionBlockDirection {
+    /// Input only (0x0).
+    Input = 0x0,
+    /// Output only (0x1).
+    Output = 0x1,
+    /// Bidirectional (0x2).
+    Bidirectional = 0x2,
+}
+
+impl FunctionBlockDirection {
+    /// Converts a 2-bit value into a `FunctionBlockDirection`.
+    #[must_use]
+    #[inline]
+    pub fn from_u8(val: u8) -> Self {
+        match val & 0x3 {
+            0x0 => FunctionBlockDirection::Input,
+            0x1 => FunctionBlockDirection::Output,
+            _ => FunctionBlockDirection::Bidirectional,
+        }
+    }
+}
+
+/// Representation of a MIDI 2.0 Function Block describing internal device topology.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FunctionBlock {
+    /// Function Block index (0-31).
+    pub fb_idx: u8,
+    /// Whether this Function Block is currently active.
+    pub active: bool,
+    /// Directionality (Input, Output, Bidirectional).
+    pub direction: FunctionBlockDirection,
+    /// True if this Function Block can transmit messages.
+    pub sender: bool,
+    /// True if this Function Block can receive messages.
+    pub receiver: bool,
+    /// First UMP group spanned by this block (0-15).
+    pub first_group: u8,
+    /// Number of UMP groups spanned by this block (1-16).
+    pub group_length: u8,
+    /// Supported MIDI-CI version level (0 = not supported, 1 = v1.1, 2 = v1.2).
+    pub midi_ci_version: u8,
+    /// 0 = Not restricted, 1 = Restricted to MIDI 1.0 throughput / features.
+    pub is_midi1: u8,
+    /// Maximum number of concurrent SysEx8 streams supported.
+    pub max_s8_streams: u8,
+}
+
+impl FunctionBlock {
+    /// Creates a new `FunctionBlock` with default active status and sender/receiver configured according to direction.
+    #[must_use]
+    #[inline]
+    pub fn new(
+        fb_idx: u8,
+        direction: FunctionBlockDirection,
+        first_group: u8,
+        group_length: u8,
+    ) -> Self {
+        let (sender, receiver) = match direction {
+            FunctionBlockDirection::Input => (false, true),
+            FunctionBlockDirection::Output => (true, false),
+            FunctionBlockDirection::Bidirectional => (true, true),
+        };
+        Self {
+            fb_idx,
+            active: true,
+            direction,
+            sender,
+            receiver,
+            first_group,
+            group_length,
+            midi_ci_version: 0,
+            is_midi1: 0,
+            max_s8_streams: 0,
+        }
+    }
+
+    /// Sets the MIDI-CI version supported by this Function Block.
+    #[must_use]
+    #[inline]
+    pub fn midi_ci_version(mut self, version: u8) -> Self {
+        self.midi_ci_version = version;
+        self
+    }
+
+    /// Sets whether this Function Block is restricted to MIDI 1.0.
+    #[must_use]
+    #[inline]
+    pub fn is_midi1(mut self, midi1: u8) -> Self {
+        self.is_midi1 = midi1;
+        self
+    }
+
+    /// Sets the maximum concurrent SysEx8 streams supported.
+    #[must_use]
+    #[inline]
+    pub fn max_s8_streams(mut self, streams: u8) -> Self {
+        self.max_s8_streams = streams;
+        self
+    }
+
+    /// Generates the Function Block Info Notification UMP message (Status=0x011).
+    #[must_use]
+    #[inline]
+    pub fn to_info_notification(&self) -> Ump {
+        StreamFactory::function_block_info_notify(
+            self.fb_idx,
+            self.active,
+            self.direction as u8,
+            self.sender,
+            self.receiver,
+            self.first_group,
+            self.group_length,
+            self.midi_ci_version,
+            self.is_midi1,
+            self.max_s8_streams,
+        )
+    }
+
+    /// Generates a Function Block Discovery Request UMP message (Status=0x010).
+    #[must_use]
+    #[inline]
+    pub fn discovery_request(fb_idx: u8, filter_bitmap: u8) -> Ump {
+        StreamFactory::function_block_discovery(fb_idx, filter_bitmap)
+    }
+}
+
 /// Message builder for MIDI 2.0 UMP Stream Messages (MT=0xF).
 pub struct StreamFactory;
 
@@ -162,6 +291,23 @@ impl StreamFactory {
             | ((protocol as u32) << 8)
             | ((rxjr as u32) << 1)
             | (txjr as u32);
+        Ump {
+            data: [w0, 0, 0, 0],
+        }
+    }
+
+    /// Creates a Function Block Discovery UMP message.
+    ///
+    /// # Arguments
+    /// * `fb_idx` - Function Block index (0-31), or 0xFF to request all function blocks
+    /// * `filter_bitmap` - Filter bitmap specifying requested notifications
+    #[must_use]
+    #[inline]
+    pub fn function_block_discovery(fb_idx: u8, filter_bitmap: u8) -> Ump {
+        let w0 = (0xF_u32 << 28)
+            | ((STATUS_FUNCTION_BLOCK_DISCOVERY as u32) << 16)
+            | ((fb_idx as u32) << 8)
+            | (filter_bitmap as u32);
         Ump {
             data: [w0, 0, 0, 0],
         }
