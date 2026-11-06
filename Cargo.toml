@@ -4,7 +4,8 @@ members = [
     "el_dump",
     "el_gen",
     "el_bridge",
-    "el_ci_sim"
+    "el_ci_sim",
+    "el_bsp_esp32"
 ]
 resolver = "2"
 

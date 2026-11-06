@@ -2120,4 +2120,172 @@ mod tests {
         assert!(list_body.contains("ResourceList"));
         assert!(list_body.contains("ChannelList"));
     }
+
+    #[test]
+    fn test_phase9_apple_midi_protocol_and_network_packets() {
+        use crate::transport::network::*;
+        use crate::transport::Transport;
+
+        // 1. AppleMIDI Message Serialization and Parsing
+        let msg = AppleMidiMessage::new(
+            AppleMidiCommand::Invitation,
+            0x12345678,
+            0xAABBCCDD,
+            Some("Studio Controller"),
+        );
+        let mut buf = [0_u8; 64];
+        let len = msg.serialize(&mut buf).expect("serialize apple midi");
+        assert!(len >= 16);
+
+        let parsed = AppleMidiMessage::parse(&buf[..len]).expect("parse apple midi");
+        assert_eq!(parsed.command, AppleMidiCommand::Invitation);
+        assert_eq!(parsed.protocol_version, 2);
+        assert_eq!(parsed.initiator_token, 0x12345678);
+        assert_eq!(parsed.ssrc, 0xAABBCCDD);
+        assert_eq!(parsed.name, Some("Studio Controller"));
+
+        // 2. AppleMIDI Session Handshake (Initiator <-> Responder)
+        let mut initiator_session =
+            AppleMidiSession::new(SessionRole::Initiator, 0x11111111, 0x99887766);
+        let mut responder_session = AppleMidiSession::new(SessionRole::Responder, 0x22222222, 0);
+
+        assert_eq!(initiator_session.state, SessionState::Disconnected);
+        assert_eq!(responder_session.state, SessionState::Disconnected);
+
+        // Step 1: Initiator invites on Control Port
+        let mut ctl_invite_buf = [0_u8; 64];
+        let inv_len = initiator_session
+            .initiate_invitation(Some("Initiator Node"), &mut ctl_invite_buf)
+            .expect("ctl invite");
+        assert_eq!(initiator_session.state, SessionState::InvitingControl);
+
+        // Step 2: Responder accepts on Control Port
+        let mut reply_buf = [0_u8; 64];
+        let rep1_len = responder_session
+            .process_message(
+                &ctl_invite_buf[..inv_len],
+                Some("Responder Node"),
+                &mut reply_buf,
+            )
+            .expect("proc ok")
+            .expect("reply generated");
+        assert_eq!(responder_session.state, SessionState::InvitingData);
+
+        // Step 3: Initiator handles Control Accept and automatically generates Data Port Invitation
+        let mut data_invite_buf = [0_u8; 64];
+        let data_inv_len = initiator_session
+            .process_message(
+                &reply_buf[..rep1_len],
+                Some("Initiator Node"),
+                &mut data_invite_buf,
+            )
+            .expect("proc ok")
+            .expect("data invite generated");
+        assert_eq!(initiator_session.state, SessionState::InvitingData);
+
+        // Step 4: Responder accepts on Data Port
+        let rep2_len = responder_session
+            .process_message(
+                &data_invite_buf[..data_inv_len],
+                Some("Responder Node"),
+                &mut reply_buf,
+            )
+            .expect("proc ok")
+            .expect("reply ok");
+        assert_eq!(responder_session.state, SessionState::Synchronizing);
+
+        // Step 5: Initiator handles Data Accept -> Advances to Synchronizing
+        let mut rep3_buf = [0_u8; 64];
+        let rep3 = initiator_session
+            .process_message(
+                &reply_buf[..rep2_len],
+                Some("Initiator Node"),
+                &mut rep3_buf,
+            )
+            .expect("proc ok");
+        assert_eq!(rep3, None);
+        assert_eq!(initiator_session.state, SessionState::Synchronizing);
+
+        // 3. Clock Synchronization Exchange (CK0 -> CK1 -> CK2)
+        // CK0: Initiator (t1 = 100,000)
+        let ck0 = ClockSyncPacket::new(0x11111111, 0, 100_000, 0, 0);
+        let mut ck_buf = [0_u8; 48];
+        let ck0_len = ck0.serialize(&mut ck_buf).expect("serialize ck0");
+
+        // Responder receives CK0 and generates CK1 (t2 = 105,000)
+        let mut ck1_buf = [0_u8; 48];
+        let ck1_len = responder_session
+            .process_clock_sync(
+                &ClockSyncPacket::parse(&ck_buf[..ck0_len]).unwrap(),
+                105_000,
+                &mut ck1_buf,
+            )
+            .expect("ck1 generated");
+        assert_eq!(responder_session.state, SessionState::Open);
+
+        // Initiator receives CK1 at t3 = 102,000, computes offset, and generates CK2
+        let mut ck2_buf = [0_u8; 48];
+        let ck2_len = initiator_session
+            .process_clock_sync(
+                &ClockSyncPacket::parse(&ck1_buf[..ck1_len]).unwrap(),
+                102_000,
+                &mut ck2_buf,
+            )
+            .expect("ck2 generated");
+        assert_eq!(initiator_session.state, SessionState::Open);
+
+        // Verify clock offset calculation:
+        // avg_t = (100_000 + 102_000) / 2 = 101_000
+        // offset = 101_000 - 105_000 = -4000
+        assert_eq!(initiator_session.clock_sync.clock_offset, -4000);
+        assert_eq!(initiator_session.clock_sync.round_trip_latency, 2000);
+
+        // Responder receives CK2, computes matching offset
+        responder_session.process_clock_sync(
+            &ClockSyncPacket::parse(&ck2_buf[..ck2_len]).unwrap(),
+            106_000,
+            &mut reply_buf,
+        );
+        assert_eq!(responder_session.clock_sync.clock_offset, -4000);
+
+        // Timestamp conversions
+        assert_eq!(
+            initiator_session.clock_sync.remote_to_local_time(105_000),
+            101_000
+        );
+        assert_eq!(
+            initiator_session.clock_sync.local_to_remote_time(101_000),
+            105_000
+        );
+
+        // 4. Network MIDI 2.0 / RTP UMP Packet Framing
+        let u1 = crate::messages::UmpFactory::midi2_note_on(0, 0, 60, 0, 0x9000, 0); // 2 words
+        let u2 = crate::messages::UmpFactory::timing_clock(0); // 1 word
+        let umps = [u1, u2];
+
+        let mut datagram_buf = [0_u8; 128];
+        let mut net_transport = NetworkTransport::<16>::new(initiator_session);
+
+        let packed_len = net_transport
+            .pack_outbound_datagram(&umps, 44100, &mut datagram_buf)
+            .expect("pack datagram");
+        assert_eq!(packed_len, 12 + (2 + 1) * 4); // 24 bytes
+
+        // Ingest datagram into receiver NetworkTransport
+        let mut rx_net_transport = NetworkTransport::<16>::new(responder_session);
+        let ingested = rx_net_transport
+            .ingest_datagram(&datagram_buf[..packed_len])
+            .expect("ingest datagram");
+        assert_eq!(ingested, 2);
+
+        // Receive UMPs back
+        let rec1 = rx_net_transport.recv().unwrap().expect("ump 1");
+        assert_eq!(rec1.data[0], u1.data[0]);
+        assert_eq!(rec1.data[1], u1.data[1]);
+
+        let rec2 = rx_net_transport.recv().unwrap().expect("ump 2");
+        assert_eq!(rec2.data[0], u2.data[0]);
+
+        assert!(rx_net_transport.recv().unwrap().is_none());
+    }
 }
