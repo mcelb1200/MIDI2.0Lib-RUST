@@ -756,6 +756,12 @@ mod tests {
         let eof = StreamFactory::end_of_file();
         assert_eq!(eof.data[0], 0xF0210000);
 
+        // Function Block Discovery
+        let fb_disc = StreamFactory::function_block_discovery(3, 0x01);
+        assert_eq!(fb_disc.message_type(), MessageType::Stream);
+        assert_eq!(fb_disc.data[0], 0xF0100301);
+        assert_eq!(fb_disc.data[1], 0);
+
         // Function Block Info Notification
         let fb_info =
             StreamFactory::function_block_info_notify(2, true, 2, true, true, 0, 1, 1, 0, 8);
@@ -766,6 +772,55 @@ mod tests {
         );
         assert_eq!((fb_info.data[1] >> 24) & 0xFF, 0); // first group
         assert_eq!((fb_info.data[1] >> 16) & 0xFF, 1); // group length
+
+        // Function Block Struct & Helper Methods
+        let fb = FunctionBlock::new(5, FunctionBlockDirection::Bidirectional, 2, 4)
+            .midi_ci_version(1)
+            .is_midi1(0)
+            .max_s8_streams(16);
+        assert_eq!(fb.fb_idx, 5);
+        assert!(fb.active);
+        assert_eq!(fb.direction, FunctionBlockDirection::Bidirectional);
+        assert!(fb.sender);
+        assert!(fb.receiver);
+        assert_eq!(fb.first_group, 2);
+        assert_eq!(fb.group_length, 4);
+        assert_eq!(fb.midi_ci_version, 1);
+
+        let fb_ump = fb.to_info_notification();
+        assert_eq!(fb_ump.message_type(), MessageType::Stream);
+        assert_eq!(
+            (fb_ump.data[0] >> 16) & 0x3FF,
+            STATUS_FUNCTION_BLOCK_INFO_NOTIFICATION as u32
+        );
+        assert_eq!((fb_ump.data[0] >> 15) & 0x1, 1); // active
+        assert_eq!((fb_ump.data[0] >> 8) & 0x7F, 5); // fb_idx
+        assert_eq!(fb_ump.data[0] & 0x3, 2); // direction bidirectional
+        assert_eq!((fb_ump.data[1] >> 24) & 0x1F, 2); // first group
+        assert_eq!((fb_ump.data[1] >> 16) & 0x1F, 4); // group length
+        assert_eq!((fb_ump.data[1] >> 8) & 0x7F, 1); // midi_ci_version
+        assert_eq!(fb_ump.data[1] & 0xFF, 16); // max_s8_streams
+
+        let disc_req = FunctionBlock::discovery_request(5, 0xFF);
+        assert_eq!(disc_req.data[0], 0xF01005FF);
+
+        // Direction enum from_u8 check
+        assert_eq!(
+            FunctionBlockDirection::from_u8(0),
+            FunctionBlockDirection::Input
+        );
+        assert_eq!(
+            FunctionBlockDirection::from_u8(1),
+            FunctionBlockDirection::Output
+        );
+        assert_eq!(
+            FunctionBlockDirection::from_u8(2),
+            FunctionBlockDirection::Bidirectional
+        );
+        assert_eq!(
+            FunctionBlockDirection::from_u8(3),
+            FunctionBlockDirection::Bidirectional
+        );
     }
 
     #[test]

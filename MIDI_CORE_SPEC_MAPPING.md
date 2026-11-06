@@ -187,3 +187,82 @@ Handles properties defining Clock Source, Transport controls, and MIDI Time Code
 ### 6.9 M2-117: Controller Resources
 Extends high-resolution CC mapping with string names, default values, and unit definitions (e.g., "Hz", "dB").
 - **Implementation:** A statically bounded array `[ControllerDefinition; 128]` defining CC meta-data. Queries to `"ControllerList"` stream this array into JSON chunks.
+
+## 7. MIDI 2.0 Physical Hardware Transports for Embedded Systems
+
+### 7.1 USB-MIDI 2.0 (Universal Serial Bus Device Class Definition for MIDI Devices v2.0)
+Defines how Universal MIDI Packets (UMP) are transported across USB bulk/interrupt endpoints.
+- **Group Terminal Blocks (GTB):** Describes the logical routing of UMP groups to physical or virtual jacks.
+```rust
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum GroupTerminalBlockType {
+    Bidirectional = 0x00,
+    InputOnly = 0x01,
+    OutputOnly = 0x02,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct GroupTerminalBlock {
+    pub gtb_id: u8,
+    pub block_type: GroupTerminalBlockType,
+    pub group_first: u8,
+    pub group_count: u8,
+    pub midi_protocol: u8, // 1 = MIDI 1.0, 2 = MIDI 2.0
+    pub max_sysex8_streams: u8,
+}
+```
+- **Embedded USB Framing:** USB-MIDI 2.0 sends 32-bit UMP words Little Endian across USB endpoints. Each USB packet contains an integral number of UMP words (up to max packet size, typically 64, 256, or 512 bytes).
+
+### 7.2 Serial DIN & TRS Hardware Transport (UART @ 31,250 baud or High-Speed)
+Traditional 5-pin DIN or 3.5mm TRS jacks transmit raw MIDI 1.0 byte streams or high-speed UMP serial streams.
+- **Bidirectional Byte-to-UMP State Machine:**
+```rust
+pub struct ByteStreamToUmpParser {
+    running_status: u8,
+    expected_bytes: u8,
+    buffer: [u8; 3],
+    buf_len: u8,
+}
+```
+- **Real-Time Byte Interleaving:** In standard MIDI 1.0 streams, 1-byte System Real-Time messages (`0xF8` Clock, `0xFE` Active Sense, `0xFA` Start) can be interleaved anywhere inside a multi-byte message (even mid-SysEx or mid-NoteOn). The embedded parser immediately yields a 32-bit MT=0x1 UMP without corrupting the multi-byte accumulator.
+
+### 7.3 Embedded HAL Trait Integration (`embedded-hal`)
+To make `am_midi2` universally portable across ARM Cortex-M (STM32, RP2040, nRF52), RISC-V (ESP32-C3, GD32), and AVR microcontrollers:
+```rust
+pub trait EmbeddedTransport {
+    type Error: core::fmt::Debug;
+
+    /// Attempts to read incoming UMP packets without blocking.
+    fn read_ump(&mut self) -> Result<Option<Ump>, Self::Error>;
+
+    /// Sends a single UMP packet.
+    fn write_ump(&mut self, ump: &Ump) -> Result<(), Self::Error>;
+
+    /// Flushes any pending outbound buffers.
+    fn flush(&mut self) -> Result<(), Self::Error>;
+}
+```
+
+## 8. Embedded Device Architecture & Memory Budgets
+
+### 8.1 Static Memory Footprint Allocations
+Embedded microcontrollers have strict RAM limitations (often 16KB to 256KB total SRAM). All buffers and state machines in `am_midi2` operate within guaranteed bounds:
+
+| Component | Embedded Allocation | Purpose |
+|---|---|---|
+| `Ump` | 16 bytes (`[u32; 4]`) | Raw packet container |
+| `SysEx7Receiver<CAP>` | `CAP` bytes (default 128-512) | Bounded SysEx7 collector |
+| `SysEx8Receiver<CAP>` | `CAP` bytes (default 256-1024) | High-speed SysEx8 / MDS collector |
+| `StreamTextReceiver<CAP>` | 128 bytes | Endpoint / FB string reassembly |
+| `FunctionBlock` (per instance) | 8 bytes | Internal device topology |
+| `CiInitiator` / `CiResponder` | ~128 bytes | Capability Inquiry state machine |
+| `PeTransactionManager<8>` | ~96 bytes | Concurrent Property Exchange requests |
+| `SubscriptionManager<8>` | 64 bytes | Active subscriber resource hashes |
+
+### 8.2 MISRA 2023 / High-Integrity Safety Guarantees
+- `#![no_std]` core with zero dynamic heap allocation in normal operating paths.
+- `#![forbid(unsafe_code)]` in all parsers, builders, and state machines.
+- Integer shift guards ensuring shift amounts never equal or exceed bit width (`< 32` for `u32`).
+- Branchless mask generation and jump-table optimized exhaustive pattern matches.
+- All public structs implement `Copy`, `Clone`, `Debug`, `PartialEq`, and `Eq` where applicable.
