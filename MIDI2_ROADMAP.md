@@ -160,6 +160,9 @@ The foundational and extended MIDI 2.0 specifications across the complete standa
 **Prompt:** "Implement `el_bsp_esp32` board support crate covering Espressif ESP32 hardware peripherals for MIDI 2.0. Provide zero-allocation hardware UART FIFO drivers with running status and real-time interleaving for MIDI 1.0 (31,250 baud) and high-speed serial UMP, USB-OTG USB-MIDI 2.0 drivers with Group Terminal Blocks, and WiFi UDP Network MIDI 2.0 adapters for both Xtensa (ESP32, ESP32-S3) and RISC-V (ESP32-C3, ESP32-C6) architectures."
 **Definition of Done:** `el_bsp_esp32` compiles in `no_std`, passes unit tests, and integrates seamlessly with `Transport` and `EmbeddedTransport`.
 
+### ✅ Session 9.3: RP2040 Board Support Crate (`el_bsp_rp2040`)
+**Prompt:** "Implement `el_bsp_rp2040` board support crate covering Raspberry Pi RP2040 hardware peripherals for MIDI 2.0. Provide direct PIO state-machine timed UART transmission and reception for 31,250 baud MIDI 1.0 and high-speed serial UMP with FIFOs, and USB-MIDI 2.0 native device drivers with Group Terminal Blocks."
+**Definition of Done:** `el_bsp_rp2040` compiles in `no_std`, passes unit tests, and integrates seamlessly with `Transport` and `EmbeddedTransport`.
+
 ### 🔮 Future Sessions
-- `el_bsp_rp2040`: Direct PIO and USB-MIDI 2.0 driver for RP2040 / Raspberry Pi Pico.
 - `el_bsp_stm32`: DMA-backed UART and USB-FS/HS peripheral bindings for STM32.
