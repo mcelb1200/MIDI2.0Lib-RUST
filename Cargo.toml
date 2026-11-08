@@ -7,7 +7,8 @@ members = [
     "el_ci_sim",
     "el_bsp_esp32",
     "el_bsp_rp2040",
-    "el_bsp_stm32"
+    "el_bsp_stm32",
+    "el_bsp_nrf52"
 ]
 resolver = "2"
 

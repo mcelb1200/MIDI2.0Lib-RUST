@@ -168,5 +168,6 @@ The foundational and extended MIDI 2.0 specifications across the complete standa
 **Prompt:** "Implement `el_bsp_stm32` board support crate covering STMicroelectronics STM32 hardware peripherals for MIDI 2.0 (ARM Cortex-M: STM32F4, STM32G4, STM32H7, STM32F7). Provide DMA-backed circular buffer UART drivers with running status and real-time interleaving for MIDI 1.0 (31,250 baud) and high-speed serial UMP with USART_BRR register calculations, and USB-MIDI 2.0 native device drivers for STM32 USB OTG_FS / OTG_HS cores with Group Terminal Blocks."
 **Definition of Done:** `el_bsp_stm32` compiles in `no_std`, passes unit tests, and integrates seamlessly with `Transport` and `EmbeddedTransport`.
 
-### 🔮 Future Sessions
-- `el_bsp_nrf52`: Nordic nRF52 BLE MIDI 2.0 and USB peripheral bindings.
+### ✅ Session 9.5: Nordic nRF52 Board Support Crate (`el_bsp_nrf52`)
+**Prompt:** "Implement `el_bsp_nrf52` board support crate covering Nordic Semiconductor nRF52 microcontrollers (ARM Cortex-M4F: nRF52832, nRF52840, nRF52833). Provide EasyDMA UARTE drivers with running status and real-time interleaving for MIDI 1.0 (31,250 baud) and high-speed serial UMP with hardware BAUDRATE register calculations, USB-MIDI 2.0 native device drivers for nRF52 USBD cores with Group Terminal Blocks, and Bluetooth Low Energy (BLE) MIDI 2.0 packet framing adapters with 13-bit timestamp encapsulation."
+**Definition of Done:** `el_bsp_nrf52` compiles in `no_std`, passes unit tests, and integrates seamlessly with `Transport` and `EmbeddedTransport`.

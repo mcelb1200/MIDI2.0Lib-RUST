@@ -207,6 +207,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "el_bsp_nrf52"
+version = "0.1.0"
+dependencies = [
+ "el_core",
+ "el_midi2",
+ "heapless",
+]
+
+[[package]]
 name = "el_bsp_rp2040"
 version = "0.1.0"
 dependencies = [
