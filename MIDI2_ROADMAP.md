@@ -171,3 +171,182 @@ The foundational and extended MIDI 2.0 specifications across the complete standa
 ### ✅ Session 9.5: Nordic nRF52 Board Support Crate (`el_bsp_nrf52`)
 **Prompt:** "Implement `el_bsp_nrf52` board support crate covering Nordic Semiconductor nRF52 microcontrollers (ARM Cortex-M4F: nRF52832, nRF52840, nRF52833). Provide EasyDMA UARTE drivers with running status and real-time interleaving for MIDI 1.0 (31,250 baud) and high-speed serial UMP with hardware BAUDRATE register calculations, USB-MIDI 2.0 native device drivers for nRF52 USBD cores with Group Terminal Blocks, and Bluetooth Low Energy (BLE) MIDI 2.0 packet framing adapters with 13-bit timestamp encapsulation."
 **Definition of Done:** `el_bsp_nrf52` compiles in `no_std`, passes unit tests, and integrates seamlessly with `Transport` and `EmbeddedTransport`.
+
+---
+
+## 🔍 Detailed Specification Gap Analysis: Missing & Partial Implementations
+
+An exhaustive examination of the codebase against the official MIDI Association MIDI 2.0 and MIDI-CI standard specifications reveals the following architectural areas where coverage is currently partial, foundational, or awaiting dedicated runtime bindings:
+
+### 1. M2-104-UM: Mixed Data Set (MDS) Network & Large-Payload Transport (MT=0x5)
+* **Status in Codebase:** *Partial*. Generic SysEx8 packet chunking (`SysEx8Chunker`) and stream reassembly (`SysEx8Receiver`) are implemented in `src/sysex.rs` for Status nibbles `0x0` (Complete), `0x1` (Start), `0x2` (Continue), and `0x3` (End). In the legacy C++ codebase (`include/umpMessageCreate.h`), MDS Header (`Status=0x8`) and MDS Payload (`Status=0x9`) helpers exist.
+* **Missing in Rust Engine:**
+  - Dedicated zero-allocation struct representations and streaming iterators for **Mixed Data Set Header UMP** (`MT=0x5, Status=0x8`) encoding Group, MDS ID (0..15), Number of Valid Bytes in Header (1..14), Total Number of Chunks, and Current Chunk Number.
+  - **MDS Payload UMP** (`MT=0x5, Status=0x9`) streaming chunker and reassembly state machine with chunk sequence validation, missing chunk detection, and per-MDS-ID concurrent reassembly buffers.
+  - Demultiplexing multiple concurrent MDS streams over the same physical transport link without cross-stream payload corruption.
+
+### 2. M2-104-UM: Delta Clockstamps (DCT) & High-Resolution Jitter Reduction
+* **Status in Codebase:** *Partial*. Basic Utility messages (`MT=0x0`) for Jitter Reduction (JR) Clock (`Status=0x1`) and JR Timestamp (`Status=0x2`) are implemented in `messages::UmpFactory::jr_clock` and `jr_timestamp`.
+* **Missing in Rust Engine:**
+  - **Delta Clockstamp (DCT)** messages (`MT=0x0, Status=0x3` and `0x4`): DCT with ticks (e.g. ticks per quarter note or sample clock delta) for packet scheduling in non-real-time streaming and local playback contexts.
+  - Complete TX/RX jitter reduction scheduler queue that pairs JR timestamps with adjacent Channel Voice and System messages, correcting for OS/hardware DMA transmission jitter at receiver endpoints.
+
+### 3. M2-104-UM: Flex Data Messages Multi-Packet Reassembly & Full Metadata Banks (MT=0xD)
+* **Status in Codebase:** *Partial*. Complete builders for Set Tempo, Time Signature, Metronome, Key Signature, Chord, Performance Text, and Lyric Text are implemented in `messages::UmpFactory` (`src/messages.rs`).
+* **Missing in Rust Engine:**
+  - **Multi-Packet Flex Data Text Reassembly**: The current codebase packs single-packet Flex Data text (up to 12 bytes per packet). A zero-allocation multi-packet chunker and receiver (`FlexDataReceiver<const CAP: usize>`) handling Form `0x1` (Start), `0x2` (Continue), and `0x3` (End) for lyrics, song names, cue points, and chord names is missing.
+  - **Project & Track Metadata Status Banks**: Status Bank `0x00` (Setup & Performance Events: Bar Marker, Beat Marker), Status Bank `0x03` (Project Name, Composition Name, Arranger, Composer, Copyright Notice), Status Bank `0x04` (Track / Channel Names, Clip Names, Marker Notes).
+
+### 4. M2-101-UM: MIDI-CI v1.2 Extended Profile Management
+* **Status in Codebase:** *Partial*. Profile Inquiry, Reply, Set On, Set Off, Enabled Report, and Disabled Report are implemented in `src/ci.rs`.
+* **Missing in Rust Engine:**
+  - **Profile Details Inquiry (`0x28`) & Profile Details Reply (`0x29`)**: Negotiating per-profile capability bitmaps and configuration parameters (e.g., organ drawbar count, synth oscillator allocation).
+  - **Profile Added (`0x26`) & Profile Removed (`0x27`) Notifications**: Dynamic profile advertisement during runtime when sub-modules or software engines change.
+  - Bounded multi-channel profile channel masking (`num_channels` bitmap allocation in CI v2 format).
+
+### 5. M2-104-UM: Stream Configuration & Endpoint Negotiation State Machine
+* **Status in Codebase:** *Partial*. Builders for Stream Configuration Request/Notification and Endpoint Discovery are implemented in `src/stream.rs`.
+* **Missing in Rust Engine:**
+  - Dynamic Stream Protocol Switch handshake engine: Active timeout handling when transitioning physical wire speeds or switching from MIDI 1.0 (31,250 baud) to MIDI 2.0 (High-Speed UMP) via Stream Configuration Request (`Status=0x005`) and verifying matching Notification (`Status=0x006`) prior to activating MT=0x4 message processing.
+
+### 6. M2-103/105: Property Exchange (PE) Advanced Resource Handlers & Schema Validation
+* **Status in Codebase:** *Partial*. Zero-allocation SAX JSON tokenizer, transaction manager, subscription manager, reply chunker, and procedural resources (`DeviceInfo`, `ResourceList`, `ChannelList`, `Mode`, `ProgramList`, `LocalOn`, `DeviceState`, `ExternalSync`, `ControllerList`) are implemented.
+* **Missing in Rust Engine:**
+  - Standard JSON Schema validator for inbound `Set` requests to reject malformed client parameter changes prior to hardware register commit.
+  - Paginated property streaming for very large `ProgramList` and `ControllerList` querying using `offset` and `limit` JSON header properties without allocating memory.
+
+### 7. M2-116: MIDI Clip File (`.midiclip`) Multi-Track Sequencer & Playback Engine
+* **Status in Codebase:** *Partial*. Clip header parsing/serialization (`MidiClipHeader`), variable-length quantity (VLQ) delta-time parser (`MidiClipTrackParser`), and builder (`MidiClipBuilder`) are implemented in `src/midiclip.rs`.
+* **Missing in Rust Engine:**
+  - Simultaneous multi-track scheduler: Merging multiple concurrent `MTrk` chunks into a single chronological UMP stream with delta-time to microsecond/tick conversion and transport tempo changes (`FlexData` tempo map tracking).
+
+---
+
+## 🍓 Session 9.6: Complete Specification for Bare Metal Raspberry Pi 3B+ (`el_bsp_rpi3`)
+
+### 1. Architectural Overview & System Target
+* **Target SoC:** Broadcom BCM2837B0 (same family as BCM2837, high-performance ARM Cortex-A53 quad-core 64-bit ARMv8-A).
+* **Target Architecture:** `aarch64-unknown-none` (AArch64 bare metal, Exception Level 1 / EL1 or EL2).
+* **System Clock / Oscillator:** 19.2 MHz crystal oscillator; GPU / VPU Core Clock dynamically governed or fixed at 250 MHz / 400 MHz via Mailbox; ARM Core clock up to 1.4 GHz.
+* **Memory Management:** `#![no_std]` runtime with zero dynamic allocation; static MMIO registers and identity-mapped non-cacheable Device-nGnRnE memory regions for peripheral spaces.
+
+### 2. Peripheral Base Addresses & Register Map (BCM2837B0)
+On the Raspberry Pi 3B+ in 64-bit AArch64 mode, the physical MMIO base address is relocated to:
+$$\text{MMIO\_BASE} = \mathtt{0x3F00\_0000}$$
+
+| Peripheral | Base Address | Register Offset Details | Primary Function in MIDI 2.0 |
+|---|---|---|---|
+| **System Timer** | `0x3F00_3000` | `CS`: `+0x00`<br>`CLO`: `+0x04`<br>`CHI`: `+0x08`<br>`C0`-`C3`: `+0x0C`-`+0x18` | 1 MHz hardware counter (1 microsecond resolution) for UMP JR timestamps and AppleMIDI 100-microsecond clock sync. |
+| **Mailbox 0 (ARM <- VC)** | `0x3F00_B880` | `READ`: `+0x00`<br>`STATUS`: `+0x18`<br>`WRITE`: `+0x20` | Firmware clock rate configuration, UART clock locking, MAC address acquisition for Network MIDI 2.0. |
+| **ARM Interrupt Controller** | `0x3F00_B200` | `IRQ_BASIC_PEND`: `+0x00`<br>`ENABLE_IRQS1`: `+0x10`<br>`ENABLE_IRQS2`: `+0x14`<br>`DISABLE_IRQS1`: `+0x1C` | Hardware interrupt routing for UART RX/TX FIFOs and USB OTG events. |
+| **GPIO Controller** | `0x3F20_0000` | `GPFSEL0`-`GPFSEL5`: `+0x00`-`+0x14`<br>`GPSET0`: `+0x1C`<br>`GPCLR0`: `+0x28`<br>`GPPUD`: `+0x94`<br>`GPPUDCLK0`: `+0x98` | Pin multiplexing for UART0 (GPIO 14 TX, GPIO 15 RX) and MIDI activity LEDs. |
+| **PL011 UART0** | `0x3F20_1000` | `DR`: `+0x00`<br>`FR`: `+0x18`<br>`IBRD`: `+0x24`<br>`FBRD`: `+0x28`<br>`LCRH`: `+0x2C`<br>`CR`: `+0x30`<br>`IFLS`: `+0x34`<br>`IMSC`: `+0x38`<br>`MIS`: `+0x40`<br>`ICR`: `+0x44` | Primary high-precision MIDI 1.0 (31,250 baud) DIN/TRS transceiver and high-speed serial UMP link. |
+| **Mini UART (AUX / UART1)** | `0x3F21_5000` | `AUX_ENABLES`: `+0x04`<br>`AUX_MU_IO`: `+0x40`<br>`AUX_MU_IER`: `+0x44`<br>`AUX_MU_IIR`: `+0x48`<br>`AUX_MU_LCR`: `+0x4C`<br>`AUX_MU_MCR`: `+0x50`<br>`AUX_MU_LSR`: `+0x54`<br>`AUX_MU_BAUD`: `+0x68` | Secondary serial MIDI port or diagnostic console output. |
+| **Synopsys DWC2 USB OTG** | `0x3F98_0000` | `GAHBCFG`: `+0x08`<br>`GUSBCFG`: `+0x0C`<br>`GRSTCTL`: `+0x10`<br>`GINTSTS`: `+0x14`<br>`GINTMSK`: `+0x18`<br>`DAINT`: `+0x818`<br>`DIEPCTL0`: `+0x900`<br>`DOEPCTL0`: `+0xB00` | Native USB-MIDI 2.0 device/host controller with Group Terminal Blocks (GTB). |
+
+---
+
+### 3. PL011 UART0 Hardware Configuration & Exact Baud Divisor Formulas
+The ARM PrimeCell PL011 UART provides fractional baud rate generation, 32-byte hardware FIFOs, and hardware parity/framing error detection, making it the ideal controller for jitter-free MIDI 1.0 (31,250 baud) and high-speed serial UMP.
+
+#### 3.1 Mailbox Clock Locking
+To prevent the GPU firmware from dynamically scaling the UART reference clock, `el_bsp_rpi3` issues a Mailbox property tag request (`TAG_SET_CLOCK_RATE = 0x00038002`, Clock ID `0x02` for UART) locking `UART_CLK` to a fixed **48,000,000 Hz** (48 MHz).
+
+#### 3.2 Baud Rate Divisor Mathematics
+The PL011 baud divisor is calculated as:
+$$\text{Baud Divisor} = \frac{\text{UART\_CLK}}{16 \times \text{Target Baud}}$$
+$$\text{IBRD} = \lfloor \text{Baud Divisor} \rfloor$$
+$$\text{FBRD} = \lfloor (\text{Baud Divisor} - \text{IBRD}) \times 64 + 0.5 \rfloor$$
+
+1. **Standard MIDI 1.0 (31,250 Baud):**
+   $$\text{Baud Divisor} = \frac{48{,}000{,}000}{16 \times 31{,}250} = \frac{48{,}000{,}000}{500{,}000} = 96.0000$$
+   - **Integer Part (`IBRD`):** `96` (`0x0060`)
+   - **Fractional Part (`FBRD`):** `0` (`0x0000`)
+   - **Baud Error:** **0.000%** (exact integer alignment, eliminating bit-rate drift and frame errors).
+
+2. **High-Speed Serial UMP (1,000,000 Baud / 1 MBaud):**
+   $$\text{Baud Divisor} = \frac{48{,}000{,}000}{16 \times 1{,}000{,}000} = 3.0000$$
+   - **Integer Part (`IBRD`):** `3` (`0x0003`)
+   - **Fractional Part (`FBRD`):** `0` (`0x0000`)
+   - **Baud Error:** **0.000%**.
+
+3. **High-Speed Serial UMP (3,000,000 Baud / 3 MBaud):**
+   $$\text{Baud Divisor} = \frac{48{,}000{,}000}{16 \times 3{,}000{,}000} = 1.0000$$
+   - **Integer Part (`IBRD`):** `1` (`0x0001`)
+   - **Fractional Part (`FBRD`):** `0` (`0x0000`)
+   - **Baud Error:** **0.000%**.
+
+4. **Standard Diagnostic / Host Link (115,200 Baud):**
+   $$\text{Baud Divisor} = \frac{48{,}000{,}000}{16 \times 115{,}200} \approx 26.041666$$
+   - **Integer Part (`IBRD`):** `26` (`0x001A`)
+   - **Fractional Part (`FBRD`):** $\lfloor 0.041666 \times 64 + 0.5 \rfloor = 3$ (`0x0003`)
+   - **Calculated Baud:** $48{,}000{,}000 / (16 \times 26.046875) \approx 115{,}177.88$ Baud (**-0.019% error**, well within the 1.5% RS-232 tolerance).
+
+#### 3.3 Pin Configuration (GPIO Alternate Functions)
+* **GPIO 14 (Pin 8):** Set to `ALT0` (`TXD0`).
+* **GPIO 15 (Pin 10):** Set to `ALT0` (`RXD0`).
+* **Pull-up/down:** Set `GPPUD` to `0` (disable internal pull-up/down; external 5V/3.3V optocoupler circuit handles line termination).
+
+---
+
+### 4. Synopsys DWC2 USB Controller (USB-MIDI 2.0 Device/Host Driver)
+The Raspberry Pi 3B+ routes its single OTG USB physical interface through a Microchip LAN7515 USB hub and Ethernet controller. In bare-metal device mode or when driving attached class-compliant USB-MIDI 2.0 synthesizers:
+
+1. **Group Terminal Block (GTB) Class Descriptor:**
+   - Standard 13-byte Class-Specific MS Interface Descriptor (Subtype `0x03`).
+   - Declares bidirectional 16-group UMP pipe (`bLength = 13`, `bDescriptorType = 0x24`, `bDescriptorSubtype = 0x03`, `bGroupTrmBlkID = 0x01`, `bBlockType = 0x00`, `bGroupFirst = 0x00`, `bGroupLength = 16`, `bMidiProtocol = 0x02` for MIDI 2.0 with MIDI-CI).
+2. **Endpoint Buffer Descriptor:**
+   - Full-Speed / High-Speed bulk endpoints (Endpoint 1 IN / OUT) with 64-byte or 512-byte max packet sizes.
+   - Zero-copy DMA packetization packing native Little-Endian 32-bit UMP words into USB packet buffers.
+
+---
+
+### 5. LAN7515 Ethernet Controller & Network MIDI 2.0 (AppleMIDI / RTP-MIDI)
+The on-board Microchip LAN7515 provides 10/100/1000 Mbps Ethernet connected over USB:
+1. **Network Stack:** `#![no_std]` zero-allocation UDP/IP stack (`smoltcp` integration or raw Ethernet framing).
+2. **Ports:** UDP Port 5004 (Control Port) and 5005 (Data Port).
+3. **Session Protocol:** Integrated with `src/transport/network.rs` (`AppleMidiSession`, `ClockSync`, and `RtpMidiHeader`), utilizing the 1 MHz BCM2837 System Timer (`CLO` register) to populate 64-bit 100-microsecond timestamps for `CK0`, `CK1`, and `CK2` clock synchronization packets.
+
+---
+
+### 6. Bare Metal Driver Architecture (`el_bsp_rpi3`)
+
+The bare-metal Raspberry Pi 3B+ crate (`el_bsp_rpi3`) will be structured as follows:
+
+```text
+el_bsp_rpi3/
+├── Cargo.toml (Strictly #![no_std], aarch64-unknown-none target)
+└── src/
+    ├── lib.rs (Top-level exports, BCM2837 peripheral base constants)
+    ├── timer.rs (1 MHz hardware System Timer driver for JR timestamps)
+    ├── mailbox.rs (Mailbox property interface for clock locking & board info)
+    ├── gpio.rs (GPIO pinmux and function select)
+    ├── uart.rs (PL011 UART0 driver with running status, real-time interleaving, and baud math)
+    ├── usb.rs (DWC2 USB-MIDI 2.0 Group Terminal Block and packet framing driver)
+    └── network.rs (Ethernet LAN7515 UDP Network MIDI 2.0 adapter)
+```
+
+#### 6.1 `Rpi3UartDriver` Implementation Blueprint
+```rust
+pub struct Rpi3UartDriver<const RX_CAP: usize, const TX_CAP: usize> {
+    base_addr: usize,
+    default_group: u8,
+    baud_rate: Rpi3BaudRate,
+    byte_to_ump: ByteStreamToUmp,
+    ump_to_byte: UmpToByteStream,
+    rx_queue: PacketQueue<RX_CAP>,
+    tx_queue: PacketQueue<TX_CAP>,
+}
+```
+- Implements `Transport` (`send(&[Ump])`, `recv() -> Option<Ump>`).
+- Implements `EmbeddedTransport` (`read_ump()`, `write_ump()`, `flush()`).
+- Provides direct hardware FIFO accessors: `read_dr()`, `write_dr()`, `is_tx_fifo_full()`, `is_rx_fifo_empty()`.
+
+---
+
+### 7. Definition of Done & Test Suite for `el_bsp_rpi3`
+* **Test 1: Baud Divisor Precision (`test_rpi3_baud_divisors`)**: Assert integer (`IBRD`) and fractional (`FBRD`) registers evaluate to exact theoretical values for 31,250 baud (`96, 0`), 1 MBaud (`3, 0`), 3 MBaud (`1, 0`), and 115,200 baud (`26, 3`) under 48 MHz clock.
+* **Test 2: System Timer Timestamp Precision (`test_rpi3_system_timer_math`)**: Verify conversion of 1 MHz hardware counter ticks to 100-microsecond AppleMIDI network clock units and 16-bit Jitter Reduction timestamps.
+* **Test 3: UART0 Loopback Simulation (`test_rpi3_uart_loopback`)**: Stream MIDI 1.0 Note On/Off bytes and high-speed UMP frames through the PL011 driver FIFO buffer, verifying zero-copy byte-to-UMP translation and running status reconstruction.
+* **Test 4: USB-MIDI 2.0 GTB Descriptor Serialization (`test_rpi3_usb_gtb_descriptors`)**: Verify byte-accurate USB-MIDI 2.0 Group Terminal Block descriptors and Little-Endian packet framing.
+* **Test 5: Zero-Allocation Interface Compliance**: Validate `#![no_std]` compilation and zero heap allocation across all drivers.
