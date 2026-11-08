@@ -1,0 +1,16 @@
+[package]
+name = "el_bsp_nrf52"
+version = "0.1.0"
+edition = "2021"
+description = "Board Support Package and Peripheral Drivers for Nordic nRF52 MIDI 2.0"
+
+[features]
+default = []
+nrf52832 = []
+nrf52840 = []
+nrf52833 = []
+
+[dependencies]
+el_core = { path = "../el_core" }
+el_midi2 = { path = ".." }
+heapless = "0.8"
