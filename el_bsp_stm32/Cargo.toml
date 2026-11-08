@@ -1,0 +1,10 @@
+[package]
+name = "el_bsp_stm32"
+version = "0.1.0"
+edition = "2021"
+description = "Board Support Package and Peripheral Drivers for STM32 (ARM Cortex-M) MIDI 2.0"
+
+[dependencies]
+el_core = { path = "../el_core" }
+el_midi2 = { path = ".." }
+heapless = "0.8"
