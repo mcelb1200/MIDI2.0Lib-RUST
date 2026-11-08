@@ -159,6 +159,94 @@ impl VoiceBuilder {
     }
 }
 
+pub struct SystemBuilder;
+
+impl SystemBuilder {
+    #[must_use]
+    #[inline]
+    fn mt1_create(group: u8, status: u8, val1: u8, val2: u8) -> Ump {
+        let combined =
+            ((group as u32) << 24) | ((status as u32) << 16) | ((val1 as u32) << 8) | (val2 as u32);
+        let w0 = 0x1000_0000 | (combined & 0x0FFF_7F7F);
+        Ump::new(w0, 0, 0, 0)
+    }
+
+    /// Creates a Timing Clock message (0xF8).
+    #[must_use]
+    #[inline]
+    pub fn timing_clock(group: u8) -> Ump {
+        Self::mt1_create(group, 0xF8, 0, 0)
+    }
+
+    /// Creates a Start Sequence message (0xFA).
+    #[must_use]
+    #[inline]
+    pub fn start(group: u8) -> Ump {
+        Self::mt1_create(group, 0xFA, 0, 0)
+    }
+
+    /// Creates a Continue Sequence message (0xFB).
+    #[must_use]
+    #[inline]
+    pub fn continue_seq(group: u8) -> Ump {
+        Self::mt1_create(group, 0xFB, 0, 0)
+    }
+
+    /// Creates a Stop Sequence message (0xFC).
+    #[must_use]
+    #[inline]
+    pub fn stop(group: u8) -> Ump {
+        Self::mt1_create(group, 0xFC, 0, 0)
+    }
+
+    /// Creates an Active Sensing message (0xFE).
+    #[must_use]
+    #[inline]
+    pub fn active_sensing(group: u8) -> Ump {
+        Self::mt1_create(group, 0xFE, 0, 0)
+    }
+
+    /// Creates a System Reset message (0xFF).
+    #[must_use]
+    #[inline]
+    pub fn system_reset(group: u8) -> Ump {
+        Self::mt1_create(group, 0xFF, 0, 0)
+    }
+
+    /// Creates a MIDI Time Code Quarter Frame message (0xF1).
+    #[must_use]
+    #[inline]
+    pub fn mtc_quarter_frame(group: u8, data: u8) -> Ump {
+        Self::mt1_create(group, 0xF1, data, 0)
+    }
+
+    /// Creates a Song Position Pointer message (0xF2).
+    #[must_use]
+    #[inline]
+    pub fn song_position_pointer(group: u8, position: u16) -> Ump {
+        Self::mt1_create(
+            group,
+            0xF2,
+            (position & 0x7F) as u8,
+            ((position >> 7) & 0x7F) as u8,
+        )
+    }
+
+    /// Creates a Song Select message (0xF3).
+    #[must_use]
+    #[inline]
+    pub fn song_select(group: u8, song: u8) -> Ump {
+        Self::mt1_create(group, 0xF3, song, 0)
+    }
+
+    /// Creates a Tune Request message (0xF6).
+    #[must_use]
+    #[inline]
+    pub fn tune_request(group: u8) -> Ump {
+        Self::mt1_create(group, 0xF6, 0, 0)
+    }
+}
+
 pub struct UtilityBuilder;
 
 impl UtilityBuilder {

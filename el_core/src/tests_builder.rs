@@ -59,6 +59,50 @@ mod tests {
     }
 
     #[test]
+    fn test_system_builder_messages() {
+        use crate::builder::SystemBuilder;
+
+        // Timing Clock
+        let clock = SystemBuilder::timing_clock(1);
+        assert_eq!(clock.data[0], 0x11F80000);
+        assert_eq!(clock.message_type(), MessageType::System);
+        assert_eq!(clock.group(), 1);
+
+        // Start, Continue, Stop
+        let start = SystemBuilder::start(2);
+        assert_eq!(start.data[0], 0x12FA0000);
+
+        let cont = SystemBuilder::continue_seq(3);
+        assert_eq!(cont.data[0], 0x13FB0000);
+
+        let stop = SystemBuilder::stop(4);
+        assert_eq!(stop.data[0], 0x14FC0000);
+
+        // Active Sensing, Reset
+        let sense = SystemBuilder::active_sensing(0);
+        assert_eq!(sense.data[0], 0x10FE0000);
+
+        let reset = SystemBuilder::system_reset(0);
+        assert_eq!(reset.data[0], 0x10FF0000);
+
+        // MTC Quarter Frame
+        let mtc = SystemBuilder::mtc_quarter_frame(0, 0x7F);
+        assert_eq!(mtc.data[0], 0x10F17F00);
+
+        // Song Position Pointer (14-bit)
+        let spp = SystemBuilder::song_position_pointer(0, 0x3FFF);
+        assert_eq!(spp.data[0], 0x10F27F7F);
+
+        // Song Select
+        let song = SystemBuilder::song_select(0, 42);
+        assert_eq!(song.data[0], 0x10F32A00);
+
+        // Tune Request
+        let tune = SystemBuilder::tune_request(5);
+        assert_eq!(tune.data[0], 0x15F60000);
+    }
+
+    #[test]
     fn test_midi2_per_note_pitch_bend() {
         let ump = VoiceBuilder::midi2_per_note_pitch_bend(1, 2, 60, 0x8000_0000);
         assert_eq!(ump.message_type(), MessageType::Midi2ChannelVoice);
