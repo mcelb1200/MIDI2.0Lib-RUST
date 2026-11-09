@@ -659,6 +659,146 @@ impl CiProfile {
         (buf, len)
     }
 
+    /// Builds a Profile Added notification message payload (18 bytes).
+    #[must_use]
+    #[inline]
+    pub fn build_profile_added(
+        source_muid: u32,
+        destination_muid: u32,
+        destination: u8,
+        ci_version: u8,
+        profile: ProfileId,
+    ) -> ([u8; 20], usize) {
+        Self::build_profile_message(
+            MIDICI_PROFILE_ADD,
+            source_muid,
+            destination_muid,
+            destination,
+            ci_version,
+            profile,
+            0,
+        )
+    }
+
+    /// Builds a Profile Removed notification message payload (18 bytes).
+    #[must_use]
+    #[inline]
+    pub fn build_profile_removed(
+        source_muid: u32,
+        destination_muid: u32,
+        destination: u8,
+        ci_version: u8,
+        profile: ProfileId,
+    ) -> ([u8; 20], usize) {
+        Self::build_profile_message(
+            MIDICI_PROFILE_REMOVE,
+            source_muid,
+            destination_muid,
+            destination,
+            ci_version,
+            profile,
+            0,
+        )
+    }
+
+    /// Builds a Profile Details Inquiry message payload (19 bytes).
+    ///
+    /// Layout:
+    /// - Header: 13 bytes
+    /// - Profile ID: 5 bytes
+    /// - Inquiry Target: 1 byte
+    #[must_use]
+    pub fn build_profile_details_inquiry(
+        source_muid: u32,
+        destination_muid: u32,
+        destination: u8,
+        ci_version: u8,
+        profile: ProfileId,
+        inquiry_target: u8,
+    ) -> [u8; 19] {
+        let mut buf = [0_u8; 19];
+        let hdr = CiHeader::new(
+            destination & 0x7F,
+            MIDICI_PROFILE_DETAILS_INQUIRY,
+            ci_version,
+            source_muid,
+            destination_muid,
+        );
+        buf[0..13].copy_from_slice(&hdr.to_bytes());
+        buf[13..18].copy_from_slice(profile.as_bytes());
+        buf[18] = inquiry_target & 0x7F;
+        buf
+    }
+
+    /// Parses a Profile Details Inquiry message payload.
+    #[must_use]
+    pub fn parse_profile_details_inquiry(payload: &[u8]) -> Option<(CiHeader, ProfileId, u8)> {
+        let hdr = CiHeader::parse(payload)?;
+        if hdr.ci_type != MIDICI_PROFILE_DETAILS_INQUIRY || payload.len() < 19 {
+            return None;
+        }
+        let mut raw = [0_u8; 5];
+        raw.copy_from_slice(&payload[13..18]);
+        let profile = ProfileId::new(raw);
+        let inquiry_target = payload[18] & 0x7F;
+        Some((hdr, profile, inquiry_target))
+    }
+
+    /// Builds a Profile Details Reply message payload into a fixed 128-byte buffer.
+    ///
+    /// Layout:
+    /// - Header: 13 bytes
+    /// - Profile ID: 5 bytes
+    /// - Inquiry Target: 1 byte
+    /// - Data Length: 2 bytes (7-bit packed u16)
+    /// - Data: variable length
+    #[must_use]
+    pub fn build_profile_details_reply(
+        source_muid: u32,
+        destination_muid: u32,
+        destination: u8,
+        ci_version: u8,
+        profile: ProfileId,
+        inquiry_target: u8,
+        data: &[u8],
+    ) -> ([u8; 128], usize) {
+        let mut buf = [0_u8; 128];
+        let hdr = CiHeader::new(
+            destination & 0x7F,
+            MIDICI_PROFILE_DETAILS_REPLY,
+            ci_version,
+            source_muid,
+            destination_muid,
+        );
+        buf[0..13].copy_from_slice(&hdr.to_bytes());
+        buf[13..18].copy_from_slice(profile.as_bytes());
+        buf[18] = inquiry_target & 0x7F;
+
+        let max_data = 128 - 21;
+        let datalen = data.len().min(max_data);
+        let len_packed = pack_7bit_u16(datalen as u16);
+        buf[19..21].copy_from_slice(&len_packed);
+        buf[21..21 + datalen].copy_from_slice(&data[..datalen]);
+
+        (buf, 21 + datalen)
+    }
+
+    /// Parses a Profile Details Reply message payload.
+    #[must_use]
+    pub fn parse_profile_details_reply(payload: &[u8]) -> Option<(CiHeader, ProfileId, u8, &[u8])> {
+        let hdr = CiHeader::parse(payload)?;
+        if hdr.ci_type != MIDICI_PROFILE_DETAILS_REPLY || payload.len() < 21 {
+            return None;
+        }
+        let mut raw = [0_u8; 5];
+        raw.copy_from_slice(&payload[13..18]);
+        let profile = ProfileId::new(raw);
+        let inquiry_target = payload[18] & 0x7F;
+        let datalen = unpack_7bit_u16(&payload[19..21]) as usize;
+        let data_end = (21 + datalen).min(payload.len());
+        Some((hdr, profile, inquiry_target, &payload[21..data_end]))
+    }
+
     /// Builds a Set Profile On message payload.
     #[must_use]
     #[inline]
@@ -972,6 +1112,13 @@ impl CiInitiator {
                     Err(CiError::MalformedPayload)
                 }
             }
+            (
+                CiInitiatorState::Negotiated | CiInitiatorState::ProfileConfiguring,
+                MIDICI_PROFILE_ADD | MIDICI_PROFILE_REMOVE | MIDICI_PROFILE_DETAILS_REPLY,
+            ) => {
+                self.state = CiInitiatorState::ProfileConfiguring;
+                Ok(self.state)
+            }
             _ => Ok(self.state),
         }
     }
@@ -1200,5 +1347,31 @@ impl CiResponder {
         );
 
         Some((report, len))
+    }
+
+    /// Handles an incoming Profile Details Inquiry request, returning Profile Details Reply if supported.
+    pub fn handle_profile_details_inquiry(
+        &mut self,
+        payload: &[u8],
+        details_data: &[u8],
+    ) -> Option<([u8; 128], usize)> {
+        let (hdr, profile, target) = CiProfile::parse_profile_details_inquiry(payload)?;
+        if hdr.ci_type != MIDICI_PROFILE_DETAILS_INQUIRY {
+            return None;
+        }
+
+        self.state = CiResponderState::ProfileConfiguring;
+
+        let (reply, len) = CiProfile::build_profile_details_reply(
+            self.local_muid,
+            hdr.source_muid,
+            hdr.device_id,
+            hdr.ci_version,
+            profile,
+            target,
+            details_data,
+        );
+
+        Some((reply, len))
     }
 }

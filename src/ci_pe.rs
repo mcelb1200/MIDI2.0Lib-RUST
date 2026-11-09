@@ -229,6 +229,8 @@ pub struct PeHeader<'a> {
     pub action: Option<&'a str>,
     pub status: Option<u16>,
     pub cache_time: Option<u32>,
+    pub offset: Option<u32>,
+    pub limit: Option<u32>,
 }
 
 impl<'a> PeHeader<'a> {
@@ -242,6 +244,8 @@ impl<'a> PeHeader<'a> {
             action: None,
             status: None,
             cache_time: None,
+            offset: None,
+            limit: None,
         };
 
         let mut tokenizer = JsonTokenizer::new(raw_json);
@@ -270,6 +274,8 @@ impl<'a> PeHeader<'a> {
                                 header.status = Some(n as u16);
                             }
                             "cacheTime" if n >= 0 => header.cache_time = Some(n as u32),
+                            "offset" if n >= 0 => header.offset = Some(n as u32),
+                            "limit" if n >= 0 => header.limit = Some(n as u32),
                             _ => {}
                         }
                     }
@@ -299,6 +305,179 @@ pub struct PeMessage<'a> {
     pub total_chunks: u16,
     pub chunk_num: u16,
     pub body: Option<&'a [u8]>,
+}
+
+/// Errors returned by the Property Exchange JSON Schema Validator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SchemaValidationError {
+    /// Expected a JSON object at the root.
+    ExpectedObject,
+    /// A mandatory property is missing from the JSON object.
+    MissingRequiredProperty,
+    /// Property type mismatch (e.g. expected boolean, got string).
+    TypeMismatch,
+    /// Numeric property value is outside allowed bounds [min, max].
+    ValueOutOfRange,
+    /// String length exceeded maximum allowed capacity.
+    StringTooLong,
+    /// String value does not match allowed enum choices.
+    InvalidEnumValue,
+    /// JSON payload is malformed or syntax error.
+    MalformedJson,
+}
+
+/// Expected JSON value type and constraints for a property.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JsonSchemaType<'a> {
+    Boolean,
+    Integer { min: i64, max: i64 },
+    String { max_len: usize },
+    Enum { valid_values: &'a [&'a str] },
+}
+
+/// A property specification descriptor used in `PeSchemaValidator`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PropertySchema<'a> {
+    pub name: &'a str,
+    pub schema_type: JsonSchemaType<'a>,
+    pub required: bool,
+}
+
+/// Zero-allocation, lightweight JSON Schema Validator for Property Exchange.
+///
+/// Validates inbound PE `Set` request JSON payloads directly against expected
+/// schemas before application or hardware state updates.
+pub struct PeSchemaValidator;
+
+impl PeSchemaValidator {
+    /// Validates a JSON byte slice against a slice of `PropertySchema` rules.
+    pub fn validate(
+        json_bytes: &[u8],
+        schemas: &[PropertySchema<'_>],
+    ) -> Result<(), SchemaValidationError> {
+        let mut tokenizer = JsonTokenizer::new(json_bytes);
+
+        // Expect StartObject
+        match tokenizer.next() {
+            Some(JsonTokenType::StartObject) => {}
+            _ => return Err(SchemaValidationError::ExpectedObject),
+        }
+
+        let mut found_mask = 0_u32;
+        let mut current_key: Option<&str> = None;
+
+        for token in tokenizer {
+            match token {
+                JsonTokenType::Key(k) => {
+                    current_key = Some(k);
+                }
+                JsonTokenType::EndObject => {
+                    break;
+                }
+                val_tok => {
+                    if let Some(key) = current_key {
+                        for (idx, schema) in schemas.iter().enumerate() {
+                            if schema.name == key {
+                                if idx < 32 {
+                                    found_mask |= 1 << idx;
+                                }
+
+                                match (schema.schema_type, val_tok) {
+                                    (JsonSchemaType::Boolean, JsonTokenType::BoolValue(_)) => {}
+                                    (
+                                        JsonSchemaType::Integer { min, max },
+                                        JsonTokenType::NumberValue(n),
+                                    ) => {
+                                        if n < min || n > max {
+                                            return Err(SchemaValidationError::ValueOutOfRange);
+                                        }
+                                    }
+                                    (
+                                        JsonSchemaType::String { max_len },
+                                        JsonTokenType::StringValue(s),
+                                    ) => {
+                                        if s.len() > max_len {
+                                            return Err(SchemaValidationError::StringTooLong);
+                                        }
+                                    }
+                                    (
+                                        JsonSchemaType::Enum { valid_values },
+                                        JsonTokenType::StringValue(s),
+                                    ) => {
+                                        let mut matches = false;
+                                        for &v in valid_values {
+                                            if v == s {
+                                                matches = true;
+                                                break;
+                                            }
+                                        }
+                                        if !matches {
+                                            return Err(SchemaValidationError::InvalidEnumValue);
+                                        }
+                                    }
+                                    _ => return Err(SchemaValidationError::TypeMismatch),
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    current_key = None;
+                }
+            }
+        }
+
+        // Check required fields
+        for (idx, schema) in schemas.iter().enumerate() {
+            if schema.required && idx < 32 && (found_mask & (1 << idx)) == 0 {
+                return Err(SchemaValidationError::MissingRequiredProperty);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Pre-built validator for `Mode` resource (M2-106).
+    pub fn validate_mode(json_bytes: &[u8]) -> Result<(), SchemaValidationError> {
+        const VALID_MODES: &[&str] = &["Standard", "MPE", "MultiChannel"];
+        let schemas = [PropertySchema {
+            name: "mode",
+            schema_type: JsonSchemaType::Enum {
+                valid_values: VALID_MODES,
+            },
+            required: true,
+        }];
+        Self::validate(json_bytes, &schemas)
+    }
+
+    /// Pre-built validator for `LocalOn` resource (M2-109).
+    pub fn validate_local_on(json_bytes: &[u8]) -> Result<(), SchemaValidationError> {
+        let schemas = [PropertySchema {
+            name: "localOn",
+            schema_type: JsonSchemaType::Boolean,
+            required: true,
+        }];
+        Self::validate(json_bytes, &schemas)
+    }
+
+    /// Pre-built validator for `ExternalSync` resource (M2-112).
+    pub fn validate_external_sync(json_bytes: &[u8]) -> Result<(), SchemaValidationError> {
+        const VALID_SOURCES: &[&str] = &["Internal", "MIDI", "SMPTE", "Audio"];
+        let schemas = [
+            PropertySchema {
+                name: "source",
+                schema_type: JsonSchemaType::Enum {
+                    valid_values: VALID_SOURCES,
+                },
+                required: true,
+            },
+            PropertySchema {
+                name: "active",
+                schema_type: JsonSchemaType::Boolean,
+                required: false,
+            },
+        ];
+        Self::validate(json_bytes, &schemas)
+    }
 }
 
 /// Represents an active, pending Property Exchange Request.

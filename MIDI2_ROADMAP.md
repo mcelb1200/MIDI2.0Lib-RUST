@@ -195,22 +195,19 @@ An exhaustive examination of the codebase against the official MIDI Association 
   - Full Project & Track Metadata Status Banks: Status Bank `0x00` (Bar Marker, Beat Marker), Status Bank `0x03` (Project Name, Composition Name, Arranger, Composer, Copyright Notice), Status Bank `0x04` (Track / Channel Names, Clip Names, Marker Notes) in `el_core::types`, `el_core::builder::FlexBuilder`, and `messages::UmpFactory`.
 
 ### 4. M2-101-UM: MIDI-CI v1.2 Extended Profile Management
-* **Status in Codebase:** *Partial*. Profile Inquiry, Reply, Set On, Set Off, Enabled Report, and Disabled Report are implemented in `src/ci.rs`.
-* **Missing in Rust Engine:**
-  - **Profile Details Inquiry (`0x28`) & Profile Details Reply (`0x29`)**: Negotiating per-profile capability bitmaps and configuration parameters (e.g., organ drawbar count, synth oscillator allocation).
-  - **Profile Added (`0x26`) & Profile Removed (`0x27`) Notifications**: Dynamic profile advertisement during runtime when sub-modules or software engines change.
-  - Bounded multi-channel profile channel masking (`num_channels` bitmap allocation in CI v2 format).
+* **Status in Codebase:** *Complete*.
+  - **Profile Details Inquiry (`0x28`) & Profile Details Reply (`0x29`)**: Negotiating per-profile capability bitmaps and configuration parameters.
+  - **Profile Added (`0x26`) & Profile Removed (`0x27`) Notifications**: Dynamic profile advertisement during runtime.
+  - Bounded multi-channel profile channel masking (`num_channels` bitmap allocation in CI v2 format and 16-channel bitmask management).
 
 ### 5. M2-104-UM: Stream Configuration & Endpoint Negotiation State Machine
-* **Status in Codebase:** *Partial*. Builders for Stream Configuration Request/Notification and Endpoint Discovery are implemented in `src/stream.rs`.
-* **Missing in Rust Engine:**
-  - Dynamic Stream Protocol Switch handshake engine: Active timeout handling when transitioning physical wire speeds or switching from MIDI 1.0 (31,250 baud) to MIDI 2.0 (High-Speed UMP) via Stream Configuration Request (`Status=0x005`) and verifying matching Notification (`Status=0x006`) prior to activating MT=0x4 message processing.
+* **Status in Codebase:** *Complete*.
+  - Dynamic Stream Protocol Switch handshake engine (`StreamConfigStateMachine` in `src/stream.rs`): Active timeout handling when transitioning physical wire speeds or switching from MIDI 1.0 to MIDI 2.0 via Stream Configuration Request (`Status=0x005`) and verifying matching Notification (`Status=0x006`) prior to activating MT=0x4 message processing.
 
 ### 6. M2-103/105: Property Exchange (PE) Advanced Resource Handlers & Schema Validation
-* **Status in Codebase:** *Partial*. Zero-allocation SAX JSON tokenizer, transaction manager, subscription manager, reply chunker, and procedural resources (`DeviceInfo`, `ResourceList`, `ChannelList`, `Mode`, `ProgramList`, `LocalOn`, `DeviceState`, `ExternalSync`, `ControllerList`) are implemented.
-* **Missing in Rust Engine:**
-  - Standard JSON Schema validator for inbound `Set` requests to reject malformed client parameter changes prior to hardware register commit.
-  - Paginated property streaming for very large `ProgramList` and `ControllerList` querying using `offset` and `limit` JSON header properties without allocating memory.
+* **Status in Codebase:** *Complete*.
+  - Zero-allocation JSON Schema validator (`PeSchemaValidator` in `src/ci_pe.rs`) for inbound `Set` requests rejecting malformed client parameter changes prior to hardware register commit.
+  - Paginated property streaming for `ProgramList` and `ControllerList` querying using `offset` and `limit` JSON header properties without allocating memory.
 
 ### 7. M2-116: MIDI Clip File (`.midiclip`) Multi-Track Sequencer & Playback Engine
 * **Status in Codebase:** *Partial*. Clip header parsing/serialization (`MidiClipHeader`), variable-length quantity (VLQ) delta-time parser (`MidiClipTrackParser`), and builder (`MidiClipBuilder`) are implemented in `src/midiclip.rs`.

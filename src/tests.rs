@@ -2290,6 +2290,264 @@ mod tests {
     }
 
     #[test]
+    fn test_phase10_profile_details_and_dynamic_notifications() {
+        use crate::ci::*;
+        use crate::profile::*;
+
+        let src_muid = 0x11111;
+        let dst_muid = 0x22222;
+        let p_organ = PROFILE_DRAWBAR_ORGAN;
+
+        // 1. Profile Details Inquiry (Sub-ID 0x28)
+        let inq = CiProfile::build_profile_details_inquiry(src_muid, dst_muid, 0x7F, 2, p_organ, 1);
+        assert_eq!(inq.len(), 19);
+        let (hdr_inq, parsed_p, target) =
+            CiProfile::parse_profile_details_inquiry(&inq).expect("parse inquiry");
+        assert_eq!(hdr_inq.ci_type, MIDICI_PROFILE_DETAILS_INQUIRY);
+        assert_eq!(parsed_p, p_organ);
+        assert_eq!(target, 1);
+
+        // 2. Profile Details Reply (Sub-ID 0x29)
+        let data = [9]; // 9 drawbars supported
+        let (rep, rep_len) = CiProfile::build_profile_details_reply(
+            dst_muid, src_muid, 0x7F, 2, p_organ, target, &data,
+        );
+        let (hdr_rep, rep_p, rep_target, rep_data) =
+            CiProfile::parse_profile_details_reply(&rep[..rep_len]).expect("parse reply");
+        assert_eq!(hdr_rep.ci_type, MIDICI_PROFILE_DETAILS_REPLY);
+        assert_eq!(rep_p, p_organ);
+        assert_eq!(rep_target, 1);
+        assert_eq!(rep_data, &[9]);
+
+        // 3. Dynamic Profile Added / Removed (Sub-IDs 0x26, 0x27)
+        let (p_add, add_len) =
+            CiProfile::build_profile_added(src_muid, dst_muid, 0x7F, 2, PROFILE_ANALOG_SYNTH);
+        assert_eq!(add_len, 18);
+        let (hdr_add, added_p, _) =
+            CiProfile::parse_profile_message(&p_add[..add_len]).expect("parse add");
+        assert_eq!(hdr_add.ci_type, MIDICI_PROFILE_ADD);
+        assert_eq!(added_p, PROFILE_ANALOG_SYNTH);
+
+        let (p_rem, rem_len) =
+            CiProfile::build_profile_removed(src_muid, dst_muid, 0x7F, 2, PROFILE_ANALOG_SYNTH);
+        assert_eq!(rem_len, 18);
+        let (hdr_rem, rem_p, _) =
+            CiProfile::parse_profile_message(&p_rem[..rem_len]).expect("parse rem");
+        assert_eq!(hdr_rem.ci_type, MIDICI_PROFILE_REMOVE);
+        assert_eq!(rem_p, PROFILE_ANALOG_SYNTH);
+
+        // 4. Bounded Multi-Channel Profile Channel Masking
+        let mut prof_state = ProfileState::new(p_organ);
+        assert_eq!(prof_state.channel_mask(), 0);
+        assert!(!prof_state.is_active());
+
+        prof_state.set_channel_mask(0x000F); // channels 0..3
+        assert_eq!(prof_state.channel_mask(), 0x000F);
+        assert!(prof_state.is_enabled_on_channel(0));
+        assert!(prof_state.is_enabled_on_channel(3));
+        assert!(!prof_state.is_enabled_on_channel(4));
+
+        prof_state.enable_channels_from_mask(0x0030); // channels 4, 5
+        assert_eq!(prof_state.channel_mask(), 0x003F);
+
+        prof_state.disable_channels_from_mask(0x0001); // disable channel 0
+        assert_eq!(prof_state.channel_mask(), 0x003E);
+        assert!(!prof_state.is_enabled_on_channel(0));
+
+        let mut mgr = ProfileManager::<4>::new();
+        assert!(mgr.register_profile(p_organ));
+        assert!(mgr.set_profile_channel_mask(p_organ, 0x0005));
+        assert_eq!(mgr.get_profile_channel_mask(p_organ), Some(0x0005));
+    }
+
+    #[test]
+    fn test_phase10_stream_config_state_machine() {
+        use crate::stream::*;
+
+        let mut sm = StreamConfigStateMachine::new().with_timeout(500);
+        assert_eq!(sm.state(), StreamConfigState::Idle);
+        assert_eq!(sm.active_protocol(), 1);
+        assert!(!sm.can_process_midi2());
+
+        // 1. Request switch to MIDI 2.0
+        let req_ump = sm.request_protocol_switch(2, true, true, 100);
+        assert_eq!(sm.state(), StreamConfigState::RequestSent);
+        assert_eq!(
+            (req_ump.data[0] >> 16) & 0x3FF,
+            STATUS_STREAM_CONFIG_REQUEST as u32
+        );
+        assert_eq!((req_ump.data[0] >> 8) & 0xFF, 2);
+
+        // 2. Timeout handling
+        assert!(!sm.tick(300)); // 300 - 100 = 200 < 500
+        assert_eq!(sm.state(), StreamConfigState::RequestSent);
+
+        assert!(sm.tick(650)); // 650 - 100 = 550 >= 500 -> Timeout!
+        assert_eq!(sm.state(), StreamConfigState::Timeout);
+        assert_eq!(sm.active_protocol(), 1);
+        assert!(!sm.can_process_midi2());
+
+        // 3. Successful handshake
+        let _ = sm.request_protocol_switch(2, true, false, 700);
+        assert_eq!(sm.state(), StreamConfigState::RequestSent);
+
+        let matching_notify = StreamFactory::stream_config_notify(2, true, false);
+        assert!(sm.process_ump(&matching_notify));
+        assert_eq!(sm.state(), StreamConfigState::Negotiated);
+        assert_eq!(sm.active_protocol(), 2);
+        assert!(sm.can_process_midi2());
+        assert!(sm.rx_jr_enabled());
+        assert!(!sm.tx_jr_enabled());
+
+        // 4. Rejection or fallback
+        let _ = sm.request_protocol_switch(2, false, false, 1000);
+        let reject_notify = StreamFactory::stream_config_notify(1, false, false); // remote only accepts 1
+        assert!(sm.process_ump(&reject_notify));
+        assert_eq!(sm.state(), StreamConfigState::Rejected);
+        assert_eq!(sm.active_protocol(), 1);
+        assert!(!sm.can_process_midi2());
+    }
+
+    #[test]
+    fn test_phase10_pe_schema_validation_and_pagination() {
+        use crate::ci_pe::{
+            JsonSchemaType, PeHeader, PeSchemaValidator, PropertySchema, SchemaValidationError,
+        };
+        use crate::resource::{
+            write_paginated_controller_list_json, write_paginated_program_list_json,
+            ControllerDefinition, ProgramItem,
+        };
+
+        // 1. Schema Validation: Mode Resource
+        assert_eq!(
+            PeSchemaValidator::validate_mode(b"{\"mode\":\"Standard\"}"),
+            Ok(())
+        );
+        assert_eq!(
+            PeSchemaValidator::validate_mode(b"{\"mode\":\"MPE\"}"),
+            Ok(())
+        );
+        assert_eq!(
+            PeSchemaValidator::validate_mode(b"{\"mode\":\"InvalidMode\"}"),
+            Err(SchemaValidationError::InvalidEnumValue)
+        );
+        assert_eq!(
+            PeSchemaValidator::validate_mode(b"{\"other\":\"Standard\"}"),
+            Err(SchemaValidationError::MissingRequiredProperty)
+        );
+
+        // 2. Schema Validation: LocalOn Resource
+        assert_eq!(
+            PeSchemaValidator::validate_local_on(b"{\"localOn\":true}"),
+            Ok(())
+        );
+        assert_eq!(
+            PeSchemaValidator::validate_local_on(b"{\"localOn\":false}"),
+            Ok(())
+        );
+        assert_eq!(
+            PeSchemaValidator::validate_local_on(b"{\"localOn\":\"true\"}"),
+            Err(SchemaValidationError::TypeMismatch)
+        );
+
+        // 3. Schema Validation: Custom Integer & String constraints
+        let custom_schema = [
+            PropertySchema {
+                name: "volume",
+                schema_type: JsonSchemaType::Integer { min: 0, max: 127 },
+                required: true,
+            },
+            PropertySchema {
+                name: "preset",
+                schema_type: JsonSchemaType::String { max_len: 16 },
+                required: false,
+            },
+        ];
+        assert_eq!(
+            PeSchemaValidator::validate(b"{\"volume\":100,\"preset\":\"Lead\"}", &custom_schema),
+            Ok(())
+        );
+        assert_eq!(
+            PeSchemaValidator::validate(b"{\"volume\":150}", &custom_schema),
+            Err(SchemaValidationError::ValueOutOfRange)
+        );
+        assert_eq!(
+            PeSchemaValidator::validate(
+                b"{\"volume\":50,\"preset\":\"ThisPresetNameIsFarTooLong\"}",
+                &custom_schema
+            ),
+            Err(SchemaValidationError::StringTooLong)
+        );
+
+        // 4. PeHeader Pagination Parsing
+        let header_json = b"{\"resource\":\"ProgramList\",\"offset\":10,\"limit\":20}";
+        let pe_hdr = PeHeader::parse(header_json);
+        assert_eq!(pe_hdr.resource, Some("ProgramList"));
+        assert_eq!(pe_hdr.offset, Some(10));
+        assert_eq!(pe_hdr.limit, Some(20));
+
+        // 5. Paginated Resource Streaming
+        let progs = [
+            ProgramItem {
+                program: 0,
+                bank_msb: 0,
+                bank_lsb: 0,
+                name: "P0",
+            },
+            ProgramItem {
+                program: 1,
+                bank_msb: 0,
+                bank_lsb: 0,
+                name: "P1",
+            },
+            ProgramItem {
+                program: 2,
+                bank_msb: 0,
+                bank_lsb: 0,
+                name: "P2",
+            },
+            ProgramItem {
+                program: 3,
+                bank_msb: 0,
+                bank_lsb: 0,
+                name: "P3",
+            },
+        ];
+        let mut buf = [0_u8; 128];
+        let len = write_paginated_program_list_json(&progs, 1, 2, &mut buf).expect("write progs");
+        let s = core::str::from_utf8(&buf[..len]).unwrap();
+        assert!(s.contains("\"P1\""));
+        assert!(s.contains("\"P2\""));
+        assert!(!s.contains("\"P0\""));
+        assert!(!s.contains("\"P3\""));
+
+        let ctrls = [
+            ControllerDefinition {
+                index: 1,
+                name: "Mod",
+                default_val: 0,
+                unit: "ratio",
+            },
+            ControllerDefinition {
+                index: 7,
+                name: "Vol",
+                default_val: 100,
+                unit: "ratio",
+            },
+            ControllerDefinition {
+                index: 10,
+                name: "Pan",
+                default_val: 64,
+                unit: "ratio",
+            },
+        ];
+        let mut c_buf = [0_u8; 128];
+        let c_len =
+            write_paginated_controller_list_json(&ctrls, 2, 1, &mut c_buf).expect("write ctrls");
+        let cs = core::str::from_utf8(&c_buf[..c_len]).unwrap();
+        assert!(cs.contains("\"Pan\""));
+        assert!(!cs.contains("\"Mod\""));
+        assert!(!cs.contains("\"Vol\""));
     fn test_mds_header_payload_chunker_and_demux_roundtrip() {
         use crate::sysex::{
             MdsChunker, MdsDemuxReceiver, MdsHeader, MdsReceiver, MdsReceiverError,

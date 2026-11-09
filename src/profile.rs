@@ -170,6 +170,15 @@ pub trait ProfileHandler {
         let _ = (channel, data, reply_buffer);
         None
     }
+
+    /// Called when a Profile Details Inquiry (0x28) is received.
+    ///
+    /// Populates `reply_buffer` with profile-specific parameter configuration or capability bitmap.
+    /// Returns the number of bytes written to `reply_buffer`.
+    fn on_details_inquiry(&mut self, inquiry_target: u8, reply_buffer: &mut [u8]) -> Option<usize> {
+        let _ = (inquiry_target, reply_buffer);
+        None
+    }
 }
 
 /// An embedded profile descriptor tracking state across up to 16 channels.
@@ -222,6 +231,31 @@ impl ProfileState {
     #[inline]
     pub fn is_active(&self) -> bool {
         self.enabled_channel_mask != 0
+    }
+
+    /// Returns the active 16-channel bitmap mask.
+    #[must_use]
+    #[inline]
+    pub fn channel_mask(&self) -> u16 {
+        self.enabled_channel_mask
+    }
+
+    /// Directly sets the 16-channel bitmap mask.
+    #[inline]
+    pub fn set_channel_mask(&mut self, mask: u16) {
+        self.enabled_channel_mask = mask;
+    }
+
+    /// Enables channels present in `mask`.
+    #[inline]
+    pub fn enable_channels_from_mask(&mut self, mask: u16) {
+        self.enabled_channel_mask |= mask;
+    }
+
+    /// Disables channels present in `mask`.
+    #[inline]
+    pub fn disable_channels_from_mask(&mut self, mask: u16) {
+        self.enabled_channel_mask &= !mask;
     }
 }
 
@@ -277,6 +311,28 @@ impl<const MAX_PROFILES: usize> ProfileManager<MAX_PROFILES> {
             }
         }
         false
+    }
+
+    /// Sets the channel mask for a registered profile.
+    pub fn set_profile_channel_mask(&mut self, profile_id: ProfileId, mask: u16) -> bool {
+        for p in self.profiles.iter_mut().flatten() {
+            if p.profile_id == profile_id {
+                p.set_channel_mask(mask);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Retrieves the channel mask for a registered profile.
+    #[must_use]
+    pub fn get_profile_channel_mask(&self, profile_id: ProfileId) -> Option<u16> {
+        for p in self.profiles.iter().flatten() {
+            if p.profile_id == profile_id {
+                return Some(p.channel_mask());
+            }
+        }
+        None
     }
 
     /// Enables a profile on a channel. Returns `true` if profile is supported.

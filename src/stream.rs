@@ -785,3 +785,186 @@ impl<const CAP: usize> StreamTextReceiver<CAP> {
         Ok(self.state)
     }
 }
+
+/// Operational state of the Stream Configuration & Endpoint Negotiation state machine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamConfigState {
+    /// Initialized or idle on MIDI 1.0 protocol.
+    Idle,
+    /// Outbound Stream Configuration Request sent, waiting for Notification.
+    RequestSent,
+    /// Protocol switch active, waiting for settle or confirmation.
+    Switching,
+    /// Stream configuration active and confirmed.
+    Negotiated,
+    /// Negotiation timed out, falling back to MIDI 1.0.
+    Timeout,
+    /// Negotiation rejected by responder.
+    Rejected,
+}
+
+/// Dynamic Stream Configuration & Endpoint Negotiation State Machine (M2-104-UM).
+///
+/// Implements zero-allocation handshake engine for transitioning physical wire speeds
+/// and negotiating protocols (MIDI 1.0 <-> MIDI 2.0) with active timeout tracking
+/// and MT=0x4 message gating.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StreamConfigStateMachine {
+    state: StreamConfigState,
+    requested_protocol: u8,
+    active_protocol: u8,
+    rx_jr: bool,
+    tx_jr: bool,
+    request_timestamp: u32,
+    timeout_duration: u32,
+}
+
+impl Default for StreamConfigStateMachine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl StreamConfigStateMachine {
+    /// Creates a new `StreamConfigStateMachine` defaulting to MIDI 1.0.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            state: StreamConfigState::Idle,
+            requested_protocol: 1, // Default MIDI 1.0
+            active_protocol: 1,
+            rx_jr: false,
+            tx_jr: false,
+            request_timestamp: 0,
+            timeout_duration: 1000, // Default 1000ms / ticks timeout
+        }
+    }
+
+    /// Sets the timeout duration for stream negotiation.
+    #[must_use]
+    #[inline]
+    pub const fn with_timeout(mut self, timeout: u32) -> Self {
+        self.timeout_duration = timeout;
+        self
+    }
+
+    /// Returns the current state of the state machine.
+    #[must_use]
+    #[inline]
+    pub fn state(&self) -> StreamConfigState {
+        self.state
+    }
+
+    /// Returns the currently active protocol (1 = MIDI 1.0, 2 = MIDI 2.0).
+    #[must_use]
+    #[inline]
+    pub fn active_protocol(&self) -> u8 {
+        self.active_protocol
+    }
+
+    /// Returns `true` if MIDI 2.0 channel voice messages (MT=0x4) are permitted.
+    #[must_use]
+    #[inline]
+    pub fn can_process_midi2(&self) -> bool {
+        self.active_protocol == 2 && self.state == StreamConfigState::Negotiated
+    }
+
+    /// Returns whether receive jitter reduction is enabled.
+    #[must_use]
+    #[inline]
+    pub fn rx_jr_enabled(&self) -> bool {
+        self.rx_jr
+    }
+
+    /// Returns whether transmit jitter reduction is enabled.
+    #[must_use]
+    #[inline]
+    pub fn tx_jr_enabled(&self) -> bool {
+        self.tx_jr
+    }
+
+    /// Initiates a protocol switch request.
+    ///
+    /// Generates a `STATUS_STREAM_CONFIG_REQUEST` UMP and transitions state to `RequestSent`.
+    pub fn request_protocol_switch(
+        &mut self,
+        protocol: u8,
+        rx_jr: bool,
+        tx_jr: bool,
+        current_time: u32,
+    ) -> Ump {
+        self.requested_protocol = protocol;
+        self.rx_jr = rx_jr;
+        self.tx_jr = tx_jr;
+        self.request_timestamp = current_time;
+        self.state = StreamConfigState::RequestSent;
+        StreamFactory::stream_config_request(protocol, rx_jr, tx_jr)
+    }
+
+    /// Handles an incoming UMP packet, advancing the state machine if it matches stream config notifications.
+    ///
+    /// Returns `true` if the packet was consumed and affected the negotiation state.
+    pub fn process_ump(&mut self, ump: &Ump) -> bool {
+        if ump.message_type() != MessageType::Stream {
+            return false;
+        }
+
+        let status = ((ump.data[0] >> 16) & 0x3FF) as u16;
+        if status == STATUS_STREAM_CONFIG_NOTIFICATION {
+            let notified_protocol = ((ump.data[0] >> 8) & 0xFF) as u8;
+            let rx_jr = (ump.data[0] & 0x2) != 0;
+            let tx_jr = (ump.data[0] & 0x1) != 0;
+
+            match self.state {
+                StreamConfigState::RequestSent | StreamConfigState::Switching => {
+                    if notified_protocol == self.requested_protocol {
+                        self.active_protocol = notified_protocol;
+                        self.rx_jr = rx_jr;
+                        self.tx_jr = tx_jr;
+                        self.state = StreamConfigState::Negotiated;
+                        true
+                    } else {
+                        // Protocol rejected or mismatched, fallback to 1.0
+                        self.active_protocol = 1;
+                        self.state = StreamConfigState::Rejected;
+                        true
+                    }
+                }
+                _ => {
+                    // Unsolicited notification or passive acceptance (responder side)
+                    self.active_protocol = notified_protocol;
+                    self.rx_jr = rx_jr;
+                    self.tx_jr = tx_jr;
+                    self.state = StreamConfigState::Negotiated;
+                    true
+                }
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Ticks the internal clock and triggers timeout fallback if remote response exceeds deadline.
+    ///
+    /// Returns `true` if a timeout occurred.
+    pub fn tick(&mut self, current_time: u32) -> bool {
+        if self.state == StreamConfigState::RequestSent
+            && current_time.saturating_sub(self.request_timestamp) >= self.timeout_duration
+        {
+            self.state = StreamConfigState::Timeout;
+            self.active_protocol = 1; // Safe fallback to MIDI 1.0
+            return true;
+        }
+        false
+    }
+
+    /// Resets the negotiation engine to idle MIDI 1.0 state.
+    pub fn reset(&mut self) {
+        self.state = StreamConfigState::Idle;
+        self.requested_protocol = 1;
+        self.active_protocol = 1;
+        self.rx_jr = false;
+        self.tx_jr = false;
+        self.request_timestamp = 0;
+    }
+}
