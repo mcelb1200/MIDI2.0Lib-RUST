@@ -54,6 +54,40 @@ impl UmpFactory {
         }
     }
 
+    /// Creates a Delta Clockstamp Ticks Utility UMP (ticks per quarter note).
+    ///
+    /// # Arguments
+    ///
+    /// * `ticks_per_qtr_note` - The 16-bit ticks per quarter note.
+    ///
+    /// # Returns
+    ///
+    /// A `Ump` containing the Delta Clockstamp Ticks message.
+    #[must_use]
+    pub fn delta_clockstamp_ticks(ticks_per_qtr_note: u16) -> Ump {
+        let val = ((u32::from(UTILITY_DELTACLOCKTICK)) << 20) + (u32::from(ticks_per_qtr_note));
+        Ump {
+            data: [val, 0, 0, 0],
+        }
+    }
+
+    /// Creates a Delta Clockstamp Since Last Event Utility UMP.
+    ///
+    /// # Arguments
+    ///
+    /// * `ticks_since_last` - The 16-bit tick count since the last event.
+    ///
+    /// # Returns
+    ///
+    /// A `Ump` containing the Delta Clockstamp Since Last message.
+    #[must_use]
+    pub fn delta_clockstamp_since(ticks_since_last: u16) -> Ump {
+        let val = ((u32::from(UTILITY_DELTACLOCKSINCE)) << 20) + (u32::from(ticks_since_last));
+        Ump {
+            data: [val, 0, 0, 0],
+        }
+    }
+
     // System Common / Realtime (MT=0x1)
 
     /// Helper to create a System Common or Realtime UMP (MT=0x1).
@@ -1070,5 +1104,637 @@ impl UmpFactory {
     #[inline]
     pub fn flex_lyric(group: u8, channel: u8, form: u8, addrs: u8, status: u8, text: &[u8]) -> Ump {
         Self::flex_text(group, channel, form, addrs, FLEXDATA_LYRIC, status, text)
+    }
+
+    /// Creates a Flex Data Bar Marker message (Status Bank 0x00, Status 0x07).
+    #[must_use]
+    #[inline]
+    pub fn flex_bar_marker(group: u8, channel: u8, form: u8, addrs: u8, bar_number: u32) -> Ump {
+        Self::flex_data(
+            group,
+            form,
+            addrs,
+            channel,
+            FLEXDATA_COMMON,
+            FLEXDATA_COMMON_BAR_MARKER,
+            bar_number,
+            0,
+            0,
+        )
+    }
+
+    /// Creates a Flex Data Beat Marker message (Status Bank 0x00, Status 0x08).
+    #[must_use]
+    #[inline]
+    pub fn flex_beat_marker(group: u8, channel: u8, form: u8, addrs: u8, beat_number: u32) -> Ump {
+        Self::flex_data(
+            group,
+            form,
+            addrs,
+            channel,
+            FLEXDATA_COMMON,
+            FLEXDATA_COMMON_BEAT_MARKER,
+            beat_number,
+            0,
+            0,
+        )
+    }
+
+    /// Creates a Flex Data Project Metadata text message (Status Bank 0x03).
+    #[must_use]
+    #[inline]
+    pub fn flex_project_metadata(
+        group: u8,
+        channel: u8,
+        form: u8,
+        addrs: u8,
+        status: u8,
+        text: &[u8],
+    ) -> Ump {
+        Self::flex_text(
+            group,
+            channel,
+            form,
+            addrs,
+            FLEXDATA_METADATA_PROJECT,
+            status,
+            text,
+        )
+    }
+
+    /// Creates a Flex Data Project Name message (Status Bank 0x03, Status 0x00).
+    #[must_use]
+    #[inline]
+    pub fn flex_project_name(group: u8, channel: u8, form: u8, addrs: u8, name: &[u8]) -> Ump {
+        Self::flex_project_metadata(group, channel, form, addrs, FLEXDATA_PROJECT_NAME, name)
+    }
+
+    /// Creates a Flex Data Composition Name message (Status Bank 0x03, Status 0x01).
+    #[must_use]
+    #[inline]
+    pub fn flex_composition_name(group: u8, channel: u8, form: u8, addrs: u8, name: &[u8]) -> Ump {
+        Self::flex_project_metadata(group, channel, form, addrs, FLEXDATA_COMPOSITION_NAME, name)
+    }
+
+    /// Creates a Flex Data Copyright Notice message (Status Bank 0x03, Status 0x04).
+    #[must_use]
+    #[inline]
+    pub fn flex_copyright_notice(
+        group: u8,
+        channel: u8,
+        form: u8,
+        addrs: u8,
+        notice: &[u8],
+    ) -> Ump {
+        Self::flex_project_metadata(
+            group,
+            channel,
+            form,
+            addrs,
+            FLEXDATA_COPYRIGHT_NOTICE,
+            notice,
+        )
+    }
+
+    /// Creates a Flex Data Track Metadata text message (Status Bank 0x04).
+    #[must_use]
+    #[inline]
+    pub fn flex_track_metadata(
+        group: u8,
+        channel: u8,
+        form: u8,
+        addrs: u8,
+        status: u8,
+        text: &[u8],
+    ) -> Ump {
+        Self::flex_text(
+            group,
+            channel,
+            form,
+            addrs,
+            FLEXDATA_METADATA_TRACK,
+            status,
+            text,
+        )
+    }
+
+    /// Creates a Flex Data Track Name message (Status Bank 0x04, Status 0x00).
+    #[must_use]
+    #[inline]
+    pub fn flex_track_name(group: u8, channel: u8, form: u8, addrs: u8, name: &[u8]) -> Ump {
+        Self::flex_track_metadata(group, channel, form, addrs, FLEXDATA_TRACK_NAME, name)
+    }
+
+    /// Creates a Flex Data Clip Name message (Status Bank 0x04, Status 0x02).
+    #[must_use]
+    #[inline]
+    pub fn flex_clip_name(group: u8, channel: u8, form: u8, addrs: u8, name: &[u8]) -> Ump {
+        Self::flex_track_metadata(group, channel, form, addrs, FLEXDATA_CLIP_NAME, name)
+    }
+}
+
+/// Status/Format of a 128-bit Flex Data message (bits 22-23 of word 0).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum FlexDataFormat {
+    /// Complete message in a single 128-bit UMP packet.
+    Complete = 0x0,
+    /// Start packet of a multi-packet message.
+    Start = 0x1,
+    /// Continue packet of a multi-packet message.
+    Continue = 0x2,
+    /// End packet of a multi-packet message.
+    End = 0x3,
+}
+
+impl FlexDataFormat {
+    #[must_use]
+    #[inline]
+    pub fn from_u8(val: u8) -> Option<Self> {
+        match val & 0x3 {
+            0x0 => Some(FlexDataFormat::Complete),
+            0x1 => Some(FlexDataFormat::Start),
+            0x2 => Some(FlexDataFormat::Continue),
+            0x3 => Some(FlexDataFormat::End),
+            _ => None,
+        }
+    }
+}
+
+/// An iterator that borrows a text payload and streams zero-allocation multi-packet Flex Data UMPs.
+///
+/// Multi-packet text messages carry up to 12 bytes per packet across words 1..3:
+/// - Single packet <= 12 bytes -> Form 0 (Complete)
+/// - Multi packet > 12 bytes -> Form 1 (Start), Form 2 (Continue), Form 3 (End)
+#[derive(Debug, Clone)]
+pub struct FlexDataChunker<'a> {
+    group: u8,
+    channel: u8,
+    addrs: u8,
+    status_bank: u8,
+    status: u8,
+    payload: &'a [u8],
+    offset: usize,
+    finished: bool,
+}
+
+impl<'a> FlexDataChunker<'a> {
+    /// Creates a new `FlexDataChunker`.
+    #[must_use]
+    pub fn new(
+        group: u8,
+        channel: u8,
+        addrs: u8,
+        status_bank: u8,
+        status: u8,
+        payload: &'a [u8],
+    ) -> Self {
+        Self {
+            group: group & 0xF,
+            channel: channel & 0xF,
+            addrs: addrs & 0x3,
+            status_bank,
+            status,
+            payload,
+            offset: 0,
+            finished: false,
+        }
+    }
+}
+
+impl<'a> Iterator for FlexDataChunker<'a> {
+    type Item = Ump;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+
+        let total_len = self.payload.len();
+        if total_len == 0 {
+            self.finished = true;
+            return Some(UmpFactory::flex_text(
+                self.group,
+                self.channel,
+                FlexDataFormat::Complete as u8,
+                self.addrs,
+                self.status_bank,
+                self.status,
+                &[],
+            ));
+        }
+
+        let remaining = total_len - self.offset;
+        let chunk_size = if remaining > 12 { 12 } else { remaining };
+        let chunk = &self.payload[self.offset..self.offset + chunk_size];
+        let is_first = self.offset == 0;
+        let is_last = (self.offset + chunk_size) >= total_len;
+
+        let format = match (is_first, is_last) {
+            (true, true) => FlexDataFormat::Complete,
+            (true, false) => FlexDataFormat::Start,
+            (false, false) => FlexDataFormat::Continue,
+            (false, true) => FlexDataFormat::End,
+        };
+
+        self.offset += chunk_size;
+        if is_last {
+            self.finished = true;
+        }
+
+        Some(UmpFactory::flex_text(
+            self.group,
+            self.channel,
+            format as u8,
+            self.addrs,
+            self.status_bank,
+            self.status,
+            chunk,
+        ))
+    }
+}
+
+/// Error conditions that can occur during Flex Data reassembly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlexDataReceiverError {
+    /// The incoming packet is not an MT=0xD Flex Data packet.
+    NotFlexDataPacket,
+    /// Group mismatch with the active multi-packet sequence.
+    GroupMismatch,
+    /// Channel or address mismatch.
+    AddressMismatch,
+    /// Status Bank or Status mismatch.
+    StatusMismatch,
+    /// Unexpected packet sequence format (e.g. Continue/End received when idle).
+    UnexpectedFormat,
+    /// The incoming packet data would exceed the fixed buffer capacity.
+    BufferOverflow,
+}
+
+/// State of a `FlexDataReceiver`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlexDataReceiverState {
+    /// Idle, waiting for Complete or Start packet.
+    Idle,
+    /// Currently accumulating multi-packet text.
+    Receiving,
+    /// Text message complete.
+    Complete,
+}
+
+/// A zero-allocation, bounded-capacity receiver and reassembler for incoming Flex Data multi-packet text messages.
+pub struct FlexDataReceiver<const CAP: usize> {
+    buffer: [u8; CAP],
+    len: usize,
+    group: u8,
+    channel: u8,
+    addrs: u8,
+    status_bank: u8,
+    status: u8,
+    state: FlexDataReceiverState,
+}
+
+impl<const CAP: usize> Default for FlexDataReceiver<CAP> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<const CAP: usize> FlexDataReceiver<CAP> {
+    /// Creates a new `FlexDataReceiver` with capacity `CAP`.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            buffer: [0; CAP],
+            len: 0,
+            group: 0,
+            channel: 0,
+            addrs: 0,
+            status_bank: 0,
+            status: 0,
+            state: FlexDataReceiverState::Idle,
+        }
+    }
+
+    /// Resets the receiver to idle state.
+    pub fn reset(&mut self) {
+        self.len = 0;
+        self.state = FlexDataReceiverState::Idle;
+    }
+
+    /// Returns current state.
+    #[must_use]
+    #[inline]
+    pub fn state(&self) -> FlexDataReceiverState {
+        self.state
+    }
+
+    /// Returns the accumulated text bytes.
+    #[must_use]
+    #[inline]
+    pub fn text(&self) -> &[u8] {
+        &self.buffer[..self.len]
+    }
+
+    /// Returns the active Status Bank.
+    #[must_use]
+    #[inline]
+    pub fn status_bank(&self) -> u8 {
+        self.status_bank
+    }
+
+    /// Returns the active Status.
+    #[must_use]
+    #[inline]
+    pub fn status(&self) -> u8 {
+        self.status
+    }
+
+    /// Processes an incoming UMP packet.
+    pub fn process_ump(
+        &mut self,
+        ump: &Ump,
+    ) -> Result<FlexDataReceiverState, FlexDataReceiverError> {
+        let mt = (ump.data[0] >> 28) as u8;
+        if mt != UMP_FLEX_DATA {
+            return Err(FlexDataReceiverError::NotFlexDataPacket);
+        }
+
+        let w0 = ump.data[0];
+        let group = ((w0 >> 24) & 0xF) as u8;
+        let form_nibble = ((w0 >> 22) & 0x3) as u8;
+        let form =
+            FlexDataFormat::from_u8(form_nibble).ok_or(FlexDataReceiverError::UnexpectedFormat)?;
+        let addrs = ((w0 >> 20) & 0x3) as u8;
+        let channel = ((w0 >> 16) & 0xF) as u8;
+        let status_bank = ((w0 >> 8) & 0xFF) as u8;
+        let status = (w0 & 0xFF) as u8;
+
+        match form {
+            FlexDataFormat::Complete | FlexDataFormat::Start => {
+                self.len = 0;
+                self.group = group;
+                self.channel = channel;
+                self.addrs = addrs;
+                self.status_bank = status_bank;
+                self.status = status;
+            }
+            FlexDataFormat::Continue | FlexDataFormat::End => {
+                if self.state != FlexDataReceiverState::Receiving {
+                    return Err(FlexDataReceiverError::UnexpectedFormat);
+                }
+                if group != self.group {
+                    return Err(FlexDataReceiverError::GroupMismatch);
+                }
+                if channel != self.channel || addrs != self.addrs {
+                    return Err(FlexDataReceiverError::AddressMismatch);
+                }
+                if status_bank != self.status_bank || status != self.status {
+                    return Err(FlexDataReceiverError::StatusMismatch);
+                }
+            }
+        }
+
+        // Extract up to 12 text bytes from words 1..3
+        let words = [ump.data[1], ump.data[2], ump.data[3]];
+        let mut temp = [0_u8; 12];
+        let mut extracted = 0;
+
+        for word in &words {
+            for b in (0..4).rev() {
+                let byte = ((word >> (b * 8)) & 0xFF) as u8;
+                if byte != 0 {
+                    temp[extracted] = byte;
+                    extracted += 1;
+                }
+            }
+        }
+
+        if self.len + extracted > CAP {
+            self.reset();
+            return Err(FlexDataReceiverError::BufferOverflow);
+        }
+
+        self.buffer[self.len..self.len + extracted].copy_from_slice(&temp[..extracted]);
+        self.len += extracted;
+
+        match form {
+            FlexDataFormat::Complete | FlexDataFormat::End => {
+                self.state = FlexDataReceiverState::Complete;
+            }
+            FlexDataFormat::Start | FlexDataFormat::Continue => {
+                self.state = FlexDataReceiverState::Receiving;
+            }
+        }
+
+        Ok(self.state)
+    }
+}
+
+/// A scheduled UMP item paired with optional Jitter Reduction (JR) timestamp or Delta Clockstamp (DCT).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ScheduledUmp {
+    /// The UMP packet payload.
+    pub ump: Ump,
+    /// Optional 16-bit Jitter Reduction timestamp.
+    pub jr_timestamp: Option<u16>,
+    /// Optional 16-bit Delta Clockstamp ticks since last event.
+    pub dct_since_last: Option<u16>,
+}
+
+impl ScheduledUmp {
+    /// Creates a new `ScheduledUmp`.
+    #[must_use]
+    #[inline]
+    pub const fn new(ump: Ump) -> Self {
+        Self {
+            ump,
+            jr_timestamp: None,
+            dct_since_last: None,
+        }
+    }
+
+    /// Attaches a JR Timestamp.
+    #[must_use]
+    #[inline]
+    pub const fn with_jr_timestamp(mut self, ts: u16) -> Self {
+        self.jr_timestamp = Some(ts);
+        self
+    }
+
+    /// Attaches a Delta Clockstamp.
+    #[must_use]
+    #[inline]
+    pub const fn with_dct(mut self, ticks: u16) -> Self {
+        self.dct_since_last = Some(ticks);
+        self
+    }
+}
+
+/// A bounded, zero-allocation Jitter Reduction (JR) and Delta Clockstamp (DCT) Scheduler Queue.
+///
+/// Handles pairing incoming JR/DCT utility messages with adjacent Channel Voice and System messages,
+/// and interleaving timestamps during outbound packet generation.
+pub struct JitterReductionQueue<const CAP: usize> {
+    items: [ScheduledUmp; CAP],
+    len: usize,
+    read_pos: usize,
+    write_pos: usize,
+    last_clock: u16,
+    pending_jr_timestamp: Option<u16>,
+    pending_dct_since: Option<u16>,
+}
+
+impl<const CAP: usize> Default for JitterReductionQueue<CAP> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<const CAP: usize> JitterReductionQueue<CAP> {
+    /// Creates a new `JitterReductionQueue`.
+    #[must_use]
+    pub const fn new() -> Self {
+        const { assert!(CAP > 0, "Queue capacity must be greater than zero") };
+        Self {
+            items: [ScheduledUmp {
+                ump: Ump { data: [0; 4] },
+                jr_timestamp: None,
+                dct_since_last: None,
+            }; CAP],
+            len: 0,
+            read_pos: 0,
+            write_pos: 0,
+            last_clock: 0,
+            pending_jr_timestamp: None,
+            pending_dct_since: None,
+        }
+    }
+
+    /// Returns the number of items queued.
+    #[must_use]
+    #[inline]
+    pub const fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Checks if queue is empty.
+    #[must_use]
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Checks if queue is full.
+    #[must_use]
+    #[inline]
+    pub const fn is_full(&self) -> bool {
+        self.len == CAP
+    }
+
+    /// Updates the reference sender clock.
+    #[inline]
+    pub fn update_clock(&mut self, clock_time: u16) {
+        self.last_clock = clock_time;
+    }
+
+    /// Ingests a raw UMP packet. If it is a Utility JR Clock/Timestamp or DCT message,
+    /// it updates internal state and pairs it with the immediately subsequent message.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if a musical/data message was queued.
+    /// - `Ok(false)` if a utility message was consumed and held for pairing.
+    /// - `Err(&'static str)` if queue is full.
+    pub fn ingest_ump(&mut self, ump: &Ump) -> Result<bool, &'static str> {
+        let mt = (ump.data[0] >> 28) as u8;
+        if mt == UTILITY_NOOP {
+            let status = ((ump.data[0] >> 20) & 0xF) as u8;
+            let val = (ump.data[0] & 0xFFFF) as u16;
+
+            match status {
+                UTILITY_JRCLOCK => {
+                    self.update_clock(val);
+                    return Ok(false);
+                }
+                UTILITY_JRTS => {
+                    self.pending_jr_timestamp = Some(val);
+                    return Ok(false);
+                }
+                UTILITY_DELTACLOCKSINCE => {
+                    self.pending_dct_since = Some(val);
+                    return Ok(false);
+                }
+                UTILITY_DELTACLOCKTICK => {
+                    // Ticks per quarter note announcement; can be queued or tracked
+                    return Ok(false);
+                }
+                _ => return Ok(false),
+            }
+        }
+
+        if self.is_full() {
+            return Err("JitterReductionQueue is full");
+        }
+
+        let scheduled = ScheduledUmp {
+            ump: *ump,
+            jr_timestamp: self.pending_jr_timestamp.take(),
+            dct_since_last: self.pending_dct_since.take(),
+        };
+
+        self.items[self.write_pos] = scheduled;
+        self.write_pos = (self.write_pos + 1) % CAP;
+        self.len += 1;
+
+        Ok(true)
+    }
+
+    /// Pops the next scheduled UMP from the queue.
+    pub fn pop(&mut self) -> Option<ScheduledUmp> {
+        if self.len == 0 {
+            return None;
+        }
+
+        let item = self.items[self.read_pos];
+        self.read_pos = (self.read_pos + 1) % CAP;
+        self.len -= 1;
+        Some(item)
+    }
+
+    /// Pushes an outbound message with an associated JR timestamp or DCT, queuing both
+    /// the timestamp Utility UMP and the target message.
+    pub fn push_outbound(
+        &mut self,
+        ump: &Ump,
+        jr_timestamp: Option<u16>,
+        dct_since: Option<u16>,
+    ) -> Result<(), &'static str> {
+        let count_needed =
+            1 + usize::from(jr_timestamp.is_some()) + usize::from(dct_since.is_some());
+        if self.len + count_needed > CAP {
+            return Err("Insufficient capacity in JitterReductionQueue");
+        }
+
+        if let Some(ts) = jr_timestamp {
+            let jr_ump = UmpFactory::jr_timestamp(ts);
+            self.items[self.write_pos] = ScheduledUmp::new(jr_ump);
+            self.write_pos = (self.write_pos + 1) % CAP;
+            self.len += 1;
+        }
+
+        if let Some(dct) = dct_since {
+            let dct_ump = UmpFactory::delta_clockstamp_since(dct);
+            self.items[self.write_pos] = ScheduledUmp::new(dct_ump);
+            self.write_pos = (self.write_pos + 1) % CAP;
+            self.len += 1;
+        }
+
+        self.items[self.write_pos] = ScheduledUmp::new(*ump)
+            .with_jr_timestamp(jr_timestamp.unwrap_or(0))
+            .with_dct(dct_since.unwrap_or(0));
+        self.write_pos = (self.write_pos + 1) % CAP;
+        self.len += 1;
+
+        Ok(())
     }
 }

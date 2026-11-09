@@ -166,6 +166,65 @@ pub enum MidiCiSubId2 {
     MidiMessageReportEnd = 0x44,
 }
 
+/// MIDI 2.0 Flex Data Status Banks (MT=0xD).
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum FlexDataStatusBank {
+    Common = 0x00,
+    Performance = 0x01,
+    Lyric = 0x02,
+    ProjectMetadata = 0x03,
+    TrackMetadata = 0x04,
+}
+
+impl FlexDataStatusBank {
+    #[must_use]
+    pub const fn from_u8(val: u8) -> Option<Self> {
+        match val {
+            0x00 => Some(Self::Common),
+            0x01 => Some(Self::Performance),
+            0x02 => Some(Self::Lyric),
+            0x03 => Some(Self::ProjectMetadata),
+            0x04 => Some(Self::TrackMetadata),
+            _ => None,
+        }
+    }
+}
+
+/// Status codes within Flex Data Status Bank 0x00 (Common).
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum FlexDataCommonStatus {
+    SetTempo = 0x00,
+    SetTimeSignature = 0x01,
+    SetMetronome = 0x02,
+    SetKeySignature = 0x05,
+    SetChord = 0x06,
+    BarMarker = 0x07,
+    BeatMarker = 0x08,
+}
+
+/// Status codes within Flex Data Status Bank 0x03 (Project Metadata).
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum FlexDataProjectMetadataStatus {
+    ProjectName = 0x00,
+    CompositionName = 0x01,
+    ArrangerName = 0x02,
+    ComposerName = 0x03,
+    CopyrightNotice = 0x04,
+}
+
+/// Status codes within Flex Data Status Bank 0x04 (Track Metadata).
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum FlexDataTrackMetadataStatus {
+    TrackName = 0x00,
+    ChannelName = 0x01,
+    ClipName = 0x02,
+    MarkerNote = 0x03,
+}
+
 impl MidiCiSubId2 {
     /// Parses a Sub-ID #2 byte into a `MidiCiSubId2`.
     #[must_use]

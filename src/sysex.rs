@@ -303,6 +303,486 @@ impl<const CAP: usize> SysEx7Receiver<CAP> {
     }
 }
 
+/// Mixed Data Set (MDS) Header information (MT=0x5, Status=0x8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MdsHeader {
+    /// Destination group (0-15).
+    pub group: u8,
+    /// MDS ID (0-15).
+    pub mds_id: u8,
+    /// Number of valid payload bytes in the entire MDS transmission.
+    pub number_of_bytes: u16,
+    /// Total number of chunks (including header and payload chunks).
+    pub total_chunks: u16,
+    /// Current chunk number (typically 1 for header).
+    pub chunk_number: u16,
+    /// Manufacturer ID (16-bit or 7-bit padded).
+    pub manufacturer_id: u16,
+    /// Device ID.
+    pub device_id: u16,
+    /// Sub-ID #1.
+    pub sub_id1: u16,
+    /// Sub-ID #2.
+    pub sub_id2: u16,
+}
+
+impl MdsHeader {
+    /// Creates a new `MdsHeader`.
+    #[must_use]
+    #[inline]
+    #[allow(clippy::too_many_arguments)]
+    pub const fn new(
+        group: u8,
+        mds_id: u8,
+        number_of_bytes: u16,
+        total_chunks: u16,
+        chunk_number: u16,
+        manufacturer_id: u16,
+        device_id: u16,
+        sub_id1: u16,
+        sub_id2: u16,
+    ) -> Self {
+        Self {
+            group: group & 0xF,
+            mds_id: mds_id & 0xF,
+            number_of_bytes,
+            total_chunks,
+            chunk_number,
+            manufacturer_id,
+            device_id,
+            sub_id1,
+            sub_id2,
+        }
+    }
+
+    /// Converts this `MdsHeader` into a 128-bit UMP packet (MT=0x5, Status=0x8).
+    #[must_use]
+    #[inline]
+    pub fn to_ump(&self) -> Ump {
+        let w0 = (0x5_u32 << 28)
+            | (((self.group & 0xF) as u32) << 24)
+            | (0x8_u32 << 20)
+            | (((self.mds_id & 0xF) as u32) << 16)
+            | (self.number_of_bytes as u32);
+        let w1 = ((self.total_chunks as u32) << 16) | (self.chunk_number as u32);
+        let w2 = ((self.manufacturer_id as u32) << 16) | (self.device_id as u32);
+        let w3 = ((self.sub_id1 as u32) << 16) | (self.sub_id2 as u32);
+
+        Ump {
+            data: [w0, w1, w2, w3],
+        }
+    }
+
+    /// Parses an `MdsHeader` from a 128-bit UMP packet.
+    #[must_use]
+    pub fn from_ump(ump: &Ump) -> Option<Self> {
+        if ump.message_type() != MessageType::Data {
+            return None;
+        }
+        let w0 = ump.data[0];
+        let status = ((w0 >> 20) & 0xF) as u8;
+        if status != 0x8 {
+            return None;
+        }
+
+        let group = ((w0 >> 24) & 0xF) as u8;
+        let mds_id = ((w0 >> 16) & 0xF) as u8;
+        let number_of_bytes = (w0 & 0xFFFF) as u16;
+
+        let w1 = ump.data[1];
+        let total_chunks = ((w1 >> 16) & 0xFFFF) as u16;
+        let chunk_number = (w1 & 0xFFFF) as u16;
+
+        let w2 = ump.data[2];
+        let manufacturer_id = ((w2 >> 16) & 0xFFFF) as u16;
+        let device_id = (w2 & 0xFFFF) as u16;
+
+        let w3 = ump.data[3];
+        let sub_id1 = ((w3 >> 16) & 0xFFFF) as u16;
+        let sub_id2 = (w3 & 0xFFFF) as u16;
+
+        Some(Self {
+            group,
+            mds_id,
+            number_of_bytes,
+            total_chunks,
+            chunk_number,
+            manufacturer_id,
+            device_id,
+            sub_id1,
+            sub_id2,
+        })
+    }
+}
+
+/// Helper to build a single MDS Payload UMP (MT=0x5, Status=0x9).
+///
+/// An MDS Payload packet carries up to 14 payload bytes across words 0..3:
+/// - Word 0 bits [28:31] = 0x5
+/// - Word 0 bits [24:27] = Group
+/// - Word 0 bits [20:23] = Status (0x9)
+/// - Word 0 bits [16:19] = MDS ID
+/// - Word 0 bits [8:15]  = Payload byte 0
+/// - Word 0 bits [0:7]   = Payload byte 1
+/// - Word 1 bits [24:31] = Payload byte 2, etc.
+#[must_use]
+pub fn build_mds_payload_ump(group: u8, mds_id: u8, bytes: &[u8]) -> Ump {
+    let payload_len = if bytes.len() > 14 { 14 } else { bytes.len() };
+    let mut w0 = (0x5_u32 << 28)
+        | (((group & 0xF) as u32) << 24)
+        | (0x9_u32 << 20)
+        | (((mds_id & 0xF) as u32) << 16);
+    let mut w1 = 0_u32;
+    let mut w2 = 0_u32;
+    let mut w3 = 0_u32;
+
+    if payload_len > 0 {
+        w0 |= (bytes[0] as u32) << 8;
+    }
+    if payload_len > 1 {
+        w0 |= bytes[1] as u32;
+    }
+    if payload_len > 2 {
+        w1 |= (bytes[2] as u32) << 24;
+    }
+    if payload_len > 3 {
+        w1 |= (bytes[3] as u32) << 16;
+    }
+    if payload_len > 4 {
+        w1 |= (bytes[4] as u32) << 8;
+    }
+    if payload_len > 5 {
+        w1 |= bytes[5] as u32;
+    }
+    if payload_len > 6 {
+        w2 |= (bytes[6] as u32) << 24;
+    }
+    if payload_len > 7 {
+        w2 |= (bytes[7] as u32) << 16;
+    }
+    if payload_len > 8 {
+        w2 |= (bytes[8] as u32) << 8;
+    }
+    if payload_len > 9 {
+        w2 |= bytes[9] as u32;
+    }
+    if payload_len > 10 {
+        w3 |= (bytes[10] as u32) << 24;
+    }
+    if payload_len > 11 {
+        w3 |= (bytes[11] as u32) << 16;
+    }
+    if payload_len > 12 {
+        w3 |= (bytes[12] as u32) << 8;
+    }
+    if payload_len > 13 {
+        w3 |= bytes[13] as u32;
+    }
+
+    Ump {
+        data: [w0, w1, w2, w3],
+    }
+}
+
+/// An iterator that borrows an `MdsHeader` and payload slice and emits zero-allocation 128-bit MDS UMPs.
+///
+/// Packet 0 is the MDS Header (Status=0x8). Subsequent packets are MDS Payload UMPs (Status=0x9),
+/// each carrying up to 14 payload bytes.
+#[derive(Debug, Clone)]
+pub struct MdsChunker<'a> {
+    header: MdsHeader,
+    payload: &'a [u8],
+    header_sent: bool,
+    offset: usize,
+}
+
+impl<'a> MdsChunker<'a> {
+    /// Creates a new `MdsChunker` for the given header and payload.
+    #[must_use]
+    pub fn new(header: MdsHeader, payload: &'a [u8]) -> Self {
+        Self {
+            header,
+            payload,
+            header_sent: false,
+            offset: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for MdsChunker<'a> {
+    type Item = Ump;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if !self.header_sent {
+            self.header_sent = true;
+            return Some(self.header.to_ump());
+        }
+
+        if self.offset >= self.payload.len() && self.payload.is_empty() && self.offset == 0 {
+            // Emptied after header
+            self.offset = 1; // mark done
+            return None;
+        }
+
+        if self.offset >= self.payload.len() {
+            return None;
+        }
+
+        let remaining = self.payload.len() - self.offset;
+        let chunk_size = if remaining > 14 { 14 } else { remaining };
+        let chunk = &self.payload[self.offset..self.offset + chunk_size];
+        self.offset += chunk_size;
+
+        Some(build_mds_payload_ump(
+            self.header.group,
+            self.header.mds_id,
+            chunk,
+        ))
+    }
+}
+
+/// Error conditions that can occur during MDS reassembly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MdsReceiverError {
+    /// Incoming packet is not an MT=0x5 packet or not MDS.
+    NotMdsPacket,
+    /// Group mismatch with active session.
+    GroupMismatch,
+    /// MDS ID mismatch with active session.
+    MdsIdMismatch,
+    /// Missing or unexpected chunk sequence.
+    UnexpectedChunk,
+    /// The incoming payload data exceeds fixed buffer capacity.
+    BufferOverflow,
+    /// Payload arrived without a preceding MDS Header.
+    HeaderMissing,
+}
+
+/// State of an `MdsReceiver`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MdsReceiverState {
+    /// Waiting for MDS Header.
+    Idle,
+    /// Header received, accumulating payload chunks.
+    Receiving,
+    /// All payload bytes received and complete.
+    Complete,
+}
+
+/// A zero-allocation, bounded-capacity receiver and reassembler for incoming Mixed Data Set (MDS) UMP packets.
+pub struct MdsReceiver<const CAP: usize> {
+    buffer: [u8; CAP],
+    len: usize,
+    header: Option<MdsHeader>,
+    chunks_received: u16,
+    state: MdsReceiverState,
+}
+
+impl<const CAP: usize> Default for MdsReceiver<CAP> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<const CAP: usize> MdsReceiver<CAP> {
+    /// Creates a new `MdsReceiver` with fixed buffer capacity `CAP`.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            buffer: [0; CAP],
+            len: 0,
+            header: None,
+            chunks_received: 0,
+            state: MdsReceiverState::Idle,
+        }
+    }
+
+    /// Resets receiver to idle state.
+    pub fn reset(&mut self) {
+        self.len = 0;
+        self.header = None;
+        self.chunks_received = 0;
+        self.state = MdsReceiverState::Idle;
+    }
+
+    /// Returns current state.
+    #[must_use]
+    #[inline]
+    pub fn state(&self) -> MdsReceiverState {
+        self.state
+    }
+
+    /// Returns the active `MdsHeader` if received.
+    #[must_use]
+    #[inline]
+    pub fn header(&self) -> Option<&MdsHeader> {
+        self.header.as_ref()
+    }
+
+    /// Returns a slice of the accumulated payload.
+    #[must_use]
+    #[inline]
+    pub fn payload(&self) -> &[u8] {
+        &self.buffer[..self.len]
+    }
+
+    /// Processes an incoming UMP packet.
+    pub fn process_ump(&mut self, ump: &Ump) -> Result<MdsReceiverState, MdsReceiverError> {
+        if ump.message_type() != MessageType::Data {
+            return Err(MdsReceiverError::NotMdsPacket);
+        }
+
+        let w0 = ump.data[0];
+        let status = ((w0 >> 20) & 0xF) as u8;
+        let group = ((w0 >> 24) & 0xF) as u8;
+        let mds_id = ((w0 >> 16) & 0xF) as u8;
+
+        if status == 0x8 {
+            // MDS Header
+            let hdr = MdsHeader::from_ump(ump).ok_or(MdsReceiverError::NotMdsPacket)?;
+            self.header = Some(hdr);
+            self.len = 0;
+            self.chunks_received = 1;
+            if hdr.number_of_bytes == 0 {
+                self.state = MdsReceiverState::Complete;
+            } else {
+                self.state = MdsReceiverState::Receiving;
+            }
+            return Ok(self.state);
+        }
+
+        if status == 0x9 {
+            // MDS Payload
+            let hdr = match &self.header {
+                Some(h) => h,
+                None => return Err(MdsReceiverError::HeaderMissing),
+            };
+
+            if group != hdr.group {
+                return Err(MdsReceiverError::GroupMismatch);
+            }
+            if mds_id != hdr.mds_id {
+                return Err(MdsReceiverError::MdsIdMismatch);
+            }
+
+            self.chunks_received += 1;
+
+            let expected_total = hdr.number_of_bytes as usize;
+            let remaining = expected_total.saturating_sub(self.len);
+            let chunk_len = if remaining > 14 { 14 } else { remaining };
+
+            if self.len + chunk_len > CAP {
+                self.reset();
+                return Err(MdsReceiverError::BufferOverflow);
+            }
+
+            let mut temp = [0_u8; 14];
+            let w1 = ump.data[1];
+            let w2 = ump.data[2];
+            let w3 = ump.data[3];
+
+            temp[0] = ((w0 >> 8) & 0xFF) as u8;
+            temp[1] = (w0 & 0xFF) as u8;
+            temp[2] = ((w1 >> 24) & 0xFF) as u8;
+            temp[3] = ((w1 >> 16) & 0xFF) as u8;
+            temp[4] = ((w1 >> 8) & 0xFF) as u8;
+            temp[5] = (w1 & 0xFF) as u8;
+            temp[6] = ((w2 >> 24) & 0xFF) as u8;
+            temp[7] = ((w2 >> 16) & 0xFF) as u8;
+            temp[8] = ((w2 >> 8) & 0xFF) as u8;
+            temp[9] = (w2 & 0xFF) as u8;
+            temp[10] = ((w3 >> 24) & 0xFF) as u8;
+            temp[11] = ((w3 >> 16) & 0xFF) as u8;
+            temp[12] = ((w3 >> 8) & 0xFF) as u8;
+            temp[13] = (w3 & 0xFF) as u8;
+
+            self.buffer[self.len..self.len + chunk_len].copy_from_slice(&temp[..chunk_len]);
+            self.len += chunk_len;
+
+            if self.len >= expected_total {
+                self.state = MdsReceiverState::Complete;
+            }
+
+            return Ok(self.state);
+        }
+
+        Err(MdsReceiverError::NotMdsPacket)
+    }
+}
+
+/// Demultiplexes multiple concurrent Mixed Data Set (MDS) streams over the same physical transport link.
+///
+/// Supports up to `NUM_STREAMS` concurrent MDS IDs without cross-stream payload corruption.
+pub struct MdsDemuxReceiver<const CAP: usize, const NUM_STREAMS: usize> {
+    receivers: [MdsReceiver<CAP>; NUM_STREAMS],
+}
+
+impl<const CAP: usize, const NUM_STREAMS: usize> Default for MdsDemuxReceiver<CAP, NUM_STREAMS> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<const CAP: usize, const NUM_STREAMS: usize> MdsDemuxReceiver<CAP, NUM_STREAMS> {
+    /// Creates a new `MdsDemuxReceiver`.
+    #[must_use]
+    pub const fn new() -> Self {
+        const {
+            assert!(
+                NUM_STREAMS > 0 && NUM_STREAMS <= 16,
+                "MDS stream count must be between 1 and 16"
+            )
+        };
+        Self {
+            receivers: [const { MdsReceiver::new() }; NUM_STREAMS],
+        }
+    }
+
+    /// Returns a reference to the receiver for the given MDS ID, if valid.
+    #[must_use]
+    #[inline]
+    pub fn get_stream(&self, mds_id: u8) -> Option<&MdsReceiver<CAP>> {
+        let idx = (mds_id & 0xF) as usize;
+        if idx < NUM_STREAMS {
+            Some(&self.receivers[idx])
+        } else {
+            None
+        }
+    }
+
+    /// Resets all stream receivers.
+    pub fn reset_all(&mut self) {
+        for rx in &mut self.receivers {
+            rx.reset();
+        }
+    }
+
+    /// Processes an incoming UMP packet and routes it to the corresponding MDS stream receiver.
+    ///
+    /// # Returns
+    /// - `Ok((mds_id, state))` with the affected MDS ID and its new state.
+    /// - `Err(MdsReceiverError)` if packet parsing failed.
+    pub fn process_ump(&mut self, ump: &Ump) -> Result<(u8, MdsReceiverState), MdsReceiverError> {
+        if ump.message_type() != MessageType::Data {
+            return Err(MdsReceiverError::NotMdsPacket);
+        }
+        let w0 = ump.data[0];
+        let status = ((w0 >> 20) & 0xF) as u8;
+        if status != 0x8 && status != 0x9 {
+            return Err(MdsReceiverError::NotMdsPacket);
+        }
+
+        let mds_id = ((w0 >> 16) & 0xF) as u8;
+        let idx = mds_id as usize;
+        if idx >= NUM_STREAMS {
+            return Err(MdsReceiverError::MdsIdMismatch);
+        }
+
+        let state = self.receivers[idx].process_ump(ump)?;
+        Ok((mds_id, state))
+    }
+}
+
 /// Status/Format of a 128-bit SysEx8 UMP (bits 20-23 of word 0).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
