@@ -1,8 +1,11 @@
 use crate::ump::Ump;
 use crate::utils::{
-    split_14bit, FLEXDATA_COMMON, FLEXDATA_COMMON_CHORD, FLEXDATA_COMMON_KEYSIG,
-    FLEXDATA_COMMON_METRONOME, FLEXDATA_COMMON_TEMPO, FLEXDATA_COMMON_TIMESIG, FLEXDATA_LYRIC,
-    FLEXDATA_PERFORMANCE,
+    split_14bit, FLEXDATA_CLIP_NAME, FLEXDATA_COMMON, FLEXDATA_COMMON_BAR_MARKER,
+    FLEXDATA_COMMON_BEAT_MARKER, FLEXDATA_COMMON_CHORD, FLEXDATA_COMMON_KEYSIG,
+    FLEXDATA_COMMON_METRONOME, FLEXDATA_COMMON_TEMPO, FLEXDATA_COMMON_TIMESIG,
+    FLEXDATA_COMPOSITION_NAME, FLEXDATA_COPYRIGHT_NOTICE, FLEXDATA_LYRIC,
+    FLEXDATA_METADATA_PROJECT, FLEXDATA_METADATA_TRACK, FLEXDATA_PERFORMANCE,
+    FLEXDATA_PROJECT_NAME, FLEXDATA_TRACK_NAME,
 };
 
 pub struct VoiceBuilder;
@@ -269,6 +272,22 @@ impl UtilityBuilder {
     pub fn jitter_reduction_timestamp(group: u8, timestamp: u16) -> Ump {
         let combined = ((group as u32) << 24) | (timestamp as u32);
         let w1 = 0x00200000 | (combined & 0x0F00FFFF);
+        Ump::new(w1, 0, 0, 0)
+    }
+
+    /// Creates a Delta Clockstamp Ticks message (ticks per quarter note, Status=0x3).
+    #[must_use]
+    #[inline]
+    pub fn delta_clockstamp_ticks(ticks_per_qtr_note: u16) -> Ump {
+        let w1 = 0x00300000 | (ticks_per_qtr_note as u32);
+        Ump::new(w1, 0, 0, 0)
+    }
+
+    /// Creates a Delta Clockstamp Since Last message (Status=0x4).
+    #[must_use]
+    #[inline]
+    pub fn delta_clockstamp_since(ticks_since_last: u16) -> Ump {
+        let w1 = 0x00400000 | (ticks_since_last as u32);
         Ump::new(w1, 0, 0, 0)
     }
 }
@@ -539,6 +558,126 @@ impl FlexBuilder {
     #[inline]
     pub fn lyric(group: u8, channel: u8, form: u8, addrs: u8, status: u8, text: &[u8]) -> Ump {
         Self::text(group, channel, form, addrs, FLEXDATA_LYRIC, status, text)
+    }
+
+    /// Creates a Flex Data Bar Marker message (Status Bank 0x00, Status 0x07).
+    #[must_use]
+    #[inline]
+    pub fn bar_marker(group: u8, channel: u8, form: u8, addrs: u8, bar_number: u32) -> Ump {
+        Self::flex_data(
+            group,
+            form,
+            addrs,
+            channel,
+            FLEXDATA_COMMON,
+            FLEXDATA_COMMON_BAR_MARKER,
+            bar_number,
+            0,
+            0,
+        )
+    }
+
+    /// Creates a Flex Data Beat Marker message (Status Bank 0x00, Status 0x08).
+    #[must_use]
+    #[inline]
+    pub fn beat_marker(group: u8, channel: u8, form: u8, addrs: u8, beat_number: u32) -> Ump {
+        Self::flex_data(
+            group,
+            form,
+            addrs,
+            channel,
+            FLEXDATA_COMMON,
+            FLEXDATA_COMMON_BEAT_MARKER,
+            beat_number,
+            0,
+            0,
+        )
+    }
+
+    /// Creates a Flex Data Project Metadata text message (Status Bank 0x03).
+    #[must_use]
+    #[inline]
+    pub fn project_metadata(
+        group: u8,
+        channel: u8,
+        form: u8,
+        addrs: u8,
+        status: u8,
+        text: &[u8],
+    ) -> Ump {
+        Self::text(
+            group,
+            channel,
+            form,
+            addrs,
+            FLEXDATA_METADATA_PROJECT,
+            status,
+            text,
+        )
+    }
+
+    /// Creates a Flex Data Project Name message (Status Bank 0x03, Status 0x00).
+    #[must_use]
+    #[inline]
+    pub fn project_name(group: u8, channel: u8, form: u8, addrs: u8, name: &[u8]) -> Ump {
+        Self::project_metadata(group, channel, form, addrs, FLEXDATA_PROJECT_NAME, name)
+    }
+
+    /// Creates a Flex Data Composition Name message (Status Bank 0x03, Status 0x01).
+    #[must_use]
+    #[inline]
+    pub fn flex_composition_name(group: u8, channel: u8, form: u8, addrs: u8, name: &[u8]) -> Ump {
+        Self::project_metadata(group, channel, form, addrs, FLEXDATA_COMPOSITION_NAME, name)
+    }
+
+    /// Creates a Flex Data Copyright Notice message (Status Bank 0x03, Status 0x04).
+    #[must_use]
+    #[inline]
+    pub fn copyright_notice(group: u8, channel: u8, form: u8, addrs: u8, notice: &[u8]) -> Ump {
+        Self::project_metadata(
+            group,
+            channel,
+            form,
+            addrs,
+            FLEXDATA_COPYRIGHT_NOTICE,
+            notice,
+        )
+    }
+
+    /// Creates a Flex Data Track Metadata text message (Status Bank 0x04).
+    #[must_use]
+    #[inline]
+    pub fn track_metadata(
+        group: u8,
+        channel: u8,
+        form: u8,
+        addrs: u8,
+        status: u8,
+        text: &[u8],
+    ) -> Ump {
+        Self::text(
+            group,
+            channel,
+            form,
+            addrs,
+            FLEXDATA_METADATA_TRACK,
+            status,
+            text,
+        )
+    }
+
+    /// Creates a Flex Data Track Name message (Status Bank 0x04, Status 0x00).
+    #[must_use]
+    #[inline]
+    pub fn track_name(group: u8, channel: u8, form: u8, addrs: u8, name: &[u8]) -> Ump {
+        Self::track_metadata(group, channel, form, addrs, FLEXDATA_TRACK_NAME, name)
+    }
+
+    /// Creates a Flex Data Clip Name message (Status Bank 0x04, Status 0x02).
+    #[must_use]
+    #[inline]
+    pub fn clip_name(group: u8, channel: u8, form: u8, addrs: u8, name: &[u8]) -> Ump {
+        Self::track_metadata(group, channel, form, addrs, FLEXDATA_CLIP_NAME, name)
     }
 }
 

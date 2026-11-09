@@ -2548,5 +2548,219 @@ mod tests {
         assert!(cs.contains("\"Pan\""));
         assert!(!cs.contains("\"Mod\""));
         assert!(!cs.contains("\"Vol\""));
+    fn test_mds_header_payload_chunker_and_demux_roundtrip() {
+        use crate::sysex::{
+            MdsChunker, MdsDemuxReceiver, MdsHeader, MdsReceiver, MdsReceiverError,
+            MdsReceiverState,
+        };
+
+        let hdr = MdsHeader::new(1, 0, 32, 4, 1, 0x1234, 0x5678, 0x01, 0x02);
+        let ump = hdr.to_ump();
+        assert_eq!(ump.message_type(), MessageType::Data);
+        assert_eq!(ump.data[0], 0x51800020);
+        assert_eq!(ump.data[1], (4 << 16) | 1);
+        assert_eq!(ump.data[2], (0x1234 << 16) | 0x5678);
+        assert_eq!(ump.data[3], (0x01 << 16) | 0x02);
+
+        let parsed_hdr = MdsHeader::from_ump(&ump).expect("parse mds header");
+        assert_eq!(parsed_hdr, hdr);
+
+        // 32-byte payload over 3 payload chunks (14 + 14 + 4)
+        let payload: [u8; 32] = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32,
+        ];
+        let chunker = MdsChunker::new(hdr, &payload);
+        let packets: alloc::vec::Vec<_> = chunker.collect();
+        assert_eq!(packets.len(), 4); // 1 header + 3 payload
+
+        // Single stream reassembly
+        let mut rx = MdsReceiver::<64>::new();
+        assert_eq!(rx.state(), MdsReceiverState::Idle);
+
+        assert_eq!(rx.process_ump(&packets[0]), Ok(MdsReceiverState::Receiving));
+        assert_eq!(rx.process_ump(&packets[1]), Ok(MdsReceiverState::Receiving));
+        assert_eq!(rx.process_ump(&packets[2]), Ok(MdsReceiverState::Receiving));
+        assert_eq!(rx.process_ump(&packets[3]), Ok(MdsReceiverState::Complete));
+
+        assert_eq!(rx.payload(), &payload);
+        assert_eq!(rx.header(), Some(&hdr));
+
+        // Demuxing concurrent streams test
+        // Stream A (MDS ID 0) and Stream B (MDS ID 1) interleaved
+        let hdr_b = MdsHeader::new(1, 1, 10, 2, 1, 0x4321, 0x8765, 0x03, 0x04);
+        let payload_b = [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x11, 0x22, 0x33, 0x44, 0x55];
+        let chunker_b = MdsChunker::new(hdr_b, &payload_b);
+        let packets_b: alloc::vec::Vec<_> = chunker_b.collect();
+        assert_eq!(packets_b.len(), 2); // 1 header + 1 payload
+
+        let mut demux = MdsDemuxReceiver::<64, 4>::new();
+        // Ingest interleaved
+        assert_eq!(
+            demux.process_ump(&packets[0]),
+            Ok((0, MdsReceiverState::Receiving))
+        );
+        assert_eq!(
+            demux.process_ump(&packets_b[0]),
+            Ok((1, MdsReceiverState::Receiving))
+        );
+        assert_eq!(
+            demux.process_ump(&packets[1]),
+            Ok((0, MdsReceiverState::Receiving))
+        );
+        assert_eq!(
+            demux.process_ump(&packets_b[1]),
+            Ok((1, MdsReceiverState::Complete))
+        );
+        assert_eq!(
+            demux.process_ump(&packets[2]),
+            Ok((0, MdsReceiverState::Receiving))
+        );
+        assert_eq!(
+            demux.process_ump(&packets[3]),
+            Ok((0, MdsReceiverState::Complete))
+        );
+
+        let s0 = demux.get_stream(0).expect("stream 0");
+        assert_eq!(s0.payload(), &payload);
+        let s1 = demux.get_stream(1).expect("stream 1");
+        assert_eq!(s1.payload(), &payload_b);
+
+        // Error checking: Payload without header
+        let mut err_rx = MdsReceiver::<32>::new();
+        assert_eq!(
+            err_rx.process_ump(&packets[1]),
+            Err(MdsReceiverError::HeaderMissing)
+        );
+    }
+
+    #[test]
+    fn test_delta_clockstamps_and_jitter_reduction_queue() {
+        use crate::messages::{JitterReductionQueue, UmpFactory};
+
+        let mut queue = JitterReductionQueue::<16>::new();
+        assert_eq!(queue.len(), 0);
+
+        // Ingest JR Clock
+        let jr_clock = UmpFactory::jr_clock(5000);
+        let queued = queue.ingest_ump(&jr_clock).expect("ingest jr clock");
+        assert!(!queued); // consumed into queue state
+
+        // Ingest JR Timestamp
+        let jr_ts = UmpFactory::jr_timestamp(5120);
+        let queued = queue.ingest_ump(&jr_ts).expect("ingest jr ts");
+        assert!(!queued);
+
+        // Ingest DCT Since Last
+        let dct = UmpFactory::delta_clockstamp_since(48);
+        let queued = queue.ingest_ump(&dct).expect("ingest dct");
+        assert!(!queued);
+
+        // Ingest Note On -> pairs with pending JR timestamp & DCT
+        let note_on = UmpFactory::midi2_note_on(0, 0, 60, 0, 0x8000, 0);
+        let queued = queue.ingest_ump(&note_on).expect("ingest note on");
+        assert!(queued);
+        assert_eq!(queue.len(), 1);
+
+        let item = queue.pop().expect("pop scheduled ump");
+        assert_eq!(item.ump.data[0], note_on.data[0]);
+        assert_eq!(item.jr_timestamp, Some(5120));
+        assert_eq!(item.dct_since_last, Some(48));
+
+        // Push Outbound with pairing
+        let note_off = UmpFactory::midi2_note_off(0, 0, 60, 0, 0x0000, 0);
+        queue
+            .push_outbound(&note_off, Some(5200), Some(96))
+            .expect("push outbound");
+        assert_eq!(queue.len(), 3); // JR TS + DCT Since + Note Off
+
+        let out1 = queue.pop().unwrap();
+        assert_eq!((out1.ump.data[0] >> 20) & 0xF, UTILITY_JRTS as u32);
+        let out2 = queue.pop().unwrap();
+        assert_eq!(
+            (out2.ump.data[0] >> 20) & 0xF,
+            UTILITY_DELTACLOCKSINCE as u32
+        );
+        let out3 = queue.pop().unwrap();
+        assert_eq!(out3.ump.data[0], note_off.data[0]);
+    }
+
+    #[test]
+    fn test_flex_data_multi_packet_reassembly_and_metadata_banks() {
+        use crate::messages::{
+            FlexDataChunker, FlexDataFormat, FlexDataReceiver, FlexDataReceiverError,
+            FlexDataReceiverState, UmpFactory,
+        };
+
+        // 1. Bar Marker and Beat Marker
+        let bar = UmpFactory::flex_bar_marker(1, 0, 0, 1, 100);
+        assert_eq!(bar.data[0], 0xD1100007);
+        assert_eq!(bar.data[1], 100);
+
+        let beat = UmpFactory::flex_beat_marker(1, 0, 0, 1, 400);
+        assert_eq!(beat.data[0], 0xD1100008);
+        assert_eq!(beat.data[1], 400);
+
+        // 2. Metadata builders
+        let proj = UmpFactory::flex_project_name(1, 0, 0, 2, b"Symphony No. 5");
+        assert_eq!(proj.data[0], 0xD1200300);
+
+        let comp = UmpFactory::flex_composition_name(1, 0, 0, 2, b"Movement 1");
+        assert_eq!(comp.data[0], 0xD1200301);
+
+        let copy = UmpFactory::flex_copyright_notice(1, 0, 0, 2, b"(C) 2026");
+        assert_eq!(copy.data[0], 0xD1200304);
+
+        let track = UmpFactory::flex_track_name(1, 0, 0, 1, b"Violin 1");
+        assert_eq!(track.data[0], 0xD1100400);
+
+        let clip = UmpFactory::flex_clip_name(1, 0, 0, 1, b"Main Solo");
+        assert_eq!(clip.data[0], 0xD1100402);
+
+        // 3. Multi-packet Flex Data Text Chunker & Receiver roundtrip
+        // 28 bytes requires 3 packets (12 + 12 + 4)
+        let lyric_text = b"Is this the real life? Yes!!";
+        assert_eq!(lyric_text.len(), 28);
+
+        let chunker = FlexDataChunker::new(2, 3, 0, FLEXDATA_LYRIC, 0, lyric_text);
+        let packets: alloc::vec::Vec<_> = chunker.collect();
+        assert_eq!(packets.len(), 3);
+
+        assert_eq!(
+            (packets[0].data[0] >> 22) & 0x3,
+            FlexDataFormat::Start as u32
+        );
+        assert_eq!(
+            (packets[1].data[0] >> 22) & 0x3,
+            FlexDataFormat::Continue as u32
+        );
+        assert_eq!((packets[2].data[0] >> 22) & 0x3, FlexDataFormat::End as u32);
+
+        let mut receiver = FlexDataReceiver::<64>::new();
+        assert_eq!(receiver.state(), FlexDataReceiverState::Idle);
+
+        assert_eq!(
+            receiver.process_ump(&packets[0]),
+            Ok(FlexDataReceiverState::Receiving)
+        );
+        assert_eq!(
+            receiver.process_ump(&packets[1]),
+            Ok(FlexDataReceiverState::Receiving)
+        );
+        assert_eq!(
+            receiver.process_ump(&packets[2]),
+            Ok(FlexDataReceiverState::Complete)
+        );
+
+        assert_eq!(receiver.text(), lyric_text);
+        assert_eq!(receiver.status_bank(), FLEXDATA_LYRIC);
+        assert_eq!(receiver.status(), 0);
+
+        // Error checking: Unexpected Continue without Start
+        let mut err_rx = FlexDataReceiver::<64>::new();
+        assert_eq!(
+            err_rx.process_ump(&packets[1]),
+            Err(FlexDataReceiverError::UnexpectedFormat)
+        );
     }
 }

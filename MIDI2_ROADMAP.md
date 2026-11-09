@@ -179,23 +179,20 @@ The foundational and extended MIDI 2.0 specifications across the complete standa
 An exhaustive examination of the codebase against the official MIDI Association MIDI 2.0 and MIDI-CI standard specifications reveals the following architectural areas where coverage is currently partial, foundational, or awaiting dedicated runtime bindings:
 
 ### 1. M2-104-UM: Mixed Data Set (MDS) Network & Large-Payload Transport (MT=0x5)
-* **Status in Codebase:** *Partial*. Generic SysEx8 packet chunking (`SysEx8Chunker`) and stream reassembly (`SysEx8Receiver`) are implemented in `src/sysex.rs` for Status nibbles `0x0` (Complete), `0x1` (Start), `0x2` (Continue), and `0x3` (End). In the legacy C++ codebase (`include/umpMessageCreate.h`), MDS Header (`Status=0x8`) and MDS Payload (`Status=0x9`) helpers exist.
-* **Missing in Rust Engine:**
-  - Dedicated zero-allocation struct representations and streaming iterators for **Mixed Data Set Header UMP** (`MT=0x5, Status=0x8`) encoding Group, MDS ID (0..15), Number of Valid Bytes in Header (1..14), Total Number of Chunks, and Current Chunk Number.
-  - **MDS Payload UMP** (`MT=0x5, Status=0x9`) streaming chunker and reassembly state machine with chunk sequence validation, missing chunk detection, and per-MDS-ID concurrent reassembly buffers.
-  - Demultiplexing multiple concurrent MDS streams over the same physical transport link without cross-stream payload corruption.
+* **Status in Codebase:** ✅ *Complete*.
+  - Dedicated zero-allocation struct representation `MdsHeader` (`MT=0x5, Status=0x8`) and payload helper `build_mds_payload_ump` (`Status=0x9`).
+  - Streaming iterator `MdsChunker` emitting MDS Header and up to 14 payload bytes per packet.
+  - Reassembly state machine `MdsReceiver<const CAP: usize>` and concurrent multi-stream demultiplexer `MdsDemuxReceiver<const CAP: usize, const NUM_STREAMS: usize>`.
 
 ### 2. M2-104-UM: Delta Clockstamps (DCT) & High-Resolution Jitter Reduction
-* **Status in Codebase:** *Partial*. Basic Utility messages (`MT=0x0`) for Jitter Reduction (JR) Clock (`Status=0x1`) and JR Timestamp (`Status=0x2`) are implemented in `messages::UmpFactory::jr_clock` and `jr_timestamp`.
-* **Missing in Rust Engine:**
-  - **Delta Clockstamp (DCT)** messages (`MT=0x0, Status=0x3` and `0x4`): DCT with ticks (e.g. ticks per quarter note or sample clock delta) for packet scheduling in non-real-time streaming and local playback contexts.
-  - Complete TX/RX jitter reduction scheduler queue that pairs JR timestamps with adjacent Channel Voice and System messages, correcting for OS/hardware DMA transmission jitter at receiver endpoints.
+* **Status in Codebase:** ✅ *Complete*.
+  - Delta Clockstamp (DCT) messages (`MT=0x0, Status=0x3` ticks per quarter note, and `Status=0x4` ticks since last event) in `messages::UmpFactory` and `el_core::builder::UtilityBuilder`.
+  - Zero-allocation `JitterReductionQueue<const CAP: usize>` and `ScheduledUmp` pairing JR timestamps and DCTs with Channel Voice and System messages for inbound and outbound scheduling.
 
 ### 3. M2-104-UM: Flex Data Messages Multi-Packet Reassembly & Full Metadata Banks (MT=0xD)
-* **Status in Codebase:** *Partial*. Complete builders for Set Tempo, Time Signature, Metronome, Key Signature, Chord, Performance Text, and Lyric Text are implemented in `messages::UmpFactory` (`src/messages.rs`).
-* **Missing in Rust Engine:**
-  - **Multi-Packet Flex Data Text Reassembly**: The current codebase packs single-packet Flex Data text (up to 12 bytes per packet). A zero-allocation multi-packet chunker and receiver (`FlexDataReceiver<const CAP: usize>`) handling Form `0x1` (Start), `0x2` (Continue), and `0x3` (End) for lyrics, song names, cue points, and chord names is missing.
-  - **Project & Track Metadata Status Banks**: Status Bank `0x00` (Setup & Performance Events: Bar Marker, Beat Marker), Status Bank `0x03` (Project Name, Composition Name, Arranger, Composer, Copyright Notice), Status Bank `0x04` (Track / Channel Names, Clip Names, Marker Notes).
+* **Status in Codebase:** ✅ *Complete*.
+  - Zero-allocation multi-packet text chunker `FlexDataChunker` (Form 0=Complete, 1=Start, 2=Continue, 3=End) and reassembler `FlexDataReceiver<const CAP: usize>`.
+  - Full Project & Track Metadata Status Banks: Status Bank `0x00` (Bar Marker, Beat Marker), Status Bank `0x03` (Project Name, Composition Name, Arranger, Composer, Copyright Notice), Status Bank `0x04` (Track / Channel Names, Clip Names, Marker Notes) in `el_core::types`, `el_core::builder::FlexBuilder`, and `messages::UmpFactory`.
 
 ### 4. M2-101-UM: MIDI-CI v1.2 Extended Profile Management
 * **Status in Codebase:** *Complete*.
