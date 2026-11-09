@@ -2548,6 +2548,9 @@ mod tests {
         assert!(cs.contains("\"Pan\""));
         assert!(!cs.contains("\"Mod\""));
         assert!(!cs.contains("\"Vol\""));
+    }
+
+    #[test]
     fn test_mds_header_payload_chunker_and_demux_roundtrip() {
         use crate::sysex::{
             MdsChunker, MdsDemuxReceiver, MdsHeader, MdsReceiver, MdsReceiverError,
