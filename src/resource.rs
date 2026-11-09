@@ -210,6 +210,16 @@ pub struct ProgramItem<'a> {
 
 /// Procedurally streams a list of `ProgramItem`s into `buf` as a JSON array without heap allocation.
 pub fn write_program_list_json(programs: &[ProgramItem<'_>], buf: &mut [u8]) -> Option<usize> {
+    write_paginated_program_list_json(programs, 0, programs.len(), buf)
+}
+
+/// Procedurally streams a paginated slice of `ProgramItem`s into `buf` as a JSON array without heap allocation.
+pub fn write_paginated_program_list_json(
+    programs: &[ProgramItem<'_>],
+    offset: usize,
+    limit: usize,
+    buf: &mut [u8],
+) -> Option<usize> {
     let mut cursor = 0;
 
     macro_rules! append {
@@ -224,8 +234,8 @@ pub fn write_program_list_json(programs: &[ProgramItem<'_>], buf: &mut [u8]) -> 
     }
 
     append!(b"[");
-    for (i, p) in programs.iter().enumerate() {
-        if i > 0 {
+    for (idx, p) in programs.iter().skip(offset).take(limit).enumerate() {
+        if idx > 0 {
             append!(b",");
         }
         append!(b"{\"program\":");
@@ -344,6 +354,16 @@ pub fn write_controller_list_json(
     controllers: &[ControllerDefinition<'_>],
     buf: &mut [u8],
 ) -> Option<usize> {
+    write_paginated_controller_list_json(controllers, 0, controllers.len(), buf)
+}
+
+/// Procedurally writes a paginated slice of ControllerList resource JSON (M2-117) into `buf`.
+pub fn write_paginated_controller_list_json(
+    controllers: &[ControllerDefinition<'_>],
+    offset: usize,
+    limit: usize,
+    buf: &mut [u8],
+) -> Option<usize> {
     let mut cursor = 0;
 
     macro_rules! append {
@@ -358,8 +378,8 @@ pub fn write_controller_list_json(
     }
 
     append!(b"[");
-    for (i, c) in controllers.iter().enumerate() {
-        if i > 0 {
+    for (idx, c) in controllers.iter().skip(offset).take(limit).enumerate() {
+        if idx > 0 {
             append!(b",");
         }
         append!(b"{\"index\":");

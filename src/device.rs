@@ -14,19 +14,20 @@ use crate::ci::{
     MIDI_PROTOCOL_1, MIDI_PROTOCOL_2, S7MIDICI, S7UNIVERSAL_NRT,
 };
 use crate::ci_pe::{
-    hash_resource, CiPe, PeError, SubscriptionManager, MIDICI_PE_GET, MIDICI_PE_GETREPLY,
-    MIDICI_PE_SUB, MIDICI_PE_SUBREPLY,
+    hash_resource, CiPe, PeError, PeSchemaValidator, SubscriptionManager, MIDICI_PE_GET,
+    MIDICI_PE_GETREPLY, MIDICI_PE_SET, MIDICI_PE_SETREPLY, MIDICI_PE_SUB, MIDICI_PE_SUBREPLY,
 };
 use crate::profile::ProfileManager;
 use crate::resource::{
-    write_channel_list_json, write_controller_list_json, write_external_sync_json,
-    write_local_on_json, write_mode_json, write_program_list_json, write_resource_list_json,
-    ControllerDefinition, DeviceInfoResource, DeviceMode, ProgramItem, StandardResource,
-    SyncSource,
+    write_channel_list_json, write_external_sync_json, write_local_on_json, write_mode_json,
+    write_paginated_controller_list_json, write_paginated_program_list_json,
+    write_resource_list_json, ControllerDefinition, DeviceInfoResource, DeviceMode, ProgramItem,
+    StandardResource, SyncSource,
 };
 use crate::stream::{
-    FunctionBlock, StreamFactory, StreamTextChunker, STATUS_ENDPOINT_DISCOVERY,
-    STATUS_FUNCTION_BLOCK_DISCOVERY, STATUS_STREAM_CONFIG_REQUEST,
+    FunctionBlock, StreamConfigStateMachine, StreamFactory, StreamTextChunker,
+    STATUS_ENDPOINT_DISCOVERY, STATUS_FUNCTION_BLOCK_DISCOVERY, STATUS_STREAM_CONFIG_NOTIFICATION,
+    STATUS_STREAM_CONFIG_REQUEST,
 };
 use crate::sysex::{SysEx7Chunker, SysEx7Receiver, SysEx7ReceiverState};
 use crate::transport::{Transport, TransportError};
@@ -72,6 +73,7 @@ pub struct Midi2Device<'a, T: Transport, const NUM_FB: usize> {
     transport: T,
     config: DeviceConfig<'a>,
     active_protocol: ActiveProtocol,
+    stream_negotiator: StreamConfigStateMachine,
     function_blocks: [Option<FunctionBlock>; NUM_FB],
     function_blocks_count: usize,
     ci_initiator: CiInitiator,
@@ -81,6 +83,10 @@ pub struct Midi2Device<'a, T: Transport, const NUM_FB: usize> {
     sysex_receiver: SysEx7Receiver<512>,
     rx_jr_enabled: bool,
     tx_jr_enabled: bool,
+    local_on: bool,
+    mode: DeviceMode,
+    sync_source: SyncSource,
+    sync_active: bool,
 }
 
 impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
@@ -94,6 +100,7 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
             transport,
             config,
             active_protocol: ActiveProtocol::Midi1_0, // starts default MIDI 1.0 until negotiated/configured
+            stream_negotiator: StreamConfigStateMachine::new(),
             function_blocks: [None; NUM_FB],
             function_blocks_count: 0,
             ci_initiator,
@@ -103,6 +110,10 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
             sysex_receiver: SysEx7Receiver::<512>::new(),
             rx_jr_enabled: false,
             tx_jr_enabled: false,
+            local_on: true,
+            mode: DeviceMode::Standard,
+            sync_source: SyncSource::Internal,
+            sync_active: true,
         }
     }
 
@@ -147,6 +158,36 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
     #[inline]
     pub fn set_active_protocol(&mut self, proto: ActiveProtocol) {
         self.active_protocol = proto;
+        match proto {
+            ActiveProtocol::Midi1_0 => {
+                self.stream_negotiator.reset();
+            }
+            ActiveProtocol::Midi2_0 => {
+                let notif =
+                    StreamFactory::stream_config_notify(2, self.rx_jr_enabled, self.tx_jr_enabled);
+                self.stream_negotiator.process_ump(&notif);
+            }
+        }
+    }
+
+    /// Access the Stream Configuration state machine.
+    #[inline]
+    pub fn stream_negotiator(&self) -> &StreamConfigStateMachine {
+        &self.stream_negotiator
+    }
+
+    /// Access mutable Stream Configuration state machine.
+    #[inline]
+    pub fn stream_negotiator_mut(&mut self) -> &mut StreamConfigStateMachine {
+        &mut self.stream_negotiator
+    }
+
+    /// Returns `true` if MIDI 2.0 messages (MT=0x4) are currently accepted.
+    #[must_use]
+    #[inline]
+    pub fn can_process_midi2(&self) -> bool {
+        self.active_protocol == ActiveProtocol::Midi2_0
+            || self.stream_negotiator.can_process_midi2()
     }
 
     /// Returns the device's local MUID.
@@ -189,6 +230,13 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
         Ok(true)
     }
 
+    /// Ticks the device clock with `current_time` to check for stream negotiation timeouts.
+    pub fn tick(&mut self, current_time: u32) {
+        if self.stream_negotiator.tick(current_time) {
+            self.active_protocol = ActiveProtocol::Midi1_0;
+        }
+    }
+
     /// Dispatches an incoming UMP packet.
     fn handle_incoming_ump(&mut self, ump: Ump) -> Result<(), DeviceError> {
         match ump.message_type() {
@@ -221,7 +269,18 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
                 self.tx_jr_enabled = txjr;
 
                 let notify = StreamFactory::stream_config_notify(protocol_code, rxjr, txjr);
+                self.stream_negotiator.process_ump(&notify);
                 self.transport.send(&[notify])?;
+            }
+            STATUS_STREAM_CONFIG_NOTIFICATION => {
+                self.stream_negotiator.process_ump(&ump);
+                if self.stream_negotiator.active_protocol() == 2 {
+                    self.active_protocol = ActiveProtocol::Midi2_0;
+                } else {
+                    self.active_protocol = ActiveProtocol::Midi1_0;
+                }
+                self.rx_jr_enabled = self.stream_negotiator.rx_jr_enabled();
+                self.tx_jr_enabled = self.stream_negotiator.tx_jr_enabled();
             }
             STATUS_FUNCTION_BLOCK_DISCOVERY => {
                 let fb_idx = ((ump.data[0] >> 8) & 0xFF) as u8;
@@ -413,8 +472,49 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
                     self.send_sysex7_payload(group, &rep[..len])?;
                 }
             }
+            crate::ci::MIDICI_PROFILE_DETAILS_INQUIRY => {
+                if let Some((_, profile, target)) =
+                    CiProfile::parse_profile_details_inquiry(payload)
+                {
+                    let mut details_buf = [0_u8; 32];
+                    let details_len = if profile == crate::profile::PROFILE_DRAWBAR_ORGAN {
+                        details_buf[0] = 9; // 9 drawbars supported
+                        1
+                    } else if profile == crate::profile::PROFILE_ANALOG_SYNTH {
+                        details_buf[0] = 2; // 2 oscillators
+                        details_buf[1] = 1; // 1 LFO
+                        2
+                    } else {
+                        0
+                    };
+
+                    let (rep, len) = CiProfile::build_profile_details_reply(
+                        self.config.local_muid,
+                        hdr.source_muid,
+                        hdr.device_id,
+                        hdr.ci_version,
+                        profile,
+                        target,
+                        &details_buf[..details_len],
+                    );
+                    self.send_sysex7_payload(group, &rep[..len])?;
+                }
+            }
+            crate::ci::MIDICI_PROFILE_ADD => {
+                if let Some((_, profile, _)) = CiProfile::parse_profile_message(payload) {
+                    self.register_profile(profile);
+                }
+            }
+            crate::ci::MIDICI_PROFILE_REMOVE => {
+                if let Some((_, profile, _)) = CiProfile::parse_profile_message(payload) {
+                    self.profile_manager.disable_profile(profile, 0);
+                }
+            }
             MIDICI_PE_GET => {
                 self.handle_pe_get(group, payload)?;
+            }
+            MIDICI_PE_SET => {
+                self.handle_pe_set(group, payload)?;
             }
             MIDICI_PE_SUB => {
                 self.handle_pe_subscribe(group, payload)?;
@@ -428,6 +528,108 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
         Ok(())
     }
 
+    /// Handles a PE Set request with Schema Validation.
+    fn handle_pe_set(&mut self, group: u8, payload: &[u8]) -> Result<(), DeviceError> {
+        let Some((hdr, pe_msg)) = CiPe::parse_pe_message(payload) else {
+            return Ok(());
+        };
+
+        let resource_name = pe_msg.header.resource.unwrap_or("");
+        let standard_res = StandardResource::parse_name(resource_name);
+        let body = pe_msg.body.unwrap_or(b"");
+
+        let status_code: u16 = match standard_res {
+            Some(StandardResource::LocalOn) => {
+                if PeSchemaValidator::validate_local_on(body).is_ok() {
+                    let tok = crate::ci_pe::JsonTokenizer::new(body);
+                    for t in tok {
+                        if let crate::ci_pe::JsonTokenType::BoolValue(b) = t {
+                            self.local_on = b;
+                            break;
+                        }
+                    }
+                    200
+                } else {
+                    400 // Bad request / Schema validation failure
+                }
+            }
+            Some(StandardResource::Mode) => {
+                if PeSchemaValidator::validate_mode(body).is_ok() {
+                    let tok = crate::ci_pe::JsonTokenizer::new(body);
+                    for t in tok {
+                        if let crate::ci_pe::JsonTokenType::StringValue(s) = t {
+                            match s {
+                                "Standard" => self.mode = DeviceMode::Standard,
+                                "MPE" => self.mode = DeviceMode::Mpe,
+                                "MultiChannel" => self.mode = DeviceMode::MultiChannel,
+                                _ => {}
+                            }
+                            break;
+                        }
+                    }
+                    200
+                } else {
+                    400
+                }
+            }
+            Some(StandardResource::ExternalSync) => {
+                if PeSchemaValidator::validate_external_sync(body).is_ok() {
+                    let tok = crate::ci_pe::JsonTokenizer::new(body);
+                    let mut cur_key: Option<&str> = None;
+                    for t in tok {
+                        match t {
+                            crate::ci_pe::JsonTokenType::Key(k) => cur_key = Some(k),
+                            crate::ci_pe::JsonTokenType::StringValue(s) => {
+                                if cur_key == Some("source") {
+                                    match s {
+                                        "Internal" => self.sync_source = SyncSource::Internal,
+                                        "MIDI" => self.sync_source = SyncSource::Midi,
+                                        "SMPTE" => self.sync_source = SyncSource::Smpte,
+                                        "Audio" => self.sync_source = SyncSource::Audio,
+                                        _ => {}
+                                    }
+                                }
+                                cur_key = None;
+                            }
+                            crate::ci_pe::JsonTokenType::BoolValue(b) => {
+                                if cur_key == Some("active") {
+                                    self.sync_active = b;
+                                }
+                                cur_key = None;
+                            }
+                            _ => {}
+                        }
+                    }
+                    200
+                } else {
+                    400
+                }
+            }
+            _ => 404, // Unsupported resource for Set
+        };
+
+        let mut pe_out = [0_u8; 128];
+        let json_hdr = match status_code {
+            200 => b"{\"status\":200}",
+            400 => b"{\"status\":400}",
+            _ => b"{\"status\":404}",
+        };
+
+        let pe_len = CiPe::serialize_pe_header_only(
+            &mut pe_out,
+            MIDICI_PE_SETREPLY,
+            hdr.ci_version,
+            self.config.local_muid,
+            hdr.source_muid,
+            pe_msg.request_id,
+            json_hdr,
+        )
+        .map_err(DeviceError::Pe)?;
+
+        self.send_sysex7_payload(group, &pe_out[..pe_len])?;
+        Ok(())
+    }
+
     /// Handles a PE Get request (Session 7.3).
     fn handle_pe_get(&mut self, group: u8, payload: &[u8]) -> Result<(), DeviceError> {
         let Some((hdr, pe_msg)) = CiPe::parse_pe_message(payload) else {
@@ -436,6 +638,8 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
 
         let resource_name = pe_msg.header.resource.unwrap_or("");
         let standard_res = StandardResource::parse_name(resource_name);
+        let offset = pe_msg.header.offset.unwrap_or(0) as usize;
+        let limit = pe_msg.header.limit.unwrap_or(128) as usize;
 
         let mut body_buf = [0_u8; 256];
         let body_len_opt = match standard_res {
@@ -475,19 +679,33 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
                 }
                 write_channel_list_json(mask, &mut body_buf)
             }
-            Some(StandardResource::Mode) => write_mode_json(DeviceMode::Standard, &mut body_buf),
+            Some(StandardResource::Mode) => write_mode_json(self.mode, &mut body_buf),
             Some(StandardResource::ProgramList) => {
-                let default_programs = [ProgramItem {
-                    program: 0,
-                    bank_msb: 0,
-                    bank_lsb: 0,
-                    name: "Default Preset",
-                }];
-                write_program_list_json(&default_programs, &mut body_buf)
+                let default_programs = [
+                    ProgramItem {
+                        program: 0,
+                        bank_msb: 0,
+                        bank_lsb: 0,
+                        name: "Default Preset",
+                    },
+                    ProgramItem {
+                        program: 1,
+                        bank_msb: 0,
+                        bank_lsb: 0,
+                        name: "Acoustic Piano",
+                    },
+                    ProgramItem {
+                        program: 2,
+                        bank_msb: 0,
+                        bank_lsb: 0,
+                        name: "Drawbar Organ",
+                    },
+                ];
+                write_paginated_program_list_json(&default_programs, offset, limit, &mut body_buf)
             }
-            Some(StandardResource::LocalOn) => write_local_on_json(true, &mut body_buf),
+            Some(StandardResource::LocalOn) => write_local_on_json(self.local_on, &mut body_buf),
             Some(StandardResource::ExternalSync) => {
-                write_external_sync_json(SyncSource::Internal, true, &mut body_buf)
+                write_external_sync_json(self.sync_source, self.sync_active, &mut body_buf)
             }
             Some(StandardResource::ControllerList) => {
                 let default_controllers = [
@@ -503,8 +721,19 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
                         default_val: 100,
                         unit: "ratio",
                     },
+                    ControllerDefinition {
+                        index: 10,
+                        name: "Pan",
+                        default_val: 64,
+                        unit: "ratio",
+                    },
                 ];
-                write_controller_list_json(&default_controllers, &mut body_buf)
+                write_paginated_controller_list_json(
+                    &default_controllers,
+                    offset,
+                    limit,
+                    &mut body_buf,
+                )
             }
             _ => None,
         };
