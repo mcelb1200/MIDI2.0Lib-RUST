@@ -1960,6 +1960,149 @@ mod tests {
     }
 
     #[test]
+    fn test_phase11_multitrack_sequencer_and_playback_engine() {
+        use crate::messages::UmpFactory;
+        use crate::midiclip::{
+            ClipTimeFormat, MidiClipBuilder, MidiClipEvent, MidiClipHeader, MultiTrackSequencer,
+        };
+        use crate::ump::Ump;
+
+        // 1. Build Track 1: Tempo message at delta 0 (120 BPM -> 60 BPM / 100_000_000 10-ns),
+        // followed by Note On (pitch 60) at delta 480 ticks.
+        let tempo_ump = UmpFactory::flex_tempo(0, 0, 0, 0, 100_000_000);
+        let trk1_ev1 = MidiClipEvent::new(0, tempo_ump);
+        let trk1_ev2 = MidiClipEvent::new(480, UmpFactory::midi2_note_on(0, 0, 60, 0, 0x8000, 0));
+        let trk1_events = [trk1_ev1, trk1_ev2];
+
+        let mut trk1_buf = [0_u8; 128];
+        let trk1_len =
+            MidiClipBuilder::write_track(&trk1_events, &mut trk1_buf).expect("write track 1");
+        let trk1_payload = &trk1_buf[8..trk1_len];
+
+        // 2. Build Track 2: Note On (pitch 64) at delta 240 ticks,
+        // followed by Note Off (pitch 64) at delta 240 ticks (absolute tick 480).
+        let trk2_ev1 = MidiClipEvent::new(240, UmpFactory::midi2_note_on(0, 1, 64, 0, 0x9000, 0));
+        let trk2_ev2 = MidiClipEvent::new(240, UmpFactory::midi2_note_off(0, 1, 64, 0, 0x0000, 0));
+        let trk2_events = [trk2_ev1, trk2_ev2];
+
+        let mut trk2_buf = [0_u8; 128];
+        let trk2_len =
+            MidiClipBuilder::write_track(&trk2_events, &mut trk2_buf).expect("write track 2");
+        let trk2_payload = &trk2_buf[8..trk2_len];
+
+        // 3. Test multi-track sequencer chronological merging and tempo tracking
+        let mut seq = MultiTrackSequencer::<4>::new(ClipTimeFormat::TicksPerQuarterNote(480));
+        assert_eq!(seq.tempo_10ns_pqn(), 50_000_000); // Initial 120 BPM
+        assert!((seq.bpm() - 120.0).abs() < 0.1);
+
+        assert_eq!(seq.add_track(trk1_payload).unwrap(), 0);
+        assert_eq!(seq.add_track(trk2_payload).unwrap(), 1);
+        assert_eq!(seq.track_count(), 2);
+        assert!(!seq.is_finished());
+
+        // Event 1: Track 0 tempo change at tick 0.
+        let ev1 = seq.next().expect("event 1");
+        assert_eq!(ev1.track_idx, 0);
+        assert_eq!(ev1.tick_timestamp, 0);
+        assert_eq!(ev1.us_timestamp, 0);
+        assert_eq!(ev1.ump.data[0], tempo_ump.data[0]);
+        // Sequencer should update tempo to 100,000,000 (60 BPM, 1,000,000 us/quarter note)
+        assert_eq!(seq.tempo_10ns_pqn(), 100_000_000);
+        assert!((seq.bpm() - 60.0).abs() < 0.1);
+
+        // Event 2: Track 1 Note On (pitch 64) at tick 240.
+        // At 60 BPM and 480 PPQN, 240 ticks = 0.5 quarter note = 500,000 us.
+        let ev2 = seq.next().expect("event 2");
+        assert_eq!(ev2.track_idx, 1);
+        assert_eq!(ev2.tick_timestamp, 240);
+        assert_eq!(ev2.us_timestamp, 500_000);
+        assert_eq!(ev2.ump.data[0], trk2_ev1.ump.data[0]);
+
+        // Event 3 & 4: Both at tick 480. Track 0 Note On (pitch 60) and Track 1 Note Off (pitch 64).
+        // 480 ticks at 60 BPM = 1.0 quarter note = 1,000,000 us.
+        let ev3 = seq.next().expect("event 3");
+        assert_eq!(ev3.tick_timestamp, 480);
+        assert_eq!(ev3.us_timestamp, 1_000_000);
+
+        let ev4 = seq.next().expect("event 4");
+        assert_eq!(ev4.tick_timestamp, 480);
+        assert_eq!(ev4.us_timestamp, 1_000_000);
+
+        assert!(seq.next().is_none());
+        assert!(seq.is_finished());
+
+        // 4. Test Reset & Transport control
+        seq.reset();
+        assert_eq!(seq.current_tick(), 0);
+        assert_eq!(seq.current_us(), 0);
+        assert!(!seq.is_finished());
+
+        // 5. Test real-time tick() playback engine
+        let mut out_buffer = [Ump::default(); 8];
+        // Advance 200,000 us: tick 0 (tempo event) occurs at 0us, so 1 event emitted.
+        let count1 = seq.tick(200_000, &mut out_buffer);
+        assert_eq!(count1, 1);
+        assert_eq!(out_buffer[0].data[0], tempo_ump.data[0]);
+
+        // Advance another 200,000 us (total 400,000 us): next event is at 500,000 us -> 0 events emitted.
+        let count2 = seq.tick(200_000, &mut out_buffer);
+        assert_eq!(count2, 0);
+
+        // Advance another 200,000 us (total 600,000 us): event at 500,000 us is due -> 1 event emitted.
+        let count3 = seq.tick(200_000, &mut out_buffer);
+        assert_eq!(count3, 1);
+        assert_eq!(out_buffer[0].data[0], trk2_ev1.ump.data[0]);
+
+        // Advance 500,000 us (total 1,100,000 us): both events at 1,000,000 us are due -> 2 events emitted.
+        let count4 = seq.tick(500_000, &mut out_buffer);
+        assert_eq!(count4, 2);
+        assert!(seq.is_finished());
+
+        // 6. Test Seek to tick
+        seq.seek_to_tick(240);
+        assert_eq!(seq.current_tick(), 240);
+        assert_eq!(seq.current_us(), 500_000);
+        let next_after_seek = seq.next().expect("event after seek");
+        assert_eq!(next_after_seek.tick_timestamp, 480);
+
+        // 7. Test loading full .midiclip binary file
+        let header = MidiClipHeader::new_ticks(1, 2, 480);
+        let mut clip_file = [0_u8; 512];
+        clip_file[0..14].copy_from_slice(&header.to_bytes());
+        let mut file_len = 14;
+
+        clip_file[file_len..file_len + trk1_len].copy_from_slice(&trk1_buf[..trk1_len]);
+        file_len += trk1_len;
+
+        clip_file[file_len..file_len + trk2_len].copy_from_slice(&trk2_buf[..trk2_len]);
+        file_len += trk2_len;
+
+        let file_seq = MultiTrackSequencer::<8>::from_clip_file(&clip_file[..file_len])
+            .expect("from clip file");
+        assert_eq!(file_seq.track_count(), 2);
+        assert_eq!(
+            file_seq.time_format(),
+            ClipTimeFormat::TicksPerQuarterNote(480)
+        );
+
+        let mut loaded_events = 0;
+        for ev in file_seq {
+            assert!(ev.tick_timestamp <= 480);
+            loaded_events += 1;
+        }
+        assert_eq!(loaded_events, 4);
+
+        // 8. Test SMPTE timecode calculation
+        let smpte_seq = MultiTrackSequencer::<2>::new(ClipTimeFormat::Smpte {
+            fps: 25,
+            subframes: 40,
+        });
+        // 1 frame = 40 subframes. 25 frames * 40 = 1000 subframes/sec = 1,000,000 us.
+        // 1000 ticks = 1,000,000 us.
+        assert_eq!(smpte_seq.delta_ticks_to_us(1000), 1_000_000);
+    }
+
+    #[test]
     fn test_phase8_extended_pe_resources() {
         use crate::resource::{
             write_controller_list_json, write_external_sync_json, write_local_on_json,
