@@ -243,6 +243,36 @@ mod tests {
         assert_eq!(perf_ump.data[1], 0x48656C6C);
         assert_eq!(perf_ump.data[2], 0x6F000000);
         assert_eq!(perf_ump.data[3], 0);
+
+        // Bar Marker & Beat Marker tests
+        let bar_ump = FlexBuilder::bar_marker(1, 0, 0, 1, 42);
+        assert_eq!(bar_ump.data[0], 0xD1100007);
+        assert_eq!(bar_ump.data[1], 42);
+
+        let beat_ump = FlexBuilder::beat_marker(1, 0, 0, 1, 128);
+        assert_eq!(beat_ump.data[0], 0xD1100008);
+        assert_eq!(beat_ump.data[1], 128);
+
+        // Bank 0x03 & 0x04 metadata builders
+        let proj_ump = FlexBuilder::project_name(1, 0, 0, 2, b"Project X");
+        assert_eq!(proj_ump.data[0], 0xD1200300);
+
+        let track_ump = FlexBuilder::track_name(1, 0, 0, 1, b"Lead Vocal");
+        assert_eq!(track_ump.data[0], 0xD1100400);
+
+        let clip_ump = FlexBuilder::clip_name(1, 0, 0, 1, b"Chorus 1");
+        assert_eq!(clip_ump.data[0], 0xD1100402);
+    }
+
+    #[test]
+    fn test_utility_delta_clockstamp_builders() {
+        use crate::builder::UtilityBuilder;
+
+        let dct_ticks = UtilityBuilder::delta_clockstamp_ticks(480);
+        assert_eq!(dct_ticks.data[0], 0x003001E0);
+
+        let dct_since = UtilityBuilder::delta_clockstamp_since(24);
+        assert_eq!(dct_since.data[0], 0x00400018);
     }
 
     #[test]
