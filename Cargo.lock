@@ -225,6 +225,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "el_bsp_rpi3"
+version = "0.1.0"
+dependencies = [
+ "el_core",
+ "el_midi2",
+ "heapless",
+]
+
+[[package]]
 name = "el_bsp_stm32"
 version = "0.1.0"
 dependencies = [
