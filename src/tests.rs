@@ -2909,4 +2909,184 @@ mod tests {
             Err(FlexDataReceiverError::UnexpectedFormat)
         );
     }
+
+    #[test]
+    fn test_wp03_deflate_uncompressed_and_fixed_blocks() {
+        use crate::ci_pe_deflate::{PeDeflateDecoder, PeDeflateError};
+
+        // 1. Raw uncompressed Deflate block
+        // Block format: bfinal=1, btype=00, len=4, nlen=~4, "ABCD"
+        let uncompressed_raw = [1_u8, 4, 0, 251, 255, 65, 66, 67, 68];
+        let mut raw_decoder = PeDeflateDecoder::<512, 128>::new_raw();
+        assert!(!raw_decoder.is_finished());
+
+        let produced = raw_decoder
+            .feed_bytes(&uncompressed_raw)
+            .expect("feed raw uncompressed");
+        assert_eq!(produced, 4);
+        assert!(raw_decoder.is_finished());
+
+        let mut out = [0_u8; 10];
+        let n = raw_decoder.read_decoded(&mut out);
+        assert_eq!(n, 4);
+        assert_eq!(&out[..4], b"ABCD");
+
+        // 2. Raw fixed Huffman Deflate block
+        let fixed_deflate = [
+            243, 72, 205, 201, 201, 87, 8, 207, 47, 202, 73, 81, 84, 8, 201, 200, 44, 86, 0, 162,
+            68, 133, 146, 212, 226, 18, 133, 180, 252, 34, 133, 180, 204, 138, 212, 20, 5, 143,
+            210, 180, 180, 220, 196, 60, 133, 148, 212, 180, 156, 196, 146, 204, 252, 60, 61, 0,
+        ];
+        let expected_fixed = b"Hello World! This is a test for fixed Huffman deflation.";
+
+        let mut fixed_decoder = PeDeflateDecoder::<1024, 256>::new_raw();
+        let prod2 = fixed_decoder
+            .feed_bytes(&fixed_deflate)
+            .expect("feed fixed");
+        assert_eq!(prod2, expected_fixed.len());
+        assert!(fixed_decoder.is_finished());
+
+        let mut fixed_out = [0_u8; 128];
+        let n2 = fixed_decoder.read_decoded(&mut fixed_out);
+        assert_eq!(&fixed_out[..n2], expected_fixed);
+
+        // 3. Error handling: Corrupted header or data
+        let mut err_decoder = PeDeflateDecoder::<512, 128>::new();
+        // Bad CMF/FLG checksum (120, 157 not divisible by 31)
+        assert_eq!(
+            err_decoder.feed_bytes(&[120, 157]),
+            Err(PeDeflateError::InvalidZlibHeader)
+        );
+    }
+
+    #[test]
+    fn test_wp03_streaming_zlib_chunked_and_pe_schema_validation() {
+        use crate::ci_pe::PeSchemaValidator;
+        use crate::ci_pe_deflate::{PeDeflateDecoder, PeDeflateError};
+
+        // 1. Compressed Property Exchange JSON payload (Mode resource: {"mode":"Standard"})
+        let zlib_mode = [
+            120, 156, 171, 86, 202, 205, 79, 73, 85, 178, 82, 10, 46, 73, 204, 75, 73, 44, 74, 81,
+            170, 5, 0, 64, 93, 6, 145,
+        ];
+
+        let mut decoder = PeDeflateDecoder::<2048, 1024>::new();
+        assert!(!decoder.is_finished());
+
+        // Feed in 13-byte chunks (simulating SysEx8 / MDS packets)
+        let chunk1 = &zlib_mode[..13];
+        let chunk2 = &zlib_mode[13..26];
+        let chunk3 = &zlib_mode[26..];
+
+        let p1 = decoder.feed_bytes(chunk1).expect("feed chunk 1");
+        assert!(!decoder.is_finished());
+
+        let p2 = decoder.feed_bytes(chunk2).expect("feed chunk 2");
+        assert!(!decoder.is_finished());
+
+        let p3 = decoder.feed_bytes(chunk3).expect("feed chunk 3");
+        assert!(decoder.is_finished());
+        assert_eq!(p1 + p2 + p3, 19);
+
+        // Verify decompressed content
+        let mut decoded_buf = [0_u8; 64];
+        let read_len = decoder.read_decoded(&mut decoded_buf);
+        assert_eq!(read_len, 19);
+        assert_eq!(&decoded_buf[..read_len], b"{\"mode\":\"Standard\"}");
+
+        // Validate directly against PeSchemaValidator
+        assert_eq!(
+            PeSchemaValidator::validate_mode(&decoded_buf[..read_len]),
+            Ok(())
+        );
+
+        // 2. Checksum Mismatch Detection
+        let mut corrupted = zlib_mode;
+        corrupted[26] ^= 0xFF; // corrupt Adler32 checksum byte
+        let mut bad_decoder = PeDeflateDecoder::<2048, 1024>::new();
+        let res = bad_decoder.feed_bytes(&corrupted);
+        assert_eq!(res, Err(PeDeflateError::ChecksumMismatch));
+    }
+
+    #[test]
+    fn test_wp03_streaming_2kb_json_and_sliding_window_wrap() {
+        use crate::ci_pe::JsonTokenizer;
+        use crate::ci_pe_deflate::PeDeflateDecoder;
+
+        // 2.6KB JSON string compressed with zlib (window size 2048, CINFO=3, CM=8 -> CMF = 0x38 = 56)
+        let compressed_zlib = [
+            56, 141, 77, 207, 59, 110, 155, 49, 16, 133, 209, 189, 252, 181, 11, 13, 201, 33, 135,
+            110, 211, 102, 15, 134, 144, 168, 8, 160, 196, 129, 108, 167, 49, 188, 247, 60, 138,
+            232, 116, 23, 31, 110, 115, 222, 143, 219, 229, 229, 249, 237, 246, 229, 114, 60, 30,
+            159, 158, 127, 188, 222, 158, 175, 215, 203, 237, 243, 183, 151, 215, 227, 225, 248,
+            122, 126, 61, 31, 143, 239, 199, 207, 243, 237, 252, 253, 233, 116, 58, 253, 57, 253,
+            58, 95, 223, 46, 255, 246, 195, 255, 30, 244, 160, 55, 122, 163, 119, 122, 167, 15,
+            250, 160, 39, 61, 233, 147, 62, 233, 139, 190, 232, 69, 47, 250, 166, 239, 123, 15,
+            188, 129, 55, 240, 6, 222, 192, 27, 120, 3, 111, 224, 13, 188, 129, 55, 240, 6, 222,
+            192, 27, 120, 3, 111, 224, 13, 188, 129, 55, 240, 6, 222, 134, 183, 225, 109, 120, 27,
+            222, 134, 183, 225, 109, 120, 27, 222, 134, 183, 225, 109, 120, 27, 222, 134, 183, 225,
+            109, 120, 27, 222, 134, 183, 225, 109, 120, 27, 222, 142, 183, 227, 237, 120, 59, 222,
+            142, 183, 227, 237, 120, 59, 222, 142, 183, 227, 237, 120, 59, 222, 142, 183, 227, 237,
+            120, 59, 222, 142, 183, 227, 237, 120, 59, 222, 129, 119, 224, 29, 120, 7, 222, 129,
+            119, 224, 29, 120, 7, 222, 129, 119, 224, 29, 120, 7, 222, 129, 119, 224, 29, 120, 7,
+            222, 129, 119, 224, 29, 120, 7, 222, 196, 155, 120, 19, 111, 226, 77, 188, 137, 55,
+            241, 38, 222, 196, 155, 120, 19, 111, 226, 77, 188, 137, 55, 241, 38, 222, 196, 155,
+            120, 19, 111, 226, 157, 120, 39, 222, 137, 119, 226, 157, 120, 39, 222, 137, 119, 226,
+            157, 120, 39, 222, 137, 119, 226, 157, 120, 39, 222, 137, 119, 226, 157, 120, 39, 222,
+            137, 119, 226, 93, 120, 23, 222, 133, 119, 225, 93, 120, 23, 222, 133, 119, 225, 93,
+            120, 23, 222, 133, 119, 225, 93, 120, 23, 222, 133, 119, 225, 93, 120, 23, 222, 133,
+            119, 225, 45, 188, 133, 183, 240, 22, 222, 194, 91, 120, 11, 111, 225, 45, 188, 133,
+            183, 240, 22, 222, 194, 91, 120, 11, 111, 225, 45, 188, 133, 183, 240, 22, 222, 141,
+            119, 227, 221, 120, 55, 222, 141, 119, 227, 221, 120, 55, 222, 141, 119, 227, 221, 120,
+            55, 222, 141, 119, 227, 221, 120, 55, 222, 141, 119, 227, 221, 120, 247, 221, 27, 167,
+            187, 247, 239, 190, 247, 160, 7, 189, 209, 27, 189, 211, 59, 125, 208, 7, 61, 233, 73,
+            159, 244, 73, 95, 244, 69, 47, 122, 209, 55, 125, 31, 31, 31, 191, 1, 108, 131, 21, 2,
+        ];
+
+        let mut decoder = PeDeflateDecoder::<2048, 512>::new();
+
+        // Feed in 13-byte chunks (simulating SysEx8 / MDS packets)
+        let mut total_decompressed = alloc::vec::Vec::new();
+        let mut chunk_start = 0;
+
+        while chunk_start < compressed_zlib.len() || !decoder.is_finished() {
+            let chunk_end = core::cmp::min(chunk_start + 13, compressed_zlib.len());
+            let chunk = &compressed_zlib[chunk_start..chunk_end];
+
+            let (consumed, _produced) = decoder.feed_stream(chunk).expect("feed stream");
+            chunk_start += consumed;
+
+            // Drain output buffer whenever bytes are available
+            while decoder.available_decoded() > 0 {
+                let mut tmp = [0_u8; 128];
+                let n = decoder.read_decoded(&mut tmp);
+                total_decompressed.extend_from_slice(&tmp[..n]);
+            }
+
+            if chunk_start >= compressed_zlib.len()
+                && consumed == 0
+                && decoder.available_decoded() == 0
+            {
+                break;
+            }
+        }
+
+        assert!(decoder.is_finished());
+        assert_eq!(total_decompressed.len(), 2678);
+
+        // Verify JSON content starts and ends properly
+        let decoded_str = core::str::from_utf8(&total_decompressed).expect("valid utf8");
+        assert!(decoded_str.starts_with("{\"resource\":\"ControllerList\",\"data\":{"));
+        assert!(decoded_str.contains("\"param_000\":\"value_000\""));
+        assert!(decoded_str.contains("\"param_109\":\"value_109\""));
+        assert!(decoded_str.ends_with("}}"));
+
+        // Verify JSON Tokenizer parses stream successfully
+        let tokenizer = JsonTokenizer::new(&total_decompressed);
+        let mut token_count = 0;
+        for _token in tokenizer {
+            token_count += 1;
+        }
+        assert!(token_count > 200);
+    }
 }
