@@ -16,7 +16,7 @@ This library is a Rust port of an existing C++ MIDI 2.0 library, focusing on saf
 |---|---|---|---|
 | **`el_midi2`** (root) | `#![no_std]` (optional `alloc` / `std`) | High-level MIDI 2.0 device library, UMP factories, MIDI-CI engine, Property Exchange, and Clip sequencer. | ✅ Complete |
 | **`el_core`** | Strict `#![no_std]` (zero-alloc) | Core embedded primitives: `Ump`, `MessageType`, `UmpStreamParser`, message builders (`VoiceBuilder`, `SystemBuilder`, `UtilityBuilder`, `FlexBuilder`), status byte types, and bit scaling. | ✅ Complete |
-| **`el_bridge`** | CLI / `std` (`midir`, `ringbuf`) | Real-time, thread-safe, lock-free bidirectional protocol translator between legacy MIDI 1.0 byte streams and MIDI 2.0 UMPs. | ✅ Complete |
+| **`el_bridge`** | CLI / `std` (`midir`, `ringbuf`, native ALSA / CoreMIDI / WinMIDI) | Real-time, thread-safe, lock-free bidirectional protocol translator between legacy MIDI 1.0 byte streams and MIDI 2.0 UMPs, with native OS virtual endpoint transports. | ✅ Complete |
 | **`el_ci_sim`** | CLI / `std` | Cross-platform simulator and test harness for MIDI-CI handshakes, Property Exchange (Get, Set, Subscribe), and Process Inquiry reports. | ✅ Complete |
 | **`el_dump`** | CLI / `std` | Stream analyzer and hex dumper for `.ump` streams and `.midiclip` files with color-coded packet inspection. | ✅ Complete |
 | **`el_gen`** | CLI / `std` | Precise message pattern generator creating arbitrary MIDI 1.0/2.0 UMP streams, NRPN sweeps, and stress-test data files. | ✅ Complete |
@@ -68,8 +68,8 @@ This library is a Rust port of an existing C++ MIDI 2.0 library, focusing on saf
 ### 7. Portable CLI Tool Suite
 - **`el_dump`**: Hex dumper and stream inspector for `.ump` raw binary and `.midiclip` files.
 - **`el_gen`**: Command-line generator for custom UMP messages and synthetic stress streams.
+- **`el_bridge`**: Live bidirectional OS MIDI port routing, translation using `midir`, and native OS virtual MIDI 2.0 endpoints (Linux ALSA Sequencer UMP client, macOS CoreMIDI 2.0, and Windows 11 MIDI Services).
 - **`el_clip_conv`**: Standard MIDI File (SMF 1.0 `.mid`) to MIDI 2.0 MIDI Clip File (`.midiclip`) converter tool.
-- **`el_bridge`**: Live bidirectional OS MIDI port routing and translation using `midir`.
 - **`el_ci_sim`**: CLI simulator for testing Property Exchange requests and Capability Inquiry handshakes.
 
 ## Usage

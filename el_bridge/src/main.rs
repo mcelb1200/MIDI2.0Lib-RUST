@@ -1,5 +1,6 @@
 use clap::{Parser, ValueEnum};
 use el_bridge::backend::{connect_input, connect_output, list_input_ports, list_output_ports};
+use el_bridge::native::{NativeEndpointTransport, NativeVirtualEndpoint};
 use el_bridge::queues::create_spsc_queue;
 use el_bridge::translator::{ToMidi1Translator, ToUmpTranslator};
 use el_core::ump::Ump;
@@ -35,6 +36,14 @@ struct Cli {
     /// Default UMP group (0-15)
     #[arg(short, long, default_value_t = 0)]
     group: u8,
+
+    /// Spin up a native OS virtual MIDI 2.0 endpoint (ALSA/CoreMIDI/WinMIDI)
+    #[arg(long)]
+    native_virtual: bool,
+
+    /// Name of the native virtual endpoint
+    #[arg(long, default_value = "el_bridge_virtual")]
+    native_name: String,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
@@ -60,10 +69,89 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
+    if cli.native_virtual {
+        println!(
+            "Starting el_bridge with native OS virtual endpoint '{}' (Direction: {:?}, Group: {})",
+            cli.native_name, cli.direction, cli.group
+        );
+
+        let mut native_ep = NativeVirtualEndpoint::create_default(&cli.native_name)?;
+        println!(
+            "Native virtual endpoint created: active={}, name={}",
+            native_ep.is_active(),
+            native_ep.name()
+        );
+
+        let running = Arc::new(AtomicBool::new(true));
+        ctrlc_handler(running.clone());
+
+        match cli.direction {
+            Direction::Midi1ToUmp => {
+                let in_idx = cli
+                    .in_port
+                    .ok_or("In-port required when bridging MIDI 1.0 to native virtual UMP")?;
+                let (mut byte_prod, mut byte_cons) = create_spsc_queue::<u8>(1024);
+                let _conn_in = connect_input(in_idx, move |_ts, data, _| {
+                    for &b in data {
+                        let _ = byte_prod.try_push(b);
+                    }
+                })?;
+
+                let mut translator = ToUmpTranslator::new(cli.group);
+                while running.load(Ordering::Relaxed) {
+                    let mut processed = false;
+                    while let Some(b) = byte_cons.try_pop() {
+                        processed = true;
+                        translator.process_byte(b);
+                        while let Some(ump) = translator.pop_ump() {
+                            let _ = native_ep.send_ump(&ump);
+                        }
+                    }
+                    if !processed {
+                        thread::sleep(Duration::from_micros(200));
+                    }
+                }
+            }
+            Direction::UmpToMidi1 => {
+                let out_idx = cli
+                    .out_port
+                    .ok_or("Out-port required when bridging native virtual UMP to MIDI 1.0")?;
+                let mut conn_out = connect_output(out_idx)?;
+                let mut translator = ToMidi1Translator::new();
+                translator.filter_group = Some(cli.group);
+
+                let mut out_batch = [0_u8; 64];
+                while running.load(Ordering::Relaxed) {
+                    let mut processed = false;
+                    while let Some(ump) = native_ep.poll_ump()? {
+                        processed = true;
+                        translator.process_ump(&ump);
+                        let mut count = 0;
+                        while count < out_batch.len() {
+                            if let Some(b) = translator.pop_byte() {
+                                out_batch[count] = b;
+                                count += 1;
+                            } else {
+                                break;
+                            }
+                        }
+                        if count > 0 {
+                            let _ = conn_out.send(&out_batch[..count]);
+                        }
+                    }
+                    if !processed {
+                        thread::sleep(Duration::from_micros(200));
+                    }
+                }
+            }
+        }
+        return Ok(());
+    }
+
     let in_idx = match cli.in_port {
         Some(idx) => idx,
         None => {
-            eprintln!("Error: --in-port is required (or use --list-ports to see ports)");
+            eprintln!("Error: --in-port is required (or use --list-ports to see ports, or --native-virtual)");
             std::process::exit(1);
         }
     };
@@ -71,7 +159,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let out_idx = match cli.out_port {
         Some(idx) => idx,
         None => {
-            eprintln!("Error: --out-port is required (or use --list-ports to see ports)");
+            eprintln!("Error: --out-port is required (or use --list-ports to see ports, or --native-virtual)");
             std::process::exit(1);
         }
     };
