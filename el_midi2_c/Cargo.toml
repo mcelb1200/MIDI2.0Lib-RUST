@@ -6,6 +6,7 @@ edition = "2021"
 [lib]
 name = "el_midi2"
 crate-type = ["cdylib", "staticlib", "rlib"]
+doc = false
 
 [dependencies]
 el_core = { path = "../el_core" }

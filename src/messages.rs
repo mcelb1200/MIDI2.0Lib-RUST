@@ -776,13 +776,13 @@ impl UmpFactory {
     /// Helper to create the header (Word 0) of a Flex Data UMP (MT=0xD).
     ///
     /// Bits:
-    /// - [31:28] Message Type (0xD)
-    /// - [27:24] Group (4 bits)
-    /// - [23:22] Form (2 bits)
-    /// - [21:20] Address (2 bits)
-    /// - [19:16] Channel (4 bits)
-    /// - [15:8]  Status Bank (8 bits)
-    /// - [7:0]   Status (8 bits)
+    /// - `[31:28]` Message Type (0xD)
+    /// - `[27:24]` Group (4 bits)
+    /// - `[23:22]` Form (2 bits)
+    /// - `[21:20]` Address (2 bits)
+    /// - `[19:16]` Channel (4 bits)
+    /// - `[15:8]`  Status Bank (8 bits)
+    /// - `[7:0]`   Status (8 bits)
     #[must_use]
     #[inline]
     pub fn flex_header(
