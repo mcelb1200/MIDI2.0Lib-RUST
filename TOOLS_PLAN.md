@@ -54,6 +54,17 @@ To build a suite of cross-platform, portable CLI tools and utilities (`el_` suit
   - Exposes property exchange headers and simulates payload chunking for large SysEx transfers (`el_ci_sim/src/main.rs:80-175`, `src/ci_pe.rs:896-980`).
 - **Safety:** Bounds-checks all SysEx chunking and header accumulation to test against memory exhaustion attacks (max 1024 bytes per request ID) (`src/sysex.rs:180-260`, `src/ci_pe.rs:494-599`).
 
+### 5. `el_mon` (Real-Time Hardware Jitter Analyzer & Clock Offset Profiler CLI)
+* **Status in Codebase:** ✅ *Complete* (`el_mon/src/lib.rs:1-16`, `el_mon/src/jitter.rs:1-226`, `el_mon/src/network_clock.rs:1-196`, `el_mon/src/midi_clock.rs:1-140`, `el_mon/src/stats.rs:1-118`, `el_mon/src/main.rs:1-267`, `el_mon/tests/mon_tests.rs:1-160`).
+**Purpose:** Real-time audio-rate diagnostic CLI tool profiling clock drift, round-trip latency, and jitter across physical and network transports.
+- **Features:**
+  - Analyzes incoming Jitter Reduction timestamps (`JR Clock` Status 0x1, `JR Timestamp` Status 0x2) and Delta Clockstamps (`DCT` Status 0x3/0x4).
+  - Online statistical engine computing min, max, average jitter (in microseconds), variance/stddev via Welford's algorithm, and dropped packet tracking.
+  - AppleMIDI / Network MIDI 2.0 clock synchronization profiling calculating Offset and RTT via:
+    $$\text{Offset} = \frac{(t_1 + t_3)}{2} - t_2, \quad \text{RTT} = (t_3 - t_0) - (t_2 - t_1)$$
+  - Physical and UMP MIDI Timing Clock (0xF8) interval profiling (24 PPQN), real-time instantaneous/average BPM calculation, and BPM drift tracking against target tempo.
+  - ANSI terminal live update display and comprehensive summary report generation.
+
 ## Deployment & CI/CD
 - **Release Automation:** A new GitHub Actions workflow (`release.yml`) will build statically linked binaries for `x86_64-unknown-linux-musl`, `x86_64-apple-darwin`, `aarch64-apple-darwin`, and `x86_64-pc-windows-msvc`.
 - **Testing:** Each tool will have integration tests verifying CLI outputs against known-good UMP hex dumps (`el_bridge/tests/bridge_tests.rs:1-160`, `el_gen/src/main.rs:195-245`).
@@ -62,3 +73,4 @@ To build a suite of cross-platform, portable CLI tools and utilities (`el_` suit
 - ✅ **Phase A:** Scaffolding the workspace, adding `clap` for CLI parsing, and implementing `el_dump` and `el_gen` (`el_dump/src/main.rs:1-222`, `el_gen/src/main.rs:1-246`).
 - ✅ **Phase B:** Implementing `el_bridge` by integrating a cross-platform MIDI backend (e.g., `midir`) (`el_bridge/src/main.rs:1-194`, `el_bridge/src/translator/mod.rs:1-10`).
 - ✅ **Phase C:** Implementing the complex `el_ci_sim` once the Phase 3 MIDI-CI core logic is finalized in `el_midi2` (`el_ci_sim/src/main.rs:1-207`).
+- ✅ **Phase D:** Implementing `el_mon` real-time hardware jitter analyzer and clock offset profiler CLI (`el_mon/src/main.rs:1-267`).

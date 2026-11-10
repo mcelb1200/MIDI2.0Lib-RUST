@@ -5,6 +5,7 @@ members = [
     "el_gen",
     "el_bridge",
     "el_ci_sim",
+    "el_mon",
     "el_bsp_esp32",
     "el_bsp_rp2040",
     "el_bsp_stm32",

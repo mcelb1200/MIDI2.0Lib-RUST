@@ -31,7 +31,7 @@ When working on any task from this workplan, the agent **must** strictly enforce
 | **WP-02** | C/C++ FFI C-ABI Bindings (`el_midi2_c`) | Interoperability | `include/el_midi2.h`, `el_midi2_c/` | High |
 | **WP-03** | Streaming Zero-Allocation Deflate / zlib Decoder for Compressed Property Exchange | Protocol Extension | `src/ci_pe_deflate.rs` (`el_midi2`) | Medium |
 | **WP-04** | Native OS Virtual Endpoint Transports (Linux ALSA & macOS CoreMIDI / Windows MIDI Services) | Platform Transports | `el_bridge/src/native/` | Medium |
-| **WP-05** | Real-Time Hardware Jitter Analyzer & Clock Offset Profiler CLI (`el_mon`) | Diagnostic Tooling | `el_mon` | Low |
+| **WP-05** | Real-Time Hardware Jitter Analyzer & Clock Offset Profiler CLI (`el_mon`) | Diagnostic Tooling | `el_mon` | ✅ Complete |
 
 ---
 
@@ -157,9 +157,10 @@ Extend `el_bridge` with native operating system virtual MIDI 2.0 endpoint capabi
 ---
 
 ### 📌 Task WP-05: Real-Time Hardware Jitter Analyzer & Clock Offset Profiler CLI (`el_mon`)
+* **Status in Codebase:** ✅ *Complete* (`el_mon/src/lib.rs:1-16`, `el_mon/src/jitter.rs:1-226`, `el_mon/src/network_clock.rs:1-196`, `el_mon/src/midi_clock.rs:1-140`, `el_mon/src/stats.rs:1-118`, `el_mon/src/main.rs:1-267`, `el_mon/tests/mon_tests.rs:1-160`).
 
 #### 4.1 Objective
-Build an audio-rate diagnostic CLI tool `el_mon` to measure clock drift, round-trip latency, and jitter across physical and network transports:
+Audio-rate diagnostic CLI tool `el_mon` measuring clock drift, round-trip latency, and jitter across physical and network transports:
 - Analyzes incoming Jitter Reduction timestamps (JR Clock / JR Timestamp) and Delta Clockstamps (DCT).
 - For Network MIDI 2.0 / AppleMIDI, calculates round-trip latency from `CK0`, `CK1`, `CK2` timestamps:
   $$\text{Offset} = \frac{(t_1 + t_3)}{2} - t_2, \quad \text{RTT} = (t_3 - t_0) - (t_2 - t_1)$$
