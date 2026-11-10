@@ -20,6 +20,7 @@ This library is a Rust port of an existing C++ MIDI 2.0 library, focusing on saf
 | **`el_ci_sim`** | CLI / `std` | Cross-platform simulator and test harness for MIDI-CI handshakes, Property Exchange (Get, Set, Subscribe), and Process Inquiry reports. | ✅ Complete |
 | **`el_dump`** | CLI / `std` | Stream analyzer and hex dumper for `.ump` streams and `.midiclip` files with color-coded packet inspection. | ✅ Complete |
 | **`el_gen`** | CLI / `std` | Precise message pattern generator creating arbitrary MIDI 1.0/2.0 UMP streams, NRPN sweeps, and stress-test data files. | ✅ Complete |
+| **`el_mon`** | CLI / `std` | Real-time hardware jitter analyzer and clock offset profiler measuring JR timestamps, DCT intervals, AppleMIDI RTT/offset, and MIDI clock drift. | ✅ Complete |
 | **`el_clip_conv`** | CLI / `std` | Standard MIDI File 1.0 (`.mid`) to MIDI 2.0 MIDI Clip File (`.midiclip`, M2-116) converter tool with MIDI 2.0 velocity & controller up-conversion. | ✅ Complete |
 | **`el_bsp_esp32`** | `#![no_std]` (Xtensa & RISC-V) | Hardware peripheral drivers for ESP32, ESP32-S2/S3, ESP32-C3/C6/H2: UART FIFOs, USB-OTG MIDI 2.0 with GTB, and WiFi UDP Network MIDI. | ✅ Complete |
 | **`el_bsp_rp2040`** | `#![no_std]` (ARM Cortex-M0+) | Raspberry Pi RP2040 drivers: PIO state-machine timed 31,250 baud MIDI 1.0 / serial UMP, and native USB-MIDI 2.0 with GTB. | ✅ Complete |
@@ -71,6 +72,7 @@ This library is a Rust port of an existing C++ MIDI 2.0 library, focusing on saf
 - **`el_bridge`**: Live bidirectional OS MIDI port routing, translation using `midir`, and native OS virtual MIDI 2.0 endpoints (Linux ALSA Sequencer UMP client, macOS CoreMIDI 2.0, and Windows 11 MIDI Services).
 - **`el_clip_conv`**: Standard MIDI File (SMF 1.0 `.mid`) to MIDI 2.0 MIDI Clip File (`.midiclip`) converter tool.
 - **`el_ci_sim`**: CLI simulator for testing Property Exchange requests and Capability Inquiry handshakes.
+- **`el_mon`**: Real-time diagnostic CLI profiling hardware jitter (JR Clock/Timestamp, DCT), network RTT/offset, and MIDI clock BPM drift.
 
 ## Usage
 

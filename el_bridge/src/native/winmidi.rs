@@ -21,9 +21,7 @@ impl WinMidiPacket {
     pub fn from_ump(ump: &Ump, timestamp_100ns: u64) -> Self {
         let wc = ump.word_count() as u8;
         let mut words = [0_u32; 4];
-        for i in 0..(wc as usize) {
-            words[i] = ump.data[i];
-        }
+        words[..(wc as usize)].copy_from_slice(&ump.data[..(wc as usize)]);
 
         Self {
             timestamp_100ns,
