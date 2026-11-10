@@ -1,5 +1,7 @@
 # Phase C.2 Implementation Plan: MIDI-CI Property Exchange (PE)
 
+**Status:** ✅ Complete
+
 ## 1. Objective
 To fully design the **Property Exchange (PE)** component of the MIDI-CI framework within `el_core` and the `el_ci_sim` simulator. Property Exchange enables devices to discover, get, set, and subscribe to parameters (often JSON encoded) via Universal SysEx. Because PE payloads can be large and transactional, this design enforces strict MISRA-2023 `no_std` constraints, utilizing zero dynamic allocation and bounded buffers.
 
@@ -115,6 +117,6 @@ The CLI simulator will support generating specific PE requests:
 
 ## 5. Testing & Verification
 
-1. **Transactional Integrity:** Simulate 16 concurrent PE Inquiries. Assert the `PeTransactionManager` correctly matches the 16 incoming PE Replies, and correctly rejects a 17th request due to the bounded pool.
-2. **Zero-Copy JSON Extraction:** Feed a raw `&[u8]` containing a valid PE JSON header. Assert the tokenizer successfully extracts the `resource` value slice `&str` without performing any memory allocations.
-3. **Subscription Hashing:** Verify that subscribing to `"DeviceInfo"` correctly hashes to a `u32` and stores in `SubscriptionManager`, and a subsequent Notification matches that hash.
+1. ✅ **Transactional Integrity:** Simulate 16 concurrent PE Inquiries. Assert the `PeTransactionManager` correctly matches the 16 incoming PE Replies, and correctly rejects a 17th request due to the bounded pool (`src/tests.rs:1420-1460`).
+2. ✅ **Zero-Copy JSON Extraction:** Feed a raw `&[u8]` containing a valid PE JSON header. Assert the tokenizer successfully extracts the `resource` value slice `&str` without performing any memory allocations (`src/tests.rs:1360-1415`).
+3. ✅ **Subscription Hashing:** Verify that subscribing to `"DeviceInfo"` correctly hashes to a `u32` and stores in `SubscriptionManager`, and a subsequent Notification matches that hash (`src/tests.rs:1465-1510`).
