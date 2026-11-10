@@ -253,6 +253,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "el_clip_conv"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "el_core",
+ "el_midi2",
+]
+
+[[package]]
 name = "el_core"
 version = "0.1.0"
 dependencies = [
@@ -284,6 +293,9 @@ name = "el_mon"
 version = "0.1.0"
 dependencies = [
  "clap",
+name = "el_midi2_c"
+version = "0.1.0"
+dependencies = [
  "el_core",
  "el_midi2",
 ]
