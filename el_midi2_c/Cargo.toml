@@ -1,0 +1,12 @@
+[package]
+name = "el_midi2_c"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "el_midi2"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+el_core = { path = "../el_core" }
+el_midi2 = { path = ".." }

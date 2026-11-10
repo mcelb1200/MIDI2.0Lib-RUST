@@ -289,6 +289,14 @@ name = "el_midi2"
 version = "0.1.0"
 
 [[package]]
+name = "el_midi2_c"
+version = "0.1.0"
+dependencies = [
+ "el_core",
+ "el_midi2",
+]
+
+[[package]]
 name = "hash32"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
