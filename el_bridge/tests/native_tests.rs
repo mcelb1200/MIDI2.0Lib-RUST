@@ -67,18 +67,20 @@ fn test_coremidi_event_list_and_packets() {
     assert_eq!(event_list.packet[0].words[0], pb_ump.data[0]);
     assert_eq!(event_list.packet[0].words[1], pb_ump.data[1]);
 
-    // Receive injected event list
+    // Receive injected event list (simulating external DAW/input)
     ep.receive_event_list(&event_list);
     let polled = ep.poll_ump().unwrap().unwrap();
     assert_eq!(polled.data[0], pb_ump.data[0]);
     assert_eq!(polled.data[1], pb_ump.data[1]);
 
-    // Direct send and poll
+    // Direct endpoint send: goes to tx_queue and does NOT loop back to poll_ump
     let note_off = VoiceBuilder::midi2_note_off(0, 0, 60, 0, 0x4000, 0);
     assert!(ep.send_ump(&note_off).is_ok());
-    let polled2 = ep.poll_ump().unwrap().unwrap();
-    assert_eq!(polled2.data[0], note_off.data[0]);
-    assert_eq!(polled2.data[1], note_off.data[1]);
+    assert_eq!(ep.poll_ump().unwrap(), None); // No echo!
+
+    let sent = ep.pop_sent_ump().unwrap();
+    assert_eq!(sent.data[0], note_off.data[0]);
+    assert_eq!(sent.data[1], note_off.data[1]);
 }
 
 #[test]
@@ -110,12 +112,14 @@ fn test_windows_midi_services_packets() {
     assert_eq!(polled.data[0], rpn_ump.data[0]);
     assert_eq!(polled.data[1], rpn_ump.data[1]);
 
-    // Direct endpoint send
+    // Direct endpoint send: goes to tx_queue and does NOT echo to poll_ump
     let nrpn_ump = VoiceBuilder::midi2_nrpn(0, 0, 3, 4, 0x11223344);
     assert!(ep.send_ump(&nrpn_ump).is_ok());
-    let polled2 = ep.poll_ump().unwrap().unwrap();
-    assert_eq!(polled2.data[0], nrpn_ump.data[0]);
-    assert_eq!(polled2.data[1], nrpn_ump.data[1]);
+    assert_eq!(ep.poll_ump().unwrap(), None); // No echo!
+
+    let sent = ep.pop_sent_ump().unwrap();
+    assert_eq!(sent.data[0], nrpn_ump.data[0]);
+    assert_eq!(sent.data[1], nrpn_ump.data[1]);
 }
 
 #[test]
@@ -126,6 +130,7 @@ fn test_native_virtual_endpoint_factory() {
 
     let note_on = VoiceBuilder::midi1_note_on(0, 0, 64, 100);
     assert!(ep.send_ump(&note_on).is_ok());
+    // On Linux ALSA (simulated loopback in headless test environments), sent packet loops back for local routing
     let polled = ep.poll_ump().unwrap().unwrap();
     assert_eq!(polled.data[0], note_on.data[0]);
 }

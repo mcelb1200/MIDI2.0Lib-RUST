@@ -38,11 +38,31 @@ impl WinMidiPacket {
     }
 }
 
+/// Windows 11 MIDI Services Session configuration.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WinMidiSessionConfig {
+    pub session_name: String,
+    pub endpoint_name: String,
+    pub buffer_capacity: usize,
+}
+
+impl Default for WinMidiSessionConfig {
+    fn default() -> Self {
+        Self {
+            session_name: "el_bridge_winmidi_session".to_string(),
+            endpoint_name: "el_bridge_winmidi_endpoint".to_string(),
+            buffer_capacity: 1024,
+        }
+    }
+}
+
 /// Windows 11 MIDI Services Virtual Endpoint representation.
 pub struct WindowsMidiVirtualEndpoint {
     name: String,
     device_id: String,
-    loopback_queue: VecDeque<Ump>,
+    session_config: WinMidiSessionConfig,
+    tx_queue: VecDeque<Ump>,
+    rx_queue: VecDeque<Ump>,
     is_open: bool,
 }
 
@@ -51,11 +71,23 @@ unsafe impl Send for WindowsMidiVirtualEndpoint {}
 impl WindowsMidiVirtualEndpoint {
     /// Creates a new Windows 11 MIDI Services Virtual Endpoint.
     pub fn new(name: &str) -> Result<Self, NativeError> {
-        let device_id = format!("\\\\?\\SWD#MIDISRV#{}#{{ump}}", name);
+        let config = WinMidiSessionConfig {
+            session_name: format!("session_{}", name),
+            endpoint_name: name.to_string(),
+            buffer_capacity: 1024,
+        };
+        Self::with_config(config)
+    }
+
+    /// Creates a new Windows 11 MIDI Services Virtual Endpoint with configuration.
+    pub fn with_config(config: WinMidiSessionConfig) -> Result<Self, NativeError> {
+        let device_id = format!("\\\\?\\SWD#MIDISRV#{}#{{ump}}", config.endpoint_name);
         Ok(Self {
-            name: name.to_string(),
+            name: config.endpoint_name.clone(),
             device_id,
-            loopback_queue: VecDeque::new(),
+            session_config: config,
+            tx_queue: VecDeque::new(),
+            rx_queue: VecDeque::new(),
             is_open: true,
         })
     }
@@ -65,9 +97,19 @@ impl WindowsMidiVirtualEndpoint {
         &self.device_id
     }
 
+    /// Returns the active Windows MIDI Services session configuration.
+    pub fn session_config(&self) -> &WinMidiSessionConfig {
+        &self.session_config
+    }
+
     /// Simulates incoming packet arrival from Windows MIDI Services message dispatcher.
     pub fn receive_packet(&mut self, packet: WinMidiPacket) {
-        self.loopback_queue.push_back(packet.to_ump());
+        self.rx_queue.push_back(packet.to_ump());
+    }
+
+    /// Pops a transmitted UMP from the output queue (for inspection/test verification).
+    pub fn pop_sent_ump(&mut self) -> Option<Ump> {
+        self.tx_queue.pop_front()
     }
 }
 
@@ -79,8 +121,7 @@ impl NativeEndpointTransport for WindowsMidiVirtualEndpoint {
             ));
         }
 
-        let packet = WinMidiPacket::from_ump(ump, 0);
-        self.loopback_queue.push_back(packet.to_ump());
+        self.tx_queue.push_back(*ump);
         Ok(())
     }
 
@@ -91,7 +132,7 @@ impl NativeEndpointTransport for WindowsMidiVirtualEndpoint {
             ));
         }
 
-        Ok(self.loopback_queue.pop_front())
+        Ok(self.rx_queue.pop_front())
     }
 
     fn name(&self) -> &str {

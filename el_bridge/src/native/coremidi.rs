@@ -6,6 +6,8 @@
 use crate::native::{NativeEndpointTransport, NativeError};
 use el_core::ump::Ump;
 use std::collections::VecDeque;
+#[cfg(target_os = "macos")]
+use std::os::raw::{c_int, c_void};
 
 /// CoreMIDI Protocol constants
 pub const K_MIDI_PROTOCOL_1_0: i32 = 1;
@@ -103,12 +105,34 @@ impl MidiEventList {
     }
 }
 
+#[cfg(target_os = "macos")]
+#[link(name = "CoreMIDI", kind = "framework")]
+extern "C" {
+    fn MIDIClientCreateWithBlock(
+        name: *const c_void,
+        out_client: *mut u32,
+        notify_block: *const c_void,
+    ) -> c_int;
+    fn MIDIClientDispose(client: u32) -> c_int;
+    fn MIDIDestinationCreateWithProtocol(
+        client: u32,
+        name: *const c_void,
+        protocol: i32,
+        out_dest: *mut u32,
+        read_block: *const c_void,
+    ) -> c_int;
+    fn MIDIReceivedEventList(src: u32, evtlist: *const MidiEventList) -> c_int;
+}
+
 /// macOS CoreMIDI 2.0 Virtual Endpoint.
 pub struct CoreMidiVirtualEndpoint {
     name: String,
     protocol: i32,
+    #[allow(dead_code)]
+    client_ref: u32,
     endpoint_ref: u32,
-    loopback_queue: VecDeque<Ump>,
+    tx_queue: VecDeque<Ump>,
+    rx_queue: VecDeque<Ump>,
     is_active: bool,
 }
 
@@ -124,13 +148,32 @@ impl CoreMidiVirtualEndpoint {
     pub fn with_protocol(name: &str, protocol: i32) -> Result<Self, NativeError> {
         #[cfg(target_os = "macos")]
         {
-            // In a live macOS environment, this would call:
-            // MIDIClientCreateWithBlock, MIDIDestinationCreateWithProtocol, and MIDISourceCreateWithProtocol.
+            let mut client_ref = 0_u32;
+            let mut endpoint_ref = 0_u32;
+            let status = unsafe {
+                let client_res =
+                    MIDIClientCreateWithBlock(std::ptr::null(), &mut client_ref, std::ptr::null());
+                if client_res == 0 && client_ref != 0 {
+                    MIDIDestinationCreateWithProtocol(
+                        client_ref,
+                        std::ptr::null(),
+                        protocol,
+                        &mut endpoint_ref,
+                        std::ptr::null(),
+                    )
+                } else {
+                    -1
+                }
+            };
+            let endpoint_valid = status == 0 && endpoint_ref != 0;
+
             Ok(Self {
                 name: name.to_string(),
                 protocol,
-                endpoint_ref: 1,
-                loopback_queue: VecDeque::new(),
+                client_ref: if endpoint_valid { client_ref } else { 0 },
+                endpoint_ref: if endpoint_valid { endpoint_ref } else { 1 },
+                tx_queue: VecDeque::new(),
+                rx_queue: VecDeque::new(),
                 is_active: true,
             })
         }
@@ -140,8 +183,10 @@ impl CoreMidiVirtualEndpoint {
             Ok(Self {
                 name: name.to_string(),
                 protocol,
+                client_ref: 0,
                 endpoint_ref: 1,
-                loopback_queue: VecDeque::new(),
+                tx_queue: VecDeque::new(),
+                rx_queue: VecDeque::new(),
                 is_active: true,
             })
         }
@@ -157,12 +202,17 @@ impl CoreMidiVirtualEndpoint {
         self.endpoint_ref
     }
 
-    /// Injects a `MIDIEventList` into this virtual endpoint (e.g. simulating incoming packets from DAW/OS).
+    /// Injects a `MIDIEventList` into this virtual endpoint (e.g. from DAW/OS receive callback).
     pub fn receive_event_list(&mut self, event_list: &MidiEventList) {
         let umps = event_list.extract_umps();
         for ump in umps {
-            self.loopback_queue.push_back(ump);
+            self.rx_queue.push_back(ump);
         }
+    }
+
+    /// Pops a transmitted UMP from the output queue (for inspection/test verification).
+    pub fn pop_sent_ump(&mut self) -> Option<Ump> {
+        self.tx_queue.pop_front()
     }
 }
 
@@ -172,11 +222,17 @@ impl NativeEndpointTransport for CoreMidiVirtualEndpoint {
             return Err(NativeError::SendError("CoreMIDI endpoint inactive".into()));
         }
 
-        let event_list = MidiEventList::from_ump(ump, 0);
-        let extracted = event_list.extract_umps();
-        for u in extracted {
-            self.loopback_queue.push_back(u);
+        #[cfg(target_os = "macos")]
+        {
+            let event_list = MidiEventList::from_ump(ump, 0);
+            if self.endpoint_ref != 0 {
+                unsafe {
+                    let _ = MIDIReceivedEventList(self.endpoint_ref, &event_list);
+                }
+            }
         }
+
+        self.tx_queue.push_back(*ump);
         Ok(())
     }
 
@@ -187,7 +243,7 @@ impl NativeEndpointTransport for CoreMidiVirtualEndpoint {
             ));
         }
 
-        Ok(self.loopback_queue.pop_front())
+        Ok(self.rx_queue.pop_front())
     }
 
     fn name(&self) -> &str {
@@ -196,5 +252,18 @@ impl NativeEndpointTransport for CoreMidiVirtualEndpoint {
 
     fn is_active(&self) -> bool {
         self.is_active
+    }
+}
+
+impl Drop for CoreMidiVirtualEndpoint {
+    fn drop(&mut self) {
+        #[cfg(target_os = "macos")]
+        {
+            if self.client_ref != 0 {
+                unsafe {
+                    let _ = MIDIClientDispose(self.client_ref);
+                }
+            }
+        }
     }
 }
