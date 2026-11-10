@@ -3,13 +3,15 @@ members = [
     "el_core",
     "el_dump",
     "el_gen",
+    "el_clip_conv",
     "el_bridge",
     "el_ci_sim",
     "el_bsp_esp32",
     "el_bsp_rp2040",
     "el_bsp_stm32",
     "el_bsp_nrf52",
-    "el_bsp_rpi3"
+    "el_bsp_rpi3",
+    "el_midi2_c"
 ]
 resolver = "2"
 
