@@ -8,7 +8,7 @@ The following document is designed to be your Master Development Log. It serves 
 
 **Project Goal:** Build a fully compliant, no_std compatible, idiomatic Rust library for MIDI 2.0 (UMP, MIDI-CI, Transport Agnostic).
 
-**Status:** 🔄 In Progress
+**Status:** ✅ Complete
 
 ## 🛠 Global Context (Paste at start of every session)
 
@@ -33,10 +33,12 @@ We are building `el_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 ### ✅ Session 1.1: The UMP Container
 **Prompt:** "Implement the Ump struct wrapping `[u32; 4]`. Implement helper methods to get/set the Message Type (MT) and Group. Create the `MessageType` enum covering all 16 MIDI 2.0 types (Utility, System, MIDI 1.0, MIDI 2.0, Data, Stream, etc.). Ensure Debug and Display traits are useful for hex dumping."
 **Definition of Done:** `Ump::new()`, `ump.message_type()`, and `ump.group()` work in unit tests.
+**Status in Codebase:** ✅ *Complete* (`src/ump.rs:6-140`, `el_core/src/ump.rs:3-125`).
 
 ### ✅ Session 1.2: Bit Manipulation Utilities
 **Prompt:** "Create a utility module for bit packing. We need functions to extract/inject 7-bit, 14-bit, 16-bit, and 32-bit values into the UMP words. MIDI 2.0 relies heavily on splitting data across 32-bit boundaries. Add tests ensuring endianness is handled correctly."
 **Definition of Done:** Helper functions `scale_up`, `scale_down`, etc., are tested and panic-free.
+**Status in Codebase:** ✅ *Complete* (`src/utils.rs:6-125`, `el_core/src/utils.rs:10-240`).
 
 ## 🎹 Phase 2: Protocol Logic (Voice Messages)
 **Goal:** Ability to generate and parse musical data.
@@ -44,14 +46,17 @@ We are building `el_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 ### ✅ Session 2.1: MIDI 2.0 Channel Voice (Note On/Off)
 **Prompt:** "Implement the voice module. create builders/parsers for NoteOn and NoteOff. These are Message Type 0x4. Critical: Support 16-bit velocity and the Attribute fields (Attribute Type + Attribute Data). Use the builder pattern (e.g., `NoteOn::new(channel, note).velocity(v).build()`)."
 **Definition of Done:** Unit tests verifying bit-perfect hex output against the spec examples.
+**Status in Codebase:** ✅ *Complete* (`src/messages.rs:18-85`, `el_core/src/builder.rs:11-65`).
 
 ### ✅ Session 2.2: Controllers & Pitch Bend
 **Prompt:** "Extend the voice module. Implement ControlChange (Status 0xB), ProgramChange (Status 0xC), ChannelPressure (Status 0xD), and PitchBend (Status 0xE). Note: In MIDI 2.0, CC and Pitch Bend are 32-bit values. Ensure the API accepts u32 for these values."
 **Definition of Done:** Ability to build a full suite of performance messages.
+**Status in Codebase:** ✅ *Complete* (`src/messages.rs:86-180`, `el_core/src/builder.rs:66-160`).
 
 ### ✅ Session 2.3: Jitter Reduction & Utility Messages
 **Prompt:** "Implement Message Type 0x0 (Utility). Specifically, the JitterReductionClock and JitterReductionTimestamp messages. Implement the logic to prepend these timestamps to a Ump packet."
 **Definition of Done:** Utility enum and logic to wrap a message in a JR timestamp.
+**Status in Codebase:** ✅ *Complete* (`src/messages.rs:225-275`, `el_core/src/builder.rs:253-294`).
 
 ## 🤝 Phase 3: MIDI-CI (Capability Inquiry)
 **Goal:** The handshake. This is the hardest part involving multi-packet logic.
@@ -59,14 +64,17 @@ We are building `el_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 ### ✅ Session 3.1: System Exclusive (SysEx) Manager
 **Prompt:** "Implement the sysex module. MIDI 2.0 sends SysEx in 64-bit (MT 0x3) or 128-bit (MT 0x5) Data packets. We need a SysExBuilder that takes a `&[u8]` payload and returns an `Iterator<Item = Ump>` to chunk the data into packets (Start, Continue, End). Also need a SysExCollector state machine to reassemble incoming packets."
 **Definition of Done:** A test that takes a long string, chunks it into 10 UMPs, and reassembles it back to the string.
+**Status in Codebase:** ✅ *Complete* (`src/sysex.rs:7-360`).
 
 ### ✅ Session 3.2: Discovery & Protocol Negotiation
 **Prompt:** "Implement the ci module basics. Define the Universal SysEx header for MIDI-CI (0x7E, 0x0D, ...). Create a struct CiDiscovery that generates the 'Discovery Inquiry' message. Create a state machine CiInitiator that transitions: Uninitialized -> DiscoverySent -> DiscoveryReceived -> Negotiating."
 **Definition of Done:** A state machine that advances when fed simulated valid CI responses.
+**Status in Codebase:** ✅ *Complete* (`src/ci.rs:7-500`).
 
 ### ✅ Session 3.3: Profile Configuration
 **Prompt:** "Implement MIDI-CI Profile Configuration messages. We need struct definitions for ProfileInquiry, ProfileOn, ProfileOff, and ProfileEnabledReport. These use the SysEx mechanism built in Session 3.1."
 **Definition of Done:** Ability to generate the SysEx payload for turning on a specific Profile ID.
+**Status in Codebase:** ✅ *Complete* (`src/ci.rs:501-700`).
 
 ## 🔌 Phase 4: Stream & Transport
 **Goal:** Discovery of endpoints and sending data.
@@ -74,14 +82,17 @@ We are building `el_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 ### ✅ Session 4.1: UMP Stream Messages
 **Prompt:** "Implement Message Type 0xF (Stream). This includes EndpointDiscovery, EndpointInfo, DeviceIdentity, and FunctionBlockInfo. These are crucial for the DAW to know what the device is (e.g., 'I am a synth on Group 1')."
 **Definition of Done:** Structs that serialize to valid MT 0xF UMPs.
+**Status in Codebase:** ✅ *Complete* (`src/stream.rs:153-480`).
 
 ### ✅ Session 4.2: Function Blocks
 **Prompt:** "Implement a FunctionBlock struct. This helps a device describe its internal topology. It needs to store: Block Direction (Input/Output), MI (MIDI 1/2), Group First, and Group Count."
 **Definition of Done:** A helper that generates the Function Block Info Notification message.
+**Status in Codebase:** ✅ *Complete* (`src/stream.rs:7-152`).
 
 ### ✅ Session 4.3: Core Transport Traits & Mock Transport
 **Prompt:** "Define a `Transport` trait and `AsyncTransport` trait suitable for both synchronous polling and interrupt/DMA driven embedded runtimes. Methods: `send(&[Ump]) -> Result<(), TransportError>` and `recv() -> Option<Ump>`. Implement a zero-allocation `MockTransport` with bounded internal ringbuffers for testing. Add integration test verifying endpoint discovery over `MockTransport`."
 **Definition of Done:** `Transport` trait and `MockTransport` tested and working with zero allocations.
+**Status in Codebase:** ✅ *Complete* (`src/transport.rs:6-66`).
 
 ## 📦 Phase 5: MIDI-CI Property Exchange (PE) & Process Inquiry
 **Goal:** Full bidirectional parameter exchange, discovery, and state synchronisation under strict embedded `no_std` constraints.
@@ -89,18 +100,22 @@ We are building `el_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 ### ✅ Session 5.1: Zero-Allocation SAX/Streaming JSON Tokenizer
 **Prompt:** "Implement a lightweight, no_std SAX-style JSON tokenizer in `ci::pe::json`. Capable of parsing Property Exchange headers and simple value bodies directly from byte slices without memory allocation (`alloc`). Support extracting string slices for `resource`, `resId`, `action`, `status`, and integer values."
 **Definition of Done:** Tokenizer extracts keys and values from realistic PE JSON header payloads with zero heap allocation.
+**Status in Codebase:** ✅ *Complete* (`src/ci_pe.rs:10-220`).
 
 ### ✅ Session 5.2: PE Transaction Manager & Request Pools
 **Prompt:** "Implement `PeTransactionManager<const MAX_CONCURRENT: usize>` to manage asynchronous Request IDs without hash maps. Support matching Inquiries (Get, Set, Subscribe) to Replies and handling timeouts. Implement `PeHeader` and `PeMessage` view types."
 **Definition of Done:** Unit test exercising concurrent Request ID allocation, matching, release, and pool exhaustion guards.
+**Status in Codebase:** ✅ *Complete* (`src/ci_pe.rs:494-599`).
 
 ### ✅ Session 5.3: Property Chunking, Streaming & Subscriptions
 **Prompt:** "Implement `PeReplyChunker` that streams arbitrary property bodies across multiple MT=0x3 (SysEx7) or MT=0x5 (SysEx8) UMP packets. Implement `SubscriptionManager<const MAX_SUBS: usize>` using resource string hashes (`u32`) for low-memory embedded subscriber tracking."
 **Definition of Done:** A test that streams a simulated preset file across multiple UMP SysEx chunks and delivers notifications to registered subscribers.
+**Status in Codebase:** ✅ *Complete* (`src/ci_pe.rs:600-655`, `src/ci_pe.rs:896-980`).
 
 ### ✅ Session 5.4: MIDI-CI Process Inquiry (PI)
 **Prompt:** "Implement MIDI-CI Process Inquiry messages: MIDI Message Report Inquiry/Reply (Sub-ID 0x40/0x41). This allows querying which MIDI 1.0 or MIDI 2.0 messages (Channel Voice, System Common, SysEx, etc.) are supported across groups and channels. Generate the 7-bit bitmap representation for supported messages."
 **Definition of Done:** Serialization and parsing of MIDI Message Report Inquiry and Reply packets.
+**Status in Codebase:** ✅ *Complete* (`src/ci_pe.rs:656-780`).
 
 ## 🔌 Phase 6: Embedded Transport Adapters & Hardware Interfaces
 **Goal:** Direct hardware protocol bindings for physical microcontroller peripherals.
@@ -108,14 +123,17 @@ We are building `el_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 ### ✅ Session 6.1: USB-MIDI 2.0 Class Specification & Group Terminal Blocks
 **Prompt:** "Implement USB-MIDI 2.0 descriptor structures and packet framing in `transport::usb`. Define Group Terminal Block (GTB) descriptors (Standard and Class-Specific) describing group-to-terminal mappings, protocol capabilities (MIDI 1.0 / MIDI 2.0), and bidirectional association. Implement zero-copy USB packet unpackers/packers."
 **Definition of Done:** Bit-accurate serialization of Group Terminal Block descriptors and packet framing tests against USB-MIDI 2.0 spec examples.
+**Status in Codebase:** ✅ *Complete* (`src/transport/usb.rs:1-180`).
 
 ### ✅ Session 6.2: Serial UART / DIN / TRS Byte-Stream Transport & Bi-Directional Adapter
 **Prompt:** "Implement the UART byte stream bridge (`transport::serial`). Provide `ByteStreamToUmp` and `UmpToByteStream` state machines adhering to `embedded-hal::serial` or raw byte slice buffers. Properly reconstruct running status, handle realtime byte interleaving, and aggregate 14-bit CCs, NRPNs, and SysEx."
 **Definition of Done:** Bidirectional tests streaming legacy MIDI 1.0 serial bytes into UMPs and down-converting UMPs into compliant MIDI 1.0 byte streams without latency or heap allocation.
+**Status in Codebase:** ✅ *Complete* (`src/transport/serial.rs:1-290`).
 
 ### ✅ Session 6.3: DMA-Friendly Ringbuffers & Interrupt-Safe Queues
 **Prompt:** "Implement bounded, interrupt-safe lock-free SPSC queues (`transport::queue::PacketQueue<const CAP: usize>`) tailored for DMA transfer buffers. Provide zero-copy slice leasing for transmitting and receiving bursts of UMPs directly to/from hardware peripheral FIFOs."
 **Definition of Done:** Stress tests verifying lock-free push/pop behavior across simulated concurrent producer and consumer contexts.
+**Status in Codebase:** ✅ *Complete* (`src/transport/queue.rs:1-135`).
 
 ## 🎛 Phase 7: Embedded MIDI 2.0 Device Engine & High-Level Runtime
 **Goal:** Turnkey embedded device runtime integrating Endpoint, Function Blocks, Profiles, and Transports into a unified system.
@@ -123,14 +141,17 @@ We are building `el_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 ### ✅ Session 7.1: `Midi2Device` Coordinator
 **Prompt:** "Implement a unified `Midi2Device<T: Transport, const NUM_FB: usize>` struct. Manages Endpoint info, up to `NUM_FB` Function Blocks, local MUID, CI state machine (Initiator + Responder), and active protocol. Provide a clean polling method `device.poll()` to process incoming UMPs and emit responses."
 **Definition of Done:** High-level test simulating complete device startup: Endpoint Discovery -> Stream Config -> Function Block Discovery -> CI Discovery -> Protocol switch to MIDI 2.0.
+**Status in Codebase:** ✅ *Complete* (`src/device.rs:1-680`).
 
 ### ✅ Session 7.2: Standard Embedded Profile Handlers
 **Prompt:** "Implement standard profile managers for common embedded scenarios (e.g., Default Profile, Drawbar Organ, Analog Synth, General MIDI). Provide hooks for parameter updates and profile-specific data callbacks without heap allocations."
 **Definition of Done:** Test enabling a standard profile on a Function Block and responding to Profile Inquiries and Profile On/Off messages.
+**Status in Codebase:** ✅ *Complete* (`src/profile.rs:1-255`).
 
 ### ✅ Session 7.3: Standard Resources & Device Identity Provider
 **Prompt:** "Implement default Property Exchange resource providers: `DeviceInfo`, `ResourceList`, and `ChannelList`. Implement procedural string generators that write JSON chunks directly into SysEx UMP streams without assembling full JSON strings in RAM."
 **Definition of Done:** End-to-end Property Exchange query for `DeviceInfo` yielding a valid, bit-perfect response stream parsed and verified against spec.
+**Status in Codebase:** ✅ *Complete* (`src/resource.rs:1-295`).
 
 ## ✅ Progress Log
 
@@ -142,35 +163,52 @@ We are building `el_midi2` (formerly midi2-rs), a comprehensive MIDI 2.0 library
 - Completed Phase 6 (Embedded Transport Adapters & Hardware Interfaces: USB-MIDI 2.0 Group Terminal Blocks and packet framing, Serial UART/DIN/TRS bidirectional converters with running status and real-time interleaving, and DMA-friendly lock-free SPSC PacketQueue with zero-copy slice leasing).
 - Completed Phase 7 (Embedded MIDI 2.0 Device Engine & High-Level Runtime: `Midi2Device` turnkey coordinator, standard embedded profile handlers for Drawbar Organ/Analog Synth/GM, and procedural zero-allocation Property Exchange resource providers for `DeviceInfo`, `ResourceList`, and `ChannelList`).
 - Completed Phase 8 (Extended MIDI 2.0 Specifications & MIDI Clip File):
-  - **M2-116**: MIDI Clip File Specification (`.midiclip`) header and event stream parser/builder (`src/midiclip.rs`).
-  - **Comprehensive Protocol Types**: Exhaustive Status Byte enums for Channel Voice, System Common/Real-Time, Channel Mode CCs (120-127), and MIDI-CI Sub-ID 2 (`el_core::types`).
-  - **Extended Property Exchange Resources**: Procedural zero-allocation JSON streaming for Mode (M2-106), ProgramList (M2-107), LocalOn (M2-109), DeviceState (M2-111), ExternalSync (M2-112), and ControllerList (M2-117).
-  - **Hardware Transport Integration**: `EmbeddedTransport` trait for embedded-hal / embedded-io non-blocking peripherals.
-  - **Tooling Support**: Extended `el_dump` and `el_gen` with `.midiclip` stream analysis and generation.
+  - **M2-116**: MIDI Clip File Specification (`.midiclip`) header and event stream parser/builder (`src/midiclip.rs:27-270`).
+  - **Comprehensive Protocol Types**: Exhaustive Status Byte enums for Channel Voice, System Common/Real-Time, Channel Mode CCs (120-127), and MIDI-CI Sub-ID 2 (`el_core/src/types.rs:1-195`).
+  - **Extended Property Exchange Resources**: Procedural zero-allocation JSON streaming for Mode (M2-106), ProgramList (M2-107), LocalOn (M2-109), DeviceState (M2-111), ExternalSync (M2-112), and ControllerList (M2-117) (`src/resource.rs:90-270`).
+  - **Hardware Transport Integration**: `EmbeddedTransport` trait for embedded-hal / embedded-io non-blocking peripherals (`src/transport.rs:68-100`).
+  - **Tooling Support**: Extended `el_dump` and `el_gen` with `.midiclip` stream analysis and generation (`el_dump/src/main.rs:29-55`, `el_gen/src/main.rs:130-150`).
+- Completed Phase 9 (Network Transports & Microcontroller Board Support Crates):
+  - **Session 9.1**: RTP-MIDI & Network MIDI 2.0 (`src/transport/network.rs:1-550`).
+  - **Session 9.2**: `el_bsp_esp32` for ESP32 Xtensa & RISC-V (`el_bsp_esp32/src/lib.rs:1-75`).
+  - **Session 9.3**: `el_bsp_rp2040` for Raspberry Pi RP2040 (`el_bsp_rp2040/src/lib.rs:1-40`).
+  - **Session 9.4**: `el_bsp_stm32` for STMicroelectronics STM32 (`el_bsp_stm32/src/lib.rs:1-55`).
+  - **Session 9.5**: `el_bsp_nrf52` for Nordic Semiconductor nRF52 (`el_bsp_nrf52/src/lib.rs:1-60`).
+  - **Session 9.6**: `el_bsp_rpi3` for Bare Metal Raspberry Pi 3B+ BCM2837B0 (`el_bsp_rpi3/src/lib.rs:1-35`).
+- Completed CLI Tool Suite:
+  - `el_dump`: Stream analyzer & hex dumper (`el_dump/src/main.rs:1-222`).
+  - `el_gen`: Precise message pattern generator (`el_gen/src/main.rs:1-246`).
+  - `el_bridge`: Real-time bidirectional MIDI 1.0 <-> MIDI 2.0 protocol translator (`el_bridge/src/lib.rs:1-4`, `el_bridge/src/main.rs:1-194`).
+  - `el_ci_sim`: MIDI-CI Property Exchange & Process Inquiry simulator (`el_ci_sim/src/main.rs:1-207`).
 
 ## 🔮 Future Roadmap & Extended Specifications Gap Analysis
 
-The foundational and extended MIDI 2.0 specifications across the complete standard suite (M2-100 through M2-117, USB-MIDI 2.0, MIDI-CI v1.2, Property Exchange, and MIDI Clip Files) are fully implemented and verified in safe, idiomatic Rust. Future planned enhancements:
+The foundational and extended MIDI 2.0 specifications across the complete standard suite (M2-100 through M2-117, USB-MIDI 2.0, MIDI-CI v1.2, Property Exchange, and MIDI Clip Files) are fully implemented and verified in safe, idiomatic Rust. For a complete prioritized backlog of upcoming tasks, C-FFI bindings, native OS virtual endpoints, and diagnostic tooling with full blueprints for autonomous agents, see **[WORKPLAN.md](WORKPLAN.md)**.
 
 ### ✅ Session 9.1: Network Transports (RTP MIDI / Network MIDI 2.0)
 **Prompt:** "Implement RTP MIDI (RFC 6295) and Network MIDI 2.0 (M2-124) UDP UMP packetization and AppleMIDI session protocol state machines in `src/transport/network.rs`. Support session invitation sequences (`IN`, `OK`, `NO`, `BY`), clock synchronization (`CK0`, `CK1`, `CK2`), latency offset calculations, and zero-allocation packet packing/unpacking."
 **Definition of Done:** Network transport handles session handshakes, clock synchronization offset calculation, and bit-accurate RTP UMP packet framing over UDP in unit tests.
+**Status in Codebase:** ✅ *Complete* (`src/transport/network.rs:1-550`).
 
 ### ✅ Session 9.2: Hardware Peripheral Drivers & Board Support Crates (ESP32 Xtensa & RISC-V)
 **Prompt:** "Implement `el_bsp_esp32` board support crate covering Espressif ESP32 hardware peripherals for MIDI 2.0. Provide zero-allocation hardware UART FIFO drivers with running status and real-time interleaving for MIDI 1.0 (31,250 baud) and high-speed serial UMP, USB-OTG USB-MIDI 2.0 drivers with Group Terminal Blocks, and WiFi UDP Network MIDI 2.0 adapters for both Xtensa (ESP32, ESP32-S3) and RISC-V (ESP32-C3, ESP32-C6) architectures."
 **Definition of Done:** `el_bsp_esp32` compiles in `no_std`, passes unit tests, and integrates seamlessly with `Transport` and `EmbeddedTransport`.
+**Status in Codebase:** ✅ *Complete* (`el_bsp_esp32/src/lib.rs:1-75`, `el_bsp_esp32/src/uart.rs:1-120`, `el_bsp_esp32/src/usb.rs:1-110`, `el_bsp_esp32/src/wifi.rs:1-95`).
 
 ### ✅ Session 9.3: RP2040 Board Support Crate (`el_bsp_rp2040`)
 **Prompt:** "Implement `el_bsp_rp2040` board support crate covering Raspberry Pi RP2040 hardware peripherals for MIDI 2.0. Provide direct PIO state-machine timed UART transmission and reception for 31,250 baud MIDI 1.0 and high-speed serial UMP with FIFOs, and USB-MIDI 2.0 native device drivers with Group Terminal Blocks."
 **Definition of Done:** `el_bsp_rp2040` compiles in `no_std`, passes unit tests, and integrates seamlessly with `Transport` and `EmbeddedTransport`.
+**Status in Codebase:** ✅ *Complete* (`el_bsp_rp2040/src/lib.rs:1-40`, `el_bsp_rp2040/src/pio.rs:1-180`, `el_bsp_rp2040/src/usb.rs:1-115`).
 
 ### ✅ Session 9.4: STM32 Board Support Crate (`el_bsp_stm32`)
 **Prompt:** "Implement `el_bsp_stm32` board support crate covering STMicroelectronics STM32 hardware peripherals for MIDI 2.0 (ARM Cortex-M: STM32F4, STM32G4, STM32H7, STM32F7). Provide DMA-backed circular buffer UART drivers with running status and real-time interleaving for MIDI 1.0 (31,250 baud) and high-speed serial UMP with USART_BRR register calculations, and USB-MIDI 2.0 native device drivers for STM32 USB OTG_FS / OTG_HS cores with Group Terminal Blocks."
 **Definition of Done:** `el_bsp_stm32` compiles in `no_std`, passes unit tests, and integrates seamlessly with `Transport` and `EmbeddedTransport`.
+**Status in Codebase:** ✅ *Complete* (`el_bsp_stm32/src/lib.rs:1-55`, `el_bsp_stm32/src/uart.rs:1-210`, `el_bsp_stm32/src/usb.rs:1-115`).
 
 ### ✅ Session 9.5: Nordic nRF52 Board Support Crate (`el_bsp_nrf52`)
 **Prompt:** "Implement `el_bsp_nrf52` board support crate covering Nordic Semiconductor nRF52 microcontrollers (ARM Cortex-M4F: nRF52832, nRF52840, nRF52833). Provide EasyDMA UARTE drivers with running status and real-time interleaving for MIDI 1.0 (31,250 baud) and high-speed serial UMP with hardware BAUDRATE register calculations, USB-MIDI 2.0 native device drivers for nRF52 USBD cores with Group Terminal Blocks, and Bluetooth Low Energy (BLE) MIDI 2.0 packet framing adapters with 13-bit timestamp encapsulation."
 **Definition of Done:** `el_bsp_nrf52` compiles in `no_std`, passes unit tests, and integrates seamlessly with `Transport` and `EmbeddedTransport`.
+**Status in Codebase:** ✅ *Complete* (`el_bsp_nrf52/src/lib.rs:1-60`, `el_bsp_nrf52/src/uart.rs:1-210`, `el_bsp_nrf52/src/usb.rs:1-115`, `el_bsp_nrf52/src/ble.rs:1-115`).
 
 ---
 
@@ -180,52 +218,52 @@ An exhaustive examination of the codebase against the official MIDI Association 
 
 ### 1. M2-104-UM: Mixed Data Set (MDS) Network & Large-Payload Transport (MT=0x5)
 * **Status in Codebase:** ✅ *Complete*.
-  - Dedicated zero-allocation struct representation `MdsHeader` (`MT=0x5, Status=0x8`) and payload helper `build_mds_payload_ump` (`Status=0x9`).
-  - Streaming iterator `MdsChunker` emitting MDS Header and up to 14 payload bytes per packet.
-  - Reassembly state machine `MdsReceiver<const CAP: usize>` and concurrent multi-stream demultiplexer `MdsDemuxReceiver<const CAP: usize, const NUM_STREAMS: usize>`.
+  - Dedicated zero-allocation struct representation `MdsHeader` (`MT=0x5, Status=0x8`) and payload helper `build_mds_payload_ump` (`Status=0x9`) (`src/sysex.rs:374-450`).
+  - Streaming iterator `MdsChunker` emitting MDS Header and up to 14 payload bytes per packet (`src/sysex.rs:452-520`).
+  - Reassembly state machine `MdsReceiver<const CAP: usize>` and concurrent multi-stream demultiplexer `MdsDemuxReceiver<const CAP: usize, const NUM_STREAMS: usize>` (`src/sysex.rs:522-680`).
 
 ### 2. M2-104-UM: Delta Clockstamps (DCT) & High-Resolution Jitter Reduction
 * **Status in Codebase:** ✅ *Complete*.
-  - Delta Clockstamp (DCT) messages (`MT=0x0, Status=0x3` ticks per quarter note, and `Status=0x4` ticks since last event) in `messages::UmpFactory` and `el_core::builder::UtilityBuilder`.
-  - Zero-allocation `JitterReductionQueue<const CAP: usize>` and `ScheduledUmp` pairing JR timestamps and DCTs with Channel Voice and System messages for inbound and outbound scheduling.
+  - Delta Clockstamp (DCT) messages (`MT=0x0, Status=0x3` ticks per quarter note, and `Status=0x4` ticks since last event) in `src/messages.rs:242-260` and `el_core/src/builder.rs:260-290`.
+  - Zero-allocation `JitterReductionQueue<const CAP: usize>` and `ScheduledUmp` pairing JR timestamps and DCTs with Channel Voice and System messages for inbound and outbound scheduling (`src/messages.rs:320-410`).
 
 ### 3. M2-104-UM: Flex Data Messages Multi-Packet Reassembly & Full Metadata Banks (MT=0xD)
 * **Status in Codebase:** ✅ *Complete*.
-  - Zero-allocation multi-packet text chunker `FlexDataChunker` (Form 0=Complete, 1=Start, 2=Continue, 3=End) and reassembler `FlexDataReceiver<const CAP: usize>`.
-  - Full Project & Track Metadata Status Banks: Status Bank `0x00` (Bar Marker, Beat Marker), Status Bank `0x03` (Project Name, Composition Name, Arranger, Composer, Copyright Notice), Status Bank `0x04` (Track / Channel Names, Clip Names, Marker Notes) in `el_core::types`, `el_core::builder::FlexBuilder`, and `messages::UmpFactory`.
+  - Zero-allocation multi-packet text chunker `FlexDataChunker` (Form 0=Complete, 1=Start, 2=Continue, 3=End) and reassembler `FlexDataReceiver<const CAP: usize>` (`src/messages.rs:430-580`).
+  - Full Project & Track Metadata Status Banks: Status Bank `0x00` (Bar Marker, Beat Marker), Status Bank `0x03` (Project Name, Composition Name, Arranger, Composer, Copyright Notice), Status Bank `0x04` (Track / Channel Names, Clip Names, Marker Notes) in `el_core/src/types.rs:136-192`, `el_core/src/builder.rs:295-360`, and `src/messages.rs:415-460`.
 
 ### 4. M2-101-UM: MIDI-CI v1.2 Extended Profile Management
-* **Status in Codebase:** *Complete*.
-  - **Profile Details Inquiry (`0x28`) & Profile Details Reply (`0x29`)**: Negotiating per-profile capability bitmaps and configuration parameters.
-  - **Profile Added (`0x26`) & Profile Removed (`0x27`) Notifications**: Dynamic profile advertisement during runtime.
-  - Bounded multi-channel profile channel masking (`num_channels` bitmap allocation in CI v2 format and 16-channel bitmask management).
+* **Status in Codebase:** ✅ *Complete*.
+  - **Profile Details Inquiry (`0x28`) & Profile Details Reply (`0x29`)**: Negotiating per-profile capability bitmaps and configuration parameters (`src/ci.rs:704-800`, `src/profile.rs:174-188`).
+  - **Profile Added (`0x26`) & Profile Removed (`0x27`) Notifications**: Dynamic profile advertisement during runtime (`src/ci.rs:658-702`).
+  - Bounded multi-channel profile channel masking (`num_channels` bitmap allocation in CI v2 format and 16-channel bitmask management) (`src/ci.rs:595-650`).
 
 ### 5. M2-104-UM: Stream Configuration & Endpoint Negotiation State Machine
-* **Status in Codebase:** *Complete*.
-  - Dynamic Stream Protocol Switch handshake engine (`StreamConfigStateMachine` in `src/stream.rs`): Active timeout handling when transitioning physical wire speeds or switching from MIDI 1.0 to MIDI 2.0 via Stream Configuration Request (`Status=0x005`) and verifying matching Notification (`Status=0x006`) prior to activating MT=0x4 message processing.
+* **Status in Codebase:** ✅ *Complete*.
+  - Dynamic Stream Protocol Switch handshake engine (`StreamConfigStateMachine` in `src/stream.rs:812-965`, `src/device.rs:76-103`): Active timeout handling when transitioning physical wire speeds or switching from MIDI 1.0 to MIDI 2.0 via Stream Configuration Request (`Status=0x005`) and verifying matching Notification (`Status=0x006`) prior to activating MT=0x4 message processing.
 
 ### 6. M2-103/105: Property Exchange (PE) Advanced Resource Handlers & Schema Validation
-* **Status in Codebase:** *Complete*.
-  - Zero-allocation JSON Schema validator (`PeSchemaValidator` in `src/ci_pe.rs`) for inbound `Set` requests rejecting malformed client parameter changes prior to hardware register commit.
-  - Paginated property streaming for `ProgramList` and `ControllerList` querying using `offset` and `limit` JSON header properties without allocating memory.
+* **Status in Codebase:** ✅ *Complete*.
+  - Zero-allocation JSON Schema validator (`PeSchemaValidator` in `src/ci_pe.rs:338-490`, `src/device.rs:543-580`) for inbound `Set` requests rejecting malformed client parameter changes prior to hardware register commit.
+  - Paginated property streaming for `ProgramList` and `ControllerList` querying using `offset` and `limit` JSON header properties without allocating memory (`src/resource.rs:136-168`, `src/resource.rs:222-260`).
 
 ### 7. M2-116: MIDI Clip File (`.midiclip`) Multi-Track Sequencer & Playback Engine
 * **Status in Codebase:** ✅ *Complete*.
-  - Clip header parsing/serialization (`MidiClipHeader`), variable-length quantity (VLQ) delta-time parser (`MidiClipTrackParser`), and builder (`MidiClipBuilder`) in `src/midiclip.rs`.
-  - Simultaneous multi-track scheduler and playback engine (`MultiTrackSequencer`): Merging multiple concurrent `MTrk` chunks into a single chronological UMP stream with delta-time to microsecond/tick conversion and transport tempo changes (`FlexData` tempo map tracking, default 120 BPM, dynamic updates from MT=0xD Common Tempo messages).
-  - High-precision metric ticks (`PPQN`) and SMPTE timecode frame calculations, full file parsing (`from_clip_file`), transport seeking (`seek_to_tick`), resetting (`reset`), and real-time playback ticking (`tick`).
+  - Clip header parsing/serialization (`MidiClipHeader`), variable-length quantity (VLQ) delta-time parser (`MidiClipTrackParser`), and builder (`MidiClipBuilder`) in `src/midiclip.rs:27-270`.
+  - Simultaneous multi-track scheduler and playback engine (`MultiTrackSequencer`): Merging multiple concurrent `MTrk` chunks into a single chronological UMP stream with delta-time to microsecond/tick conversion and transport tempo changes (`FlexData` tempo map tracking, default 120 BPM, dynamic updates from MT=0xD Common Tempo messages) (`src/midiclip.rs:277-620`).
+  - High-precision metric ticks (`PPQN`) and SMPTE timecode frame calculations, full file parsing (`from_clip_file`), transport seeking (`seek_to_tick`), resetting (`reset`), and real-time playback ticking (`tick`) (`src/midiclip.rs:330-615`).
 
 ---
 
 ## 🍓 Session 9.6: Complete Specification for Bare Metal Raspberry Pi 3B+ (`el_bsp_rpi3`)
 * **Status in Codebase:** ✅ *Complete*.
-  - Turnkey `#![no_std]` bare-metal crate `el_bsp_rpi3` targeting Broadcom BCM2837B0 SoC (ARM Cortex-A53 quad-core, AArch64 bare metal).
-  - 1 MHz System Timer driver (`Rpi3SystemTimer`) converting ticks to AppleMIDI 100-microsecond network clock units and 16-bit Jitter Reduction timestamps.
-  - VideoCore Mailbox 0 interface (`Rpi3Mailbox`) for 48 MHz UART reference clock locking and hardware MAC discovery.
-  - GPIO controller driver (`Rpi3Gpio`) configuring GPIO 14/15 to `ALT0` and disabling pull-up/down resistors.
-  - PL011 UART0 driver (`Rpi3UartDriver`) with exact fractional baud divisors for 31,250 baud (`96, 0`), 1 MBaud (`3, 0`), 3 MBaud (`1, 0`), and 115,200 baud (`26, 3`), zero-copy byte-to-UMP conversion, and running status reconstruction.
-  - Synopsys DWC2 USB-MIDI 2.0 driver (`Rpi3UsbMidiDriver`) with 13-byte Group Terminal Block (GTB) descriptors and Little-Endian packet framing.
-  - Microchip LAN7515 Ethernet Network MIDI 2.0 adapter (`Rpi3EthernetMidiAdapter`) with AppleMIDI session handling on UDP ports 5004/5005.
+  - Turnkey `#![no_std]` bare-metal crate `el_bsp_rpi3` targeting Broadcom BCM2837B0 SoC (ARM Cortex-A53 quad-core, AArch64 bare metal) (`el_bsp_rpi3/src/lib.rs:1-35`).
+  - 1 MHz System Timer driver (`Rpi3SystemTimer`) converting ticks to AppleMIDI 100-microsecond network clock units and 16-bit Jitter Reduction timestamps (`el_bsp_rpi3/src/timer.rs:1-55`).
+  - VideoCore Mailbox 0 interface (`Rpi3Mailbox`) for 48 MHz UART reference clock locking and hardware MAC discovery (`el_bsp_rpi3/src/mailbox.rs:1-85`).
+  - GPIO controller driver (`Rpi3Gpio`) configuring GPIO 14/15 to `ALT0` and disabling pull-up/down resistors (`el_bsp_rpi3/src/gpio.rs:1-50`).
+  - PL011 UART0 driver (`Rpi3UartDriver`) with exact fractional baud divisors for 31,250 baud (`96, 0`), 1 MBaud (`3, 0`), 3 MBaud (`1, 0`), and 115,200 baud (`26, 3`), zero-copy byte-to-UMP conversion, and running status reconstruction (`el_bsp_rpi3/src/uart.rs:1-240`).
+  - Synopsys DWC2 USB-MIDI 2.0 driver (`Rpi3UsbMidiDriver`) with 13-byte Group Terminal Block (GTB) descriptors and Little-Endian packet framing (`el_bsp_rpi3/src/usb.rs:1-125`).
+  - Microchip LAN7515 Ethernet Network MIDI 2.0 adapter (`Rpi3EthernetMidiAdapter`) with AppleMIDI session handling on UDP ports 5004/5005 (`el_bsp_rpi3/src/network.rs:1-120`).
 
 ### 1. Architectural Overview & System Target
 * **Target SoC:** Broadcom BCM2837B0 (same family as BCM2837, high-performance ARM Cortex-A53 quad-core 64-bit ARMv8-A).

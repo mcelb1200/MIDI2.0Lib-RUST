@@ -121,6 +121,101 @@ ump.set_group(1);
 // Manually set data bytes if needed, though Factory methods are preferred.
 ```
 
+### Turnkey Embedded Runtime: `Midi2Device`
+
+`el_midi2::device::Midi2Device` provides a complete, turnkey coordinator integrating Endpoint Discovery, Stream Configuration protocol switching, Function Block negotiation, and MIDI-CI responder / initiator roles over any `Transport`.
+
+```rust
+use el_midi2::device::Midi2Device;
+use el_midi2::transport::MockTransport;
+
+// Initialize mock or hardware transport
+let transport = MockTransport::<64>::new();
+
+// Create a device with up to 2 Function Blocks and a unique 28-bit MUID
+let mut device = Midi2Device::new(transport, 0x1234567);
+
+// Poll device periodically in an event loop or timer ISR
+device.poll();
+```
+
+### MIDI-CI Capability Inquiry, Profiles, and Property Exchange
+
+The library provides zero-allocation state machines and data structures for MIDI-CI v1.2:
+
+```rust
+use el_midi2::ci::{CiDiscovery, CiInitiator, CiProfile};
+use el_midi2::ci_pe::{PeTransactionManager, SubscriptionManager};
+
+// 1. Transaction Pool for asynchronous Property Exchange (up to 8 concurrent requests)
+let mut pe_mgr = PeTransactionManager::<8>::new();
+if let Some(req_id) = pe_mgr.start_request(0x2345678) {
+    // Dispatch PE Get or Set Inquiry
+    pe_mgr.complete_request(req_id).ok();
+}
+
+// 2. Subscription Manager tracking resource subscriber MUIDs
+let mut subs = SubscriptionManager::<8>::new();
+let dev_info_hash = el_midi2::ci_pe::hash_resource("DeviceInfo");
+subs.add_subscription(0x2345678, dev_info_hash).ok();
+```
+
+### Multi-Track MIDI Clip File Sequencing (`.midiclip`)
+
+The `midiclip` module supports parsing, building, and scheduling multi-track MIDI Clip Files (M2-116 standard) with dynamic tempo tracking:
+
+```rust
+use el_midi2::midiclip::{ClipTimeFormat, MidiClipBuilder, MultiTrackSequencer};
+use el_midi2::messages::UmpFactory;
+
+// Create track events
+let note = UmpFactory::midi2_note_on(0, 0, 60, 0, 0x8000, 0);
+
+// Build a multi-track clip
+let mut builder = MidiClipBuilder::new(ClipTimeFormat::TicksPerQuarterNote(480));
+builder.add_event(0, 0, note).unwrap(); // Track 0, delta tick 0
+let clip_data = builder.build().unwrap();
+
+// Play back tracks concurrently using MultiTrackSequencer
+let mut seq = MultiTrackSequencer::<4>::new(ClipTimeFormat::TicksPerQuarterNote(480));
+seq.add_track(b"\x00\x40\x90\x3C\x00\x80\x00\x00\x00").unwrap();
+
+while let Some(event) = seq.tick(1) {
+    println!("Scheduled UMP: {:?} at tick {}", event.ump, event.tick);
+}
+```
+
+### Microcontroller Board Support Packages (BSPs)
+
+When developing for microcontrollers, import the appropriate BSP crate for turnkey zero-allocation drivers:
+
+- **`el_bsp_esp32`**: ESP32 (Xtensa & RISC-V) UART FIFOs, USB-OTG with Group Terminal Blocks, and WiFi UDP Network MIDI.
+- **`el_bsp_rp2040`**: Raspberry Pi RP2040 PIO state-machine UART and native USB-MIDI 2.0 with GTB.
+- **`el_bsp_stm32`**: STM32 DMA circular buffer UART and USB OTG_FS/OTG_HS drivers.
+- **`el_bsp_nrf52`**: Nordic nRF52 EasyDMA UARTE, native USBD, and BLE MIDI 2.0 GATT framing.
+- **`el_bsp_rpi3`**: Raspberry Pi 3B+ BCM2837B0 bare-metal PL011 UART0, 1 MHz System Timer, and LAN7515 Ethernet.
+
+### Portable CLI Tools
+
+The workspace includes four cross-platform CLI utilities:
+
+1. **`el_dump`**: Stream analyzer & hex dumper.
+   ```bash
+   cargo run -p el_dump -- --file capture.ump
+   ```
+2. **`el_gen`**: Message pattern generator.
+   ```bash
+   cargo run -p el_gen -- note-on --group 0 --channel 0 --note 60 --velocity 32768
+   ```
+3. **`el_bridge`**: Live bidirectional MIDI 1.0 <-> MIDI 2.0 protocol translator.
+   ```bash
+   cargo run -p el_bridge -- --in-port 0 --out-port 1
+   ```
+4. **`el_ci_sim`**: MIDI-CI Property Exchange and Process Inquiry simulator.
+   ```bash
+   cargo run -p el_ci_sim -- pe get --resource "DeviceInfo"
+   ```
+
 ## Support
 
 If you encounter any issues or have questions, please check the repository documentation or submit an issue.
