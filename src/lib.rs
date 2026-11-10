@@ -2,6 +2,7 @@
 pub mod buffer;
 pub mod ci;
 pub mod ci_pe;
+pub mod ci_pe_deflate;
 pub mod device;
 pub mod messages;
 pub mod midiclip;

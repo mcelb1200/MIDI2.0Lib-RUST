@@ -46,7 +46,7 @@ This library is a Rust port of an existing C++ MIDI 2.0 library, focusing on saf
 - **Discovery**: Inquiry and Reply generation, capability bitmasks, and initiator/responder state machines.
 - **Protocol Negotiation**: Protocol Inquiry, Reply, and Stream Configuration switching state machine with timeout enforcement.
 - **Profile Configuration**: Profile Inquiry, Profile Details Inquiry (`0x28`), Profile Details Reply (`0x29`), Profile Added (`0x26`), Profile Removed (`0x27`), Profile On/Off, and channel bitmask management.
-- **Property Exchange (PE)**: Zero-allocation SAX-style JSON tokenizer, transaction manager (`PeTransactionManager`), subscription manager (`SubscriptionManager`), JSON schema validator (`PeSchemaValidator`), paginated querying (`offset`/`limit`), and procedural resource writers (`DeviceInfo`, `ResourceList`, `ChannelList`, `Mode`, `ProgramList`, `LocalOn`, `DeviceState`, `ExternalSync`, `ControllerList`).
+- **Property Exchange (PE)**: Zero-allocation SAX-style JSON tokenizer, transaction manager (`PeTransactionManager`), subscription manager (`SubscriptionManager`), JSON schema validator (`PeSchemaValidator`), paginated querying (`offset`/`limit`), procedural resource writers (`DeviceInfo`, `ResourceList`, `ChannelList`, `Mode`, `ProgramList`, `LocalOn`, `DeviceState`, `ExternalSync`, `ControllerList`), and streaming zero-allocation Deflate / zlib decoder (`PeDeflateDecoder`) for compressed Property Exchange JSON streams.
 - **Process Inquiry (PI)**: MIDI Message Report Inquiry and Reply generating 7-bit bitmaps for supported messages.
 
 ### 4. Turnkey Device Runtime & Profiles

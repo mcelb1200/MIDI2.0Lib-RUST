@@ -5,6 +5,8 @@
 //! - MIDI-CI Property Exchange (Sub-ID 0x30 - 0x3F)
 //! - MIDI-CI Process Inquiry (Sub-ID 0x40 - 0x44)
 
+pub use crate::ci_pe_deflate::{Adler32, PeDeflateDecoder, PeDeflateError};
+
 use crate::ci::{pack_7bit_u16, CiHeader};
 use crate::sysex::{build_sysex7_ump, build_sysex8_ump, SysEx7Format, SysEx8Format};
 use crate::ump::Ump;
