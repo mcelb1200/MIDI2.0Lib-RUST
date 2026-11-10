@@ -3,6 +3,7 @@ members = [
     "el_core",
     "el_dump",
     "el_gen",
+    "el_clip_conv",
     "el_bridge",
     "el_ci_sim",
     "el_bsp_esp32",

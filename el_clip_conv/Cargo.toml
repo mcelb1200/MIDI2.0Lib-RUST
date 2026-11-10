@@ -1,0 +1,9 @@
+[package]
+name = "el_clip_conv"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+el_core = { path = "../el_core" }
+el_midi2 = { path = ".." }
+clap = { version = "4.4", features = ["derive"] }
