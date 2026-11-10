@@ -28,7 +28,7 @@ When working on any task from this workplan, the agent **must** strictly enforce
 | Task ID | Item Name | Category | Scope / Target Package | Priority |
 |---|---|---|---|---|
 | **WP-01** | Standard MIDI File 1.0 (SMF1) to MIDI Clip File (`.midiclip`) Converter Tool (`el_clip_conv`) | Tooling / Interop | `el_clip_conv` | High |
-| **WP-02** | C/C++ FFI C-ABI Bindings (`el_midi2_c`) | Interoperability | `include/el_midi2.h`, `el_midi2_c/` | High |
+| **WP-02** | C/C++ FFI C-ABI Bindings (`el_midi2_c`) | Interoperability | `include/el_midi2.h`, `el_midi2_c/` | High (Completed) |
 | **WP-03** | Streaming Zero-Allocation Deflate / zlib Decoder for Compressed Property Exchange | Protocol Extension | `src/ci_pe_deflate.rs` (`el_midi2`) | Medium |
 | **WP-04** | Native OS Virtual Endpoint Transports (Linux ALSA & macOS CoreMIDI / Windows MIDI Services) | Platform Transports | `el_bridge/src/native/` | Medium |
 | **WP-05** | Real-Time Hardware Jitter Analyzer & Clock Offset Profiler CLI (`el_mon`) | Diagnostic Tooling | `el_mon` | Low |
@@ -66,7 +66,7 @@ el_clip_conv --input song.mid --output song.midiclip [--midi2] [--group 0]
 
 ---
 
-### 📌 Task WP-02: C/C++ FFI C-ABI Bindings (`el_midi2_c`)
+### 📌 Task WP-02: C/C++ FFI C-ABI Bindings (`el_midi2_c`) [COMPLETED]
 
 #### 4.1 Objective
 Expose core `el_midi2` and `el_core` Rust primitives and state machines via a stable C-ABI dynamic/static library (`libel_midi2.so` / `libel_midi2.a`) and accompanying C header (`include/el_midi2.h`) for integration with C++20 codebases and embedded RTOS firmware (FreeRTOS, Zephyr).
