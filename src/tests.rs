@@ -3194,4 +3194,209 @@ mod tests {
         }
         assert!(token_count > 200);
     }
+
+    #[test]
+    fn test_wp06_device_identity_inquiry_and_reply() {
+        use crate::ci::{DeviceIdentity, DeviceInquiry};
+
+        // 1. Build and parse Identity Request
+        let req = DeviceInquiry::build_identity_request(0x7F);
+        assert_eq!(req, [0x7E, 0x7F, 0x06, 0x01]);
+        assert_eq!(DeviceInquiry::parse_identity_request(&req), Some(0x7F));
+
+        // 2. Build and parse Identity Reply
+        let dev = DeviceIdentity {
+            device_id: 0x05,
+            manufacturer_id: [0x00, 0x20, 0x29], // Novation / Focusrite
+            family_id: [0x01, 0x02],
+            model_id: [0x03, 0x04],
+            version: [0x01, 0x00, 0x00, 0x02],
+        };
+
+        let reply = DeviceInquiry::build_identity_reply(&dev);
+        assert_eq!(reply.len(), 15);
+        assert_eq!(reply[0], 0x7E);
+        assert_eq!(reply[1], 0x05);
+        assert_eq!(reply[2], 0x06);
+        assert_eq!(reply[3], 0x02);
+        assert_eq!(&reply[4..7], &[0x00, 0x20, 0x29]);
+
+        let parsed = DeviceInquiry::parse_identity_reply(&reply).expect("parse reply");
+        assert_eq!(parsed.device_id, 0x05);
+        assert_eq!(parsed.manufacturer_id, [0x00, 0x20, 0x29]);
+        assert_eq!(parsed.family_id, [0x01, 0x02]);
+        assert_eq!(parsed.model_id, [0x03, 0x04]);
+        assert_eq!(parsed.version, [0x01, 0x00, 0x00, 0x02]);
+
+        // Malformed or short payloads
+        assert!(DeviceInquiry::parse_identity_request(&[0x7E, 0x7F]).is_none());
+        assert!(DeviceInquiry::parse_identity_reply(&[0x7E, 0x05, 0x06]).is_none());
+    }
+
+    #[test]
+    fn test_wp06_device_state_json_and_schema_validation() {
+        use crate::ci_pe::PeSchemaValidator;
+        use crate::resource::{write_device_state_json, DeviceStateResource};
+
+        let mut buf = [0_u8; 128];
+        let state = DeviceStateResource {
+            state_title: "Studio Preset 1",
+            revision: 42,
+            memory_used_bytes: 8192,
+            total_memory_bytes: 131072,
+        };
+
+        let len = write_device_state_json(&state, &mut buf).expect("write device state");
+        let s = core::str::from_utf8(&buf[..len]).expect("valid utf8");
+        assert_eq!(
+            s,
+            "{\"title\":\"Studio Preset 1\",\"revision\":42,\"memoryUsed\":8192,\"totalMemory\":131072}"
+        );
+
+        // Schema validation passes
+        assert!(PeSchemaValidator::validate_device_state(s.as_bytes()).is_ok());
+
+        // Missing required 'revision'
+        let invalid = b"{\"title\":\"Invalid Preset\",\"memoryUsed\":100}";
+        assert!(PeSchemaValidator::validate_device_state(invalid).is_err());
+
+        // Value out of range
+        let out_of_range = b"{\"revision\":-5}";
+        assert!(PeSchemaValidator::validate_device_state(out_of_range).is_err());
+    }
+
+    #[test]
+    fn test_wp06_midi2device_identity_inquiry_and_pe_device_state() {
+        use crate::ci::{CiDeviceInfo, DeviceInquiry};
+        use crate::ci_pe::{CiPe, MIDICI_PE_GET, MIDICI_PE_SET};
+        use crate::device::{DeviceConfig, Midi2Device};
+        use crate::sysex::{SysEx7Chunker, SysEx7Receiver, SysEx7ReceiverState};
+        use crate::transport::{MockTransport, Transport};
+
+        let transport = MockTransport::<64>::new();
+        let config = DeviceConfig {
+            name: "Test Synthesizer",
+            product_instance_id: "SN-987654",
+            manufacturer: "ElectroLab",
+            model: "EL-2000",
+            serial_number: "SN-12345",
+            software_revision: "v2.1",
+            local_muid: 0x1122334,
+            ci_info: CiDeviceInfo {
+                manufacturer_id: [0x41, 0x00, 0x01],
+                family_id: [0x02, 0x03],
+                model_id: [0x04, 0x05],
+                version: [0x01, 0x02, 0x03, 0x04],
+                ci_support: 0x07,
+                max_sysex: 512,
+                output_path_id: 1,
+                fb_idx: 0,
+            },
+        };
+
+        let mut device = Midi2Device::<MockTransport<64>, 4>::new(transport, config);
+
+        // 1. Send Identity Request to device
+        let req_bytes = DeviceInquiry::build_identity_request(0x7F);
+        for ump in SysEx7Chunker::new(0, &req_bytes) {
+            device.transport_mut().send(&[ump]).unwrap();
+            device.poll().unwrap();
+        }
+
+        // Receive identity reply
+        let mut rx = SysEx7Receiver::<128>::new();
+        let mut got_reply = false;
+        while let Ok(Some(out_ump)) = device.transport_mut().recv() {
+            if let Ok(SysEx7ReceiverState::Complete) = rx.process_ump(&out_ump) {
+                got_reply = true;
+                break;
+            }
+        }
+        assert!(got_reply);
+        let parsed_id = DeviceInquiry::parse_identity_reply(rx.payload()).expect("parse id reply");
+        assert_eq!(parsed_id.manufacturer_id, [0x41, 0x00, 0x01]);
+        assert_eq!(parsed_id.family_id, [0x02, 0x03]);
+
+        // 2. Query DeviceState via Property Exchange Get
+        let mut get_buf = [0_u8; 128];
+        let get_len = CiPe::serialize_pe_header_only(
+            &mut get_buf,
+            MIDICI_PE_GET,
+            1,
+            0x999999,
+            0x1122334,
+            55,
+            b"{\"resource\":\"DeviceState\"}",
+        )
+        .expect("serialize get");
+
+        for ump in SysEx7Chunker::new(0, &get_buf[..get_len]) {
+            device.transport_mut().send(&[ump]).unwrap();
+            device.poll().unwrap();
+        }
+
+        let mut got_pe_reply = false;
+        let mut pe_rx = SysEx7Receiver::<512>::new();
+        while let Ok(Some(out_ump)) = device.transport_mut().recv() {
+            if let Ok(SysEx7ReceiverState::Complete) = pe_rx.process_ump(&out_ump) {
+                got_pe_reply = true;
+                break;
+            }
+        }
+        assert!(got_pe_reply);
+        let (_, pe_msg) = CiPe::parse_pe_message(pe_rx.payload()).expect("parse pe msg");
+        let body_str = core::str::from_utf8(pe_msg.body.unwrap_or(b"")).expect("utf8");
+        assert!(body_str.contains("\"revision\":1"));
+        assert!(body_str.contains("\"title\":\"Active Device Profile\""));
+
+        // 3. Update DeviceState revision via Property Exchange Set
+        let mut set_buf = [0_u8; 160];
+        let set_len = CiPe::serialize_pe_with_body(
+            &mut set_buf,
+            MIDICI_PE_SET,
+            1,
+            0x999999,
+            0x1122334,
+            56,
+            b"{\"resource\":\"DeviceState\"}",
+            1,
+            1,
+            b"{\"revision\":99}",
+        )
+        .expect("serialize set");
+
+        for ump in SysEx7Chunker::new(0, &set_buf[..set_len]) {
+            device.transport_mut().send(&[ump]).unwrap();
+            device.poll().unwrap();
+        }
+
+        // Verify Set Reply status: 200
+        let mut set_rx = SysEx7Receiver::<256>::new();
+        let mut got_set_reply = false;
+        while let Ok(Some(out_ump)) = device.transport_mut().recv() {
+            if let Ok(SysEx7ReceiverState::Complete) = set_rx.process_ump(&out_ump) {
+                got_set_reply = true;
+                break;
+            }
+        }
+        assert!(got_set_reply);
+        let (_, set_rep_msg) = CiPe::parse_pe_message(set_rx.payload()).expect("parse set reply");
+        assert_eq!(set_rep_msg.header.status, Some(200));
+
+        // Query DeviceState again and verify updated revision: 99
+        for ump in SysEx7Chunker::new(0, &get_buf[..get_len]) {
+            device.transport_mut().send(&[ump]).unwrap();
+            device.poll().unwrap();
+        }
+
+        let mut verify_rx = SysEx7Receiver::<512>::new();
+        while let Ok(Some(out_ump)) = device.transport_mut().recv() {
+            if let Ok(SysEx7ReceiverState::Complete) = verify_rx.process_ump(&out_ump) {
+                break;
+            }
+        }
+        let (_, updated_msg) = CiPe::parse_pe_message(verify_rx.payload()).expect("parse updated");
+        let updated_body = core::str::from_utf8(updated_msg.body.unwrap_or(b"")).expect("utf8");
+        assert!(updated_body.contains("\"revision\":99"));
+    }
 }

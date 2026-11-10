@@ -480,6 +480,42 @@ impl PeSchemaValidator {
         ];
         Self::validate(json_bytes, &schemas)
     }
+
+    /// Pre-built validator for `DeviceState` resource (M2-111).
+    pub fn validate_device_state(json_bytes: &[u8]) -> Result<(), SchemaValidationError> {
+        let schemas = [
+            PropertySchema {
+                name: "title",
+                schema_type: JsonSchemaType::String { max_len: 64 },
+                required: false,
+            },
+            PropertySchema {
+                name: "revision",
+                schema_type: JsonSchemaType::Integer {
+                    min: 0,
+                    max: 4_294_967_295,
+                },
+                required: true,
+            },
+            PropertySchema {
+                name: "memoryUsed",
+                schema_type: JsonSchemaType::Integer {
+                    min: 0,
+                    max: 1_073_741_824, // up to 1GB
+                },
+                required: false,
+            },
+            PropertySchema {
+                name: "totalMemory",
+                schema_type: JsonSchemaType::Integer {
+                    min: 0,
+                    max: 1_073_741_824,
+                },
+                required: false,
+            },
+        ];
+        Self::validate(json_bytes, &schemas)
+    }
 }
 
 /// Represents an active, pending Property Exchange Request.

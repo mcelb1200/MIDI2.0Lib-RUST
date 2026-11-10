@@ -408,6 +408,64 @@ pub fn write_paginated_controller_list_json(
     Some(cursor)
 }
 
+/// Device State resource metadata (M2-111).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DeviceStateResource<'a> {
+    pub state_title: &'a str,
+    pub revision: u32,
+    pub memory_used_bytes: usize,
+    pub total_memory_bytes: usize,
+}
+
+/// Procedurally writes the DeviceState resource JSON (M2-111) into `buf`.
+///
+/// Output format: `{"title":"...","revision":R,"memoryUsed":U,"totalMemory":T}`
+pub fn write_device_state_json(state: &DeviceStateResource<'_>, buf: &mut [u8]) -> Option<usize> {
+    let mut cursor = 0;
+
+    macro_rules! append {
+        ($slice:expr) => {{
+            let s: &[u8] = $slice;
+            if cursor + s.len() > buf.len() {
+                return None;
+            }
+            buf[cursor..cursor + s.len()].copy_from_slice(s);
+            cursor += s.len();
+        }};
+    }
+
+    macro_rules! append_u64 {
+        ($val:expr) => {{
+            let mut num_buf = [0_u8; 20];
+            let mut n: u64 = $val as u64;
+            let mut idx = 20;
+            if n == 0 {
+                idx -= 1;
+                num_buf[idx] = b'0';
+            } else {
+                while n > 0 && idx > 0 {
+                    idx -= 1;
+                    num_buf[idx] = b'0' + (n % 10) as u8;
+                    n /= 10;
+                }
+            }
+            append!(&num_buf[idx..20]);
+        }};
+    }
+
+    append!(b"{\"title\":\"");
+    append!(state.state_title.as_bytes());
+    append!(b"\",\"revision\":");
+    append_u64!(state.revision);
+    append!(b",\"memoryUsed\":");
+    append_u64!(state.memory_used_bytes);
+    append!(b",\"totalMemory\":");
+    append_u64!(state.total_memory_bytes);
+    append!(b"}");
+
+    Some(cursor)
+}
+
 /// Generates the standard `ChannelList` JSON array for active channels into `buf`.
 pub fn write_channel_list_json(channel_mask: u16, buf: &mut [u8]) -> Option<usize> {
     let mut cursor = 0;

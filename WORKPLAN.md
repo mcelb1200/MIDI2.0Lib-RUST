@@ -32,6 +32,7 @@ When working on any task from this workplan, the agent **must** strictly enforce
 | **WP-03** | Streaming Zero-Allocation Deflate / zlib Decoder for Compressed Property Exchange | Protocol Extension | `src/ci_pe_deflate.rs` (`el_midi2`) | ✅ Complete |
 | **WP-04** | Native OS Virtual Endpoint Transports (Linux ALSA & macOS CoreMIDI / Windows MIDI Services) | Platform Transports | `el_bridge/src/native/` | ✅ Complete |
 | **WP-05** | Real-Time Hardware Jitter Analyzer & Clock Offset Profiler CLI (`el_mon`) | Diagnostic Tooling | `el_mon` | ✅ Complete |
+| **WP-06** | Universal SysEx Device Identity Inquiry & M2-111 Device State Property Exchange | Protocol Extension | `src/ci.rs`, `src/resource.rs`, `src/ci_pe.rs`, `src/device.rs` | ✅ Complete |
 
 ---
 
@@ -169,6 +170,21 @@ Audio-rate diagnostic CLI tool `el_mon` measuring clock drift, round-trip latenc
 - For Network MIDI 2.0 / AppleMIDI, calculates round-trip latency from `CK0`, `CK1`, `CK2` timestamps:
   $$\text{Offset} = \frac{(t_1 + t_3)}{2} - t_2, \quad \text{RTT} = (t_3 - t_0) - (t_2 - t_1)$$
 - Displays ANSI terminal live statistics: min, max, average jitter (in microseconds), dropped packets, and MIDI clock BPM drift.
+
+---
+
+### 📌 Task WP-06: Universal SysEx Device Identity Inquiry & M2-111 Device State Property Exchange [✅ COMPLETE]
+
+#### 4.1 Objective
+Implement Universal System Exclusive Device Identity Inquiry (General Information Sub-ID 1 = 0x06, Sub-ID 2 = 0x01 / 0x02) and M2-111 Device State Property Exchange with schema validation and procedural JSON streaming:
+- **Universal SysEx Device Identity**:
+  - Identity Request (`0x7E, device_id, 0x06, 0x01`) and Identity Reply (`0x7E, device_id, 0x06, 0x02, manu[3], fam[2], model[2], ver[4]`).
+  - Zero-allocation builders and parsers in `src/ci.rs`: `DeviceInquiry::build_identity_request`, `build_identity_reply`, `parse_identity_request`, and `parse_identity_reply`.
+  - Auto-reply in `Midi2Device::handle_completed_sysex` routing requests without requiring CI MUID negotiation.
+- **M2-111 Device State Property Exchange**:
+  - `DeviceStateResource` and procedural zero-allocation streaming writer `write_device_state_json` in `src/resource.rs`.
+  - JSON schema validation in `PeSchemaValidator::validate_device_state` in `src/ci_pe.rs`.
+  - Device coordinator integration in `Midi2Device::handle_pe_get` and `handle_pe_set` updating state revision.
 
 ---
 

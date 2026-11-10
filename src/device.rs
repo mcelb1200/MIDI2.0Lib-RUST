@@ -10,8 +10,9 @@
 //! - Zero-dynamic-allocation polling loop `poll()`
 
 use crate::ci::{
-    CiDeviceInfo, CiHeader, CiInitiator, CiProfile, CiProtocolNegotiation, CiResponder, ProfileId,
-    MIDI_PROTOCOL_1, MIDI_PROTOCOL_2, S7MIDICI, S7UNIVERSAL_NRT,
+    CiDeviceInfo, CiHeader, CiInitiator, CiProfile, CiProtocolNegotiation, CiResponder,
+    DeviceIdentity, DeviceInquiry, ProfileId, MIDI_PROTOCOL_1, MIDI_PROTOCOL_2, S7DEVICE_INQUIRY,
+    S7MIDICI, S7UNIVERSAL_NRT, SUBID2_IDENTITY_REQUEST,
 };
 use crate::ci_pe::{
     hash_resource, CiPe, PeError, PeSchemaValidator, SubscriptionManager, MIDICI_PE_GET,
@@ -19,10 +20,10 @@ use crate::ci_pe::{
 };
 use crate::profile::ProfileManager;
 use crate::resource::{
-    write_channel_list_json, write_external_sync_json, write_local_on_json, write_mode_json,
-    write_paginated_controller_list_json, write_paginated_program_list_json,
-    write_resource_list_json, ControllerDefinition, DeviceInfoResource, DeviceMode, ProgramItem,
-    StandardResource, SyncSource,
+    write_channel_list_json, write_device_state_json, write_external_sync_json,
+    write_local_on_json, write_mode_json, write_paginated_controller_list_json,
+    write_paginated_program_list_json, write_resource_list_json, ControllerDefinition,
+    DeviceInfoResource, DeviceMode, DeviceStateResource, ProgramItem, StandardResource, SyncSource,
 };
 use crate::stream::{
     FunctionBlock, StreamConfigStateMachine, StreamFactory, StreamTextChunker,
@@ -87,6 +88,7 @@ pub struct Midi2Device<'a, T: Transport, const NUM_FB: usize> {
     mode: DeviceMode,
     sync_source: SyncSource,
     sync_active: bool,
+    device_state_revision: u32,
 }
 
 impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
@@ -114,6 +116,7 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
             mode: DeviceMode::Standard,
             sync_source: SyncSource::Internal,
             sync_active: true,
+            device_state_revision: 1,
         }
     }
 
@@ -380,12 +383,38 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
 
     /// Handles a complete, reassembled SysEx payload.
     fn handle_completed_sysex(&mut self, group: u8, payload: &[u8]) -> Result<(), DeviceError> {
+        if payload.is_empty() {
+            return Ok(());
+        }
+
+        // Check Universal Non-Real-Time SysEx header
+        if payload[0] != S7UNIVERSAL_NRT {
+            return Ok(());
+        }
+
+        // Handle General Information / Device Identity Request (Sub-ID 1 = 0x06, Sub-ID 2 = 0x01)
+        if payload.len() >= 4
+            && payload[2] == S7DEVICE_INQUIRY
+            && payload[3] == SUBID2_IDENTITY_REQUEST
+        {
+            let dev_identity = DeviceIdentity {
+                device_id: payload[1] & 0x7F,
+                manufacturer_id: self.config.ci_info.manufacturer_id,
+                family_id: self.config.ci_info.family_id,
+                model_id: self.config.ci_info.model_id,
+                version: self.config.ci_info.version,
+            };
+            let reply = DeviceInquiry::build_identity_reply(&dev_identity);
+            self.send_sysex7_payload(group, &reply)?;
+            return Ok(());
+        }
+
         if payload.len() < 13 {
             return Ok(());
         }
 
-        // Check Universal Non-Real-Time SysEx header & MIDI-CI Sub-ID
-        if payload[0] != S7UNIVERSAL_NRT || payload[2] != S7MIDICI {
+        // Check MIDI-CI Sub-ID
+        if payload[2] != S7MIDICI {
             return Ok(());
         }
 
@@ -605,6 +634,27 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
                     400
                 }
             }
+            Some(StandardResource::DeviceState) => {
+                if PeSchemaValidator::validate_device_state(body).is_ok() {
+                    let tok = crate::ci_pe::JsonTokenizer::new(body);
+                    let mut cur_key: Option<&str> = None;
+                    for t in tok {
+                        match t {
+                            crate::ci_pe::JsonTokenType::Key(k) => cur_key = Some(k),
+                            crate::ci_pe::JsonTokenType::NumberValue(n) => {
+                                if cur_key == Some("revision") && n >= 0 {
+                                    self.device_state_revision = n as u32;
+                                }
+                                cur_key = None;
+                            }
+                            _ => {}
+                        }
+                    }
+                    200
+                } else {
+                    400
+                }
+            }
             _ => 404, // Unsupported resource for Set
         };
 
@@ -661,6 +711,7 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
                     "Mode",
                     "ProgramList",
                     "LocalOn",
+                    "DeviceState",
                     "ExternalSync",
                     "ControllerList",
                 ];
@@ -704,6 +755,15 @@ impl<'a, T: Transport, const NUM_FB: usize> Midi2Device<'a, T, NUM_FB> {
                 write_paginated_program_list_json(&default_programs, offset, limit, &mut body_buf)
             }
             Some(StandardResource::LocalOn) => write_local_on_json(self.local_on, &mut body_buf),
+            Some(StandardResource::DeviceState) => {
+                let state_res = DeviceStateResource {
+                    state_title: "Active Device Profile",
+                    revision: self.device_state_revision,
+                    memory_used_bytes: 4096,
+                    total_memory_bytes: 65536,
+                };
+                write_device_state_json(&state_res, &mut body_buf)
+            }
             Some(StandardResource::ExternalSync) => {
                 write_external_sync_json(self.sync_source, self.sync_active, &mut body_buf)
             }
