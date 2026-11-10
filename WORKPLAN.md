@@ -30,7 +30,7 @@ When working on any task from this workplan, the agent **must** strictly enforce
 | **WP-01** | Standard MIDI File 1.0 (SMF1) to MIDI Clip File (`.midiclip`) Converter Tool (`el_clip_conv`) | Tooling / Interop | `el_clip_conv` | High |
 | **WP-02** | C/C++ FFI C-ABI Bindings (`el_midi2_c`) | Interoperability | `include/el_midi2.h`, `el_midi2_c/` | High |
 | **WP-03** | Streaming Zero-Allocation Deflate / zlib Decoder for Compressed Property Exchange | Protocol Extension | `src/ci_pe_deflate.rs` (`el_midi2`) | Medium |
-| **WP-04** | Native OS Virtual Endpoint Transports (Linux ALSA & macOS CoreMIDI / Windows MIDI Services) | Platform Transports | `el_bridge/src/native/` | Medium |
+| **WP-04** | Native OS Virtual Endpoint Transports (Linux ALSA & macOS CoreMIDI / Windows MIDI Services) | Platform Transports | `el_bridge/src/native/` | ✅ Complete |
 | **WP-05** | Real-Time Hardware Jitter Analyzer & Clock Offset Profiler CLI (`el_mon`) | Diagnostic Tooling | `el_mon` | Low |
 
 ---
@@ -139,7 +139,7 @@ Implement zero-allocation streaming decompression for Property Exchange JSON pay
 
 ---
 
-### 📌 Task WP-04: Native OS Virtual Endpoint Transports (Linux ALSA & macOS CoreMIDI / Windows MIDI Services)
+### 📌 Task WP-04: Native OS Virtual Endpoint Transports (Linux ALSA & macOS CoreMIDI / Windows MIDI Services) [✅ COMPLETE]
 
 #### 4.1 Objective
 Extend `el_bridge` with native operating system virtual MIDI 2.0 endpoint capabilities:
@@ -147,12 +147,14 @@ Extend `el_bridge` with native operating system virtual MIDI 2.0 endpoint capabi
 - **macOS**: CoreMIDI 2.0 `MIDIEndpointCreateWithBlock` declaring native UMP protocol (`kMIDIProtocol_2_0`).
 - **Windows**: Windows 11 MIDI Services / UMP API bindings.
 
-#### 4.2 Architecture
-- Structure inside `el_bridge/src/native/`:
-  - `alsa.rs`: Linux native ALSA sequencer UMP client.
-  - `coremidi.rs`: macOS CoreMIDI 2.0 virtual endpoint.
-  - `winmidi.rs`: Windows MIDI Services abstraction.
-- Integrate with `el_bridge::translator::ToUmpTranslator` and `ToMidi1Translator`.
+#### 4.2 Architecture & Status
+- Implemented inside `el_bridge/src/native/`:
+  - `alsa.rs`: Linux native ALSA sequencer UMP client with `snd_seq_open`, duplex UMP port creation, direct UMP event output/input, and simulated loopback fallback for containerized/headless test environments.
+  - `coremidi.rs`: macOS CoreMIDI 2.0 virtual endpoint with `MIDIEventList` and `MIDIEventPacket` packing/unpacking and UMP streaming.
+  - `winmidi.rs`: Windows 11 MIDI Services / UMP API abstraction with `WinMidiPacket` and UMP conversions.
+  - `mod.rs`: `NativeEndpointTransport` trait and `NativeVirtualEndpoint` cross-platform factory.
+- Integrated with `el_bridge::translator::ToUmpTranslator` and `ToMidi1Translator` in `el_bridge/src/main.rs` CLI via `--native-virtual` and `--native-name`.
+- Verified with unit and integration test suite `el_bridge/tests/native_tests.rs`.
 
 ---
 
