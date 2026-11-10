@@ -174,7 +174,7 @@ impl Ump {
 
     /// Gets the Group number (0-15) of the UMP.
     ///
-    /// The Group field is located in bits [24:27] of the first word.
+    /// The Group field is located in bits `[24:27]` of the first word.
     ///
     /// # Returns
     ///
@@ -196,8 +196,8 @@ impl Ump {
 
     /// Gets the Status byte of the UMP.
     ///
-    /// For many message types (like Channel Voice), the status nibble is at bits [20:23] of the first word.
-    /// However, this method extracts bits [16:23] masked with 0xF0, effectively getting the high nibble of the byte at that position.
+    /// For many message types (like Channel Voice), the status nibble is at bits `[20:23]` of the first word.
+    /// However, this method extracts bits `[16:23]` masked with 0xF0, effectively getting the high nibble of the byte at that position.
     /// This is commonly used to identify the specific command (e.g., Note On, Note Off) within a message type.
     ///
     /// # Returns
@@ -210,7 +210,7 @@ impl Ump {
 
     /// Gets the Channel number (0-15) of the UMP.
     ///
-    /// For Channel Voice messages, the channel is stored in bits [16:19] of the first word.
+    /// For Channel Voice messages, the channel is stored in bits `[16:19]` of the first word.
     ///
     /// # Returns
     ///

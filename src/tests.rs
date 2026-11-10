@@ -1393,6 +1393,111 @@ mod tests {
     }
 
     #[test]
+    fn test_ci_pe_json_tokenizer_edge_cases() {
+        use crate::ci_pe::{
+            JsonSchemaType, JsonTokenType, JsonTokenizer, PeHeader, PeSchemaValidator,
+            PropertySchema, SchemaValidationError,
+        };
+
+        // 1. Escaped strings in JSON
+        let escaped_json =
+            br#"{"path":"C:\\Program Files\\Synth","quote":"He said \"Hello\"","empty":""}"#;
+        let mut tok = JsonTokenizer::new(escaped_json);
+        assert_eq!(tok.next(), Some(JsonTokenType::StartObject));
+        assert_eq!(tok.next(), Some(JsonTokenType::Key("path")));
+        assert_eq!(
+            tok.next(),
+            Some(JsonTokenType::StringValue(r#"C:\\Program Files\\Synth"#))
+        );
+        assert_eq!(tok.next(), Some(JsonTokenType::Key("quote")));
+        assert_eq!(
+            tok.next(),
+            Some(JsonTokenType::StringValue(r#"He said \"Hello\""#))
+        );
+        assert_eq!(tok.next(), Some(JsonTokenType::Key("empty")));
+        assert_eq!(tok.next(), Some(JsonTokenType::StringValue("")));
+        assert_eq!(tok.next(), Some(JsonTokenType::EndObject));
+        assert_eq!(tok.next(), None);
+
+        // 2. Numbers, booleans, nulls, negative numbers, and arrays
+        let complex_json = b" [ -42 , 0 , 9223372036854775807 , true , false , null , { } ] ";
+        let mut tok2 = JsonTokenizer::new(complex_json);
+        assert_eq!(tok2.next(), Some(JsonTokenType::StartArray));
+        assert_eq!(tok2.next(), Some(JsonTokenType::NumberValue(-42)));
+        assert_eq!(tok2.next(), Some(JsonTokenType::NumberValue(0)));
+        assert_eq!(
+            tok2.next(),
+            Some(JsonTokenType::NumberValue(9223372036854775807))
+        );
+        assert_eq!(tok2.next(), Some(JsonTokenType::BoolValue(true)));
+        assert_eq!(tok2.next(), Some(JsonTokenType::BoolValue(false)));
+        assert_eq!(tok2.next(), Some(JsonTokenType::NullValue));
+        assert_eq!(tok2.next(), Some(JsonTokenType::StartObject));
+        assert_eq!(tok2.next(), Some(JsonTokenType::EndObject));
+        assert_eq!(tok2.next(), Some(JsonTokenType::EndArray));
+        assert_eq!(tok2.next(), None);
+
+        // 3. Malformed JSON inputs - must terminate without panicking
+        let truncated = b"{\"key\": \"unterminated string";
+        let mut tok3 = JsonTokenizer::new(truncated);
+        assert_eq!(tok3.next(), Some(JsonTokenType::StartObject));
+        assert_eq!(tok3.next(), Some(JsonTokenType::Key("key")));
+        assert_eq!(tok3.next(), None);
+
+        let junk = b" !@#$%^&*() ";
+        let mut tok4 = JsonTokenizer::new(junk);
+        for _ in 0..20 {
+            tok4.next(); // Ensure no panic on garbage input
+        }
+
+        // 4. PeHeader with missing or partial fields
+        let partial_header = b"{\"resource\":\"ResourceList\"}";
+        let parsed = PeHeader::parse(partial_header);
+        assert_eq!(parsed.resource, Some("ResourceList"));
+        assert_eq!(parsed.res_id, None);
+        assert_eq!(parsed.status, None);
+
+        // 5. PeSchemaValidator edge cases
+        let schemas = [
+            PropertySchema {
+                name: "gain",
+                schema_type: JsonSchemaType::Integer { min: 0, max: 100 },
+                required: true,
+            },
+            PropertySchema {
+                name: "name",
+                schema_type: JsonSchemaType::String { max_len: 32 },
+                required: false,
+            },
+        ];
+
+        // Valid
+        let valid_json = b"{\"gain\": 75, \"name\": \"Preset 1\"}";
+        assert!(PeSchemaValidator::validate(valid_json, &schemas).is_ok());
+
+        // Out of range numerical parameter
+        let out_of_range = b"{\"gain\": 150}";
+        assert_eq!(
+            PeSchemaValidator::validate(out_of_range, &schemas),
+            Err(SchemaValidationError::ValueOutOfRange)
+        );
+
+        // Missing required property
+        let missing_req = b"{\"name\": \"Preset 1\"}";
+        assert_eq!(
+            PeSchemaValidator::validate(missing_req, &schemas),
+            Err(SchemaValidationError::MissingRequiredProperty)
+        );
+
+        // Non-object payload
+        let non_obj = b"[1, 2, 3]";
+        assert_eq!(
+            PeSchemaValidator::validate(non_obj, &schemas),
+            Err(SchemaValidationError::ExpectedObject)
+        );
+    }
+
+    #[test]
     fn test_ci_pe_transaction_manager() {
         use crate::ci_pe::PeTransactionManager;
 

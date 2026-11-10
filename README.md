@@ -112,9 +112,10 @@ fn main() {
 }
 ```
 
-## Documentation
+## Documentation & Tinkerer Guides
 
-- **User Guide**: See [USER_GUIDE.md](USER_GUIDE.md) for detailed usage instructions across device runtime, transports, and CLI tools.
+- **User Guide (Tinkerer Edition)**: See [USER_GUIDE.md](USER_GUIDE.md) for hands-on hardware wiring schematics (DIN/TRS optoisolators), copy-paste microcontroller DIY projects (RP2040, STM32, ESP32), multi-track clip sequencing, and CLI debugging workflows.
+- **Developer Guide**: See [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for architectural deep-dives, `#![no_std]` zero-allocation conventions, BSP peripheral drivers, C/C++ FFI guidelines, and contributor verification steps.
 - **Consolidated Workplan**: Check out [WORKPLAN.md](WORKPLAN.md) for remaining future enhancements, FFI bindings, and agent implementation guides.
 - **API Documentation**: Run `cargo doc --open` to view the generated API documentation across the workspace.
 - **Development Roadmap**: Check out [MIDI2_ROADMAP.md](MIDI2_ROADMAP.md) for the complete implementation log and specification verification.

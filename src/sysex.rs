@@ -418,13 +418,13 @@ impl MdsHeader {
 /// Helper to build a single MDS Payload UMP (MT=0x5, Status=0x9).
 ///
 /// An MDS Payload packet carries up to 14 payload bytes across words 0..3:
-/// - Word 0 bits [28:31] = 0x5
-/// - Word 0 bits [24:27] = Group
-/// - Word 0 bits [20:23] = Status (0x9)
-/// - Word 0 bits [16:19] = MDS ID
-/// - Word 0 bits [8:15]  = Payload byte 0
-/// - Word 0 bits [0:7]   = Payload byte 1
-/// - Word 1 bits [24:31] = Payload byte 2, etc.
+/// - Word 0 bits `[28:31]` = 0x5
+/// - Word 0 bits `[24:27]` = Group
+/// - Word 0 bits `[20:23]` = Status (0x9)
+/// - Word 0 bits `[16:19]` = MDS ID
+/// - Word 0 bits `[8:15]`  = Payload byte 0
+/// - Word 0 bits `[0:7]`   = Payload byte 1
+/// - Word 1 bits `[24:31]` = Payload byte 2, etc.
 #[must_use]
 pub fn build_mds_payload_ump(group: u8, mds_id: u8, bytes: &[u8]) -> Ump {
     let payload_len = if bytes.len() > 14 { 14 } else { bytes.len() };
@@ -815,12 +815,12 @@ impl SysEx8Format {
 /// Helper function to construct a single 128-bit (MT=0x5) SysEx8 UMP.
 ///
 /// In MIDI 2.0 SysEx8:
-/// - Word 0 bits [28:31] = 0x5 (MT)
-/// - Word 0 bits [24:27] = Group (0-15)
-/// - Word 0 bits [20:23] = Status / Format (0=Complete, 1=Start, 2=Continue, 3=End)
-/// - Word 0 bits [16:19] = Total bytes in this packet including Stream ID (1 to 14, where num_payload_bytes + 1)
-/// - Word 0 bits [8:15]  = Stream ID
-/// - Word 0 bits [0:7]   = Payload byte 0 (if present)
+/// - Word 0 bits `[28:31]` = 0x5 (MT)
+/// - Word 0 bits `[24:27]` = Group (0-15)
+/// - Word 0 bits `[20:23]` = Status / Format (0=Complete, 1=Start, 2=Continue, 3=End)
+/// - Word 0 bits `[16:19]` = Total bytes in this packet including Stream ID (1 to 14, where num_payload_bytes + 1)
+/// - Word 0 bits `[8:15]`  = Stream ID
+/// - Word 0 bits `[0:7]`   = Payload byte 0 (if present)
 /// - Word 1 = Payload bytes 1-4 (big-endian inside the word)
 /// - Word 2 = Payload bytes 5-8
 /// - Word 3 = Payload bytes 9-12
