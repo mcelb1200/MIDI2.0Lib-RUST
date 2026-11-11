@@ -11,7 +11,12 @@ use crate::sysex::SysEx7Chunker;
 // Universal SysEx Constants
 pub const S7UNIVERSAL_NRT: u8 = 0x7E;
 pub const S7UNIVERSAL_RT: u8 = 0x7F;
+pub const S7DEVICE_INQUIRY: u8 = 0x06;
 pub const S7MIDICI: u8 = 0x0D;
+
+// General Information / Identity Sub-ID 2
+pub const SUBID2_IDENTITY_REQUEST: u8 = 0x01;
+pub const SUBID2_IDENTITY_REPLY: u8 = 0x02;
 
 // Sub-ID 2: Discovery
 pub const MIDICI_DISCOVERY: u8 = 0x70;
@@ -349,6 +354,106 @@ impl CiDiscovery {
                 fb_idx,
             },
         ))
+    }
+}
+
+/// Identity Reply Device Information (Universal Non-Real-Time SysEx Sub-ID 0x06 / 0x02).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DeviceIdentity {
+    pub device_id: u8,
+    pub manufacturer_id: [u8; 3],
+    pub family_id: [u8; 2],
+    pub model_id: [u8; 2],
+    pub version: [u8; 4],
+}
+
+impl Default for DeviceIdentity {
+    fn default() -> Self {
+        Self {
+            device_id: 0x7F,
+            manufacturer_id: [0, 0, 0],
+            family_id: [0, 0],
+            model_id: [0, 0],
+            version: [0, 0, 0, 0],
+        }
+    }
+}
+
+/// Universal System Exclusive Device Identity Inquiry (Sub-ID 1 = 0x06).
+pub struct DeviceInquiry;
+
+impl DeviceInquiry {
+    /// Builds an Identity Request payload (4 bytes: `0x7E, device_id, 0x06, 0x01`).
+    #[must_use]
+    #[inline]
+    pub const fn build_identity_request(device_id: u8) -> [u8; 4] {
+        [
+            S7UNIVERSAL_NRT,
+            device_id & 0x7F,
+            S7DEVICE_INQUIRY,
+            SUBID2_IDENTITY_REQUEST,
+        ]
+    }
+
+    /// Builds an Identity Reply payload (15 bytes: `0x7E, device_id, 0x06, 0x02, manu[3], fam[2], model[2], ver[4]`).
+    #[must_use]
+    pub fn build_identity_reply(device: &DeviceIdentity) -> [u8; 15] {
+        let mut buf = [0_u8; 15];
+        buf[0] = S7UNIVERSAL_NRT;
+        buf[1] = device.device_id & 0x7F;
+        buf[2] = S7DEVICE_INQUIRY;
+        buf[3] = SUBID2_IDENTITY_REPLY;
+        buf[4..7].copy_from_slice(&device.manufacturer_id);
+        buf[7..9].copy_from_slice(&device.family_id);
+        buf[9..11].copy_from_slice(&device.model_id);
+        buf[11..15].copy_from_slice(&device.version);
+        buf
+    }
+
+    /// Parses an Identity Request payload (`0x7E, device_id, 0x06, 0x01`).
+    #[must_use]
+    pub fn parse_identity_request(payload: &[u8]) -> Option<u8> {
+        if payload.len() < 4 {
+            return None;
+        }
+        if payload[0] != S7UNIVERSAL_NRT
+            || payload[2] != S7DEVICE_INQUIRY
+            || payload[3] != SUBID2_IDENTITY_REQUEST
+        {
+            return None;
+        }
+        Some(payload[1] & 0x7F)
+    }
+
+    /// Parses an Identity Reply payload (`0x7E, device_id, 0x06, 0x02, ...`).
+    #[must_use]
+    pub fn parse_identity_reply(payload: &[u8]) -> Option<DeviceIdentity> {
+        if payload.len() < 15 {
+            return None;
+        }
+        if payload[0] != S7UNIVERSAL_NRT
+            || payload[2] != S7DEVICE_INQUIRY
+            || payload[3] != SUBID2_IDENTITY_REPLY
+        {
+            return None;
+        }
+        let device_id = payload[1] & 0x7F;
+        let mut manufacturer_id = [0_u8; 3];
+        manufacturer_id.copy_from_slice(&payload[4..7]);
+        let mut family_id = [0_u8; 2];
+        family_id.copy_from_slice(&payload[7..9]);
+        let mut model_id = [0_u8; 2];
+        model_id.copy_from_slice(&payload[9..11]);
+        let mut version = [0_u8; 4];
+        version.copy_from_slice(&payload[11..15]);
+
+        Some(DeviceIdentity {
+            device_id,
+            manufacturer_id,
+            family_id,
+            model_id,
+            version,
+        })
     }
 }
 

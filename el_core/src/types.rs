@@ -137,6 +137,10 @@ impl UniversalSysEx {
     pub const SUBID1_MIDI_TUNING: u8 = 0x08;
     pub const SUBID1_GENERAL_MIDI: u8 = 0x09;
     pub const SUBID1_MIDI_CI: u8 = 0x0D;
+
+    // Sub-ID #2 for General Information / Device Inquiry (Category 0x06)
+    pub const SUBID2_IDENTITY_REQUEST: u8 = 0x01;
+    pub const SUBID2_IDENTITY_REPLY: u8 = 0x02;
 }
 
 /// MIDI-CI Sub-ID #2 formats mapping the Capability Inquiry specification (M2-101).

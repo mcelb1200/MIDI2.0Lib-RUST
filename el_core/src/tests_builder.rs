@@ -361,5 +361,11 @@ mod tests {
             MidiCiSubId2::from_u8(0x30),
             Some(MidiCiSubId2::PropertyExchangeInquiry)
         );
+
+        use crate::types::UniversalSysEx;
+        assert_eq!(UniversalSysEx::SUBID1_DEVICE_INQUIRY, 0x06);
+        assert_eq!(UniversalSysEx::SUBID1_MIDI_CI, 0x0D);
+        assert_eq!(UniversalSysEx::SUBID2_IDENTITY_REQUEST, 0x01);
+        assert_eq!(UniversalSysEx::SUBID2_IDENTITY_REPLY, 0x02);
     }
 }
