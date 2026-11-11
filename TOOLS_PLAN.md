@@ -17,13 +17,13 @@ To build a suite of cross-platform, portable CLI tools and utilities (`el_` suit
 ## Proposed Tools
 
 ### 1. `el_dump` (Stream Analyzer & Hex Dumper)
-* **Status in Codebase:** ✅ *Complete* (`el_dump/src/main.rs:1-222`).
+* **Status in Codebase:** ✅ *Complete* (`el_dump/src/main.rs:1-240`, `el_dump/src/decoder.rs:1-410`).
 **Purpose:** Inspect and debug MIDI streams.
 - **Features:**
-  - Reads raw binary `.ump` files or listens to a live MIDI interface (`el_dump/src/main.rs:20-55`).
-  - Decodes and beautifully prints Universal MIDI Packets (UMP) to stdout with color-coded Message Types (MT), Groups, and Status bytes (`el_dump/src/main.rs:60-195`).
-  - Explicitly handles the parsing and display of complex multi-packet messages like **SysEx (System Exclusive)**, **NRPN (Non-Registered Parameter Numbers)**, and **14-bit MIDI 1.0 CC (Control Change)** combinations (`el_dump/src/main.rs:110-180`).
-  - Detects and flags malformed or out-of-spec UMPs (`el_dump/src/main.rs:185-220`).
+  - Reads raw binary `.ump` files or streams from stdin, plus `.midiclip` (SMF2) file parsing.
+  - Decodes and beautifully prints Universal MIDI Packets (UMP) to stdout with ANSI color-coding (`--no-color` to disable).
+  - High-resolution semantic decoding across all 16 Message Types: Utility (JR Clock/Timestamps, Delta Clockstamps), System Common/Real-Time, MIDI 1.0 Channel Voice (with CC mode message annotations), SysEx7 (with Universal SysEx identification), MIDI 2.0 Channel Voice (16-bit velocity Note On/Off, 32-bit CC/Pitch Bend, RPN/NRPN, Per-Note controllers), Data128/MDS (Mixed Data Sets), Flex Data (Common Tempo in BPM, metadata text), and Stream (Endpoint Info, Protocol Switch, Function Blocks).
+  - Verbose mode (`--verbose`) displays packet word count, raw 32-bit hex words, and complete message breakdowns.
 - **Safety/Accuracy:** Validates stream boundaries to prevent buffer overruns when parsing truncated packets (leveraging `UmpStreamParser`) (`el_core/src/parser.rs:5-65`).
 
 ### 2. `el_bridge` (Protocol Translator)

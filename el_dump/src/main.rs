@@ -1,14 +1,29 @@
 use clap::Parser;
 use el_core::parser::UmpStreamParser;
+use el_core::ump::Ump;
 use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 
-/// el_dump: A CLI tool to parse and dump raw Universal MIDI Packets (UMP) from a file or stdin.
+mod decoder;
+#[cfg(test)]
+mod tests;
+
+use decoder::{decode_ump, DecoderConfig};
+
+/// el_dump: A CLI tool to parse and inspect raw Universal MIDI Packets (UMP) from a file or stdin.
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about = "el_dump: Stream analyzer & hex dumper for Universal MIDI Packets (UMP) and .midiclip files", long_about = None)]
 struct Args {
-    /// The path to the binary .ump file to parse. If omitted, reads from stdin.
+    /// The path to the binary .ump or .midiclip file to parse. If omitted, reads from stdin.
     #[arg(short, long)]
     file: Option<String>,
+
+    /// Display verbose breakdown including hex words and length
+    #[arg(short, long, default_value_t = false)]
+    verbose: bool,
+
+    /// Disable ANSI color output
+    #[arg(long, default_value_t = false)]
+    no_color: bool,
 }
 
 fn main() -> io::Result<()> {
@@ -28,6 +43,11 @@ fn main() -> io::Result<()> {
 
     let stdout = io::stdout().lock();
     let mut writer = BufWriter::new(stdout);
+
+    let config = DecoderConfig {
+        color: !args.no_color,
+        verbose: args.verbose,
+    };
 
     // Check if the stream starts with "SMF2" (MIDI Clip File header)
     let is_clip = match reader.fill_buf() {
@@ -68,7 +88,7 @@ fn main() -> io::Result<()> {
                     )?;
                     let track_end = (offset + chunk_len).min(all_bytes.len());
                     let track_data = &all_bytes[offset..track_end];
-                    dump_track_events(track_data, &mut writer)?;
+                    dump_track_events(track_data, &mut writer, &config)?;
                 }
                 offset += chunk_len;
             }
@@ -109,49 +129,8 @@ fn main() -> io::Result<()> {
 
     writeln!(writer, "--- el_dump: UMP Stream Analyzer ---")?;
     for ump in parser {
-        let mt = ump.message_type();
-        let grp = ump.group();
-        let wc = ump.word_count();
-
-        // ⚡ Bolt Optimization: Unrolling the formatting loop into a match block based on Word Count.
-        // Doing variable length formatting with multiple writes requires repeated buffer interactions
-        // and loop overhead. Replacing it with an explicit unrolled match executes about ~20% faster,
-        // which is highly noticeable when dumping millions of UMPs to the console.
-        match wc {
-            1 => writeln!(
-                writer,
-                "MT: {:?}, Grp: {:2}, Len: 1 words | Data: {:08X} ",
-                mt, grp, ump.data[0]
-            )?,
-            2 => writeln!(
-                writer,
-                "MT: {:?}, Grp: {:2}, Len: 2 words | Data: {:08X} {:08X} ",
-                mt, grp, ump.data[0], ump.data[1]
-            )?,
-            3 => writeln!(
-                writer,
-                "MT: {:?}, Grp: {:2}, Len: 3 words | Data: {:08X} {:08X} {:08X} ",
-                mt, grp, ump.data[0], ump.data[1], ump.data[2]
-            )?,
-            4 => writeln!(
-                writer,
-                "MT: {:?}, Grp: {:2}, Len: 4 words | Data: {:08X} {:08X} {:08X} {:08X} ",
-                mt, grp, ump.data[0], ump.data[1], ump.data[2], ump.data[3]
-            )?,
-            _ => {
-                // Safe generic fallback to prevent panics on unexpected lengths,
-                // keeping the data bounded to the `ump.data` size
-                write!(
-                    writer,
-                    "MT: {:?}, Grp: {:2}, Len: {} words | Data: ",
-                    mt, grp, wc
-                )?;
-                for i in 0..wc.min(4) {
-                    write!(writer, "{:08X} ", ump.data[i])?;
-                }
-                writeln!(writer)?;
-            }
-        }
+        let decoded_line = decode_ump(&ump, &config);
+        writeln!(writer, "{}", decoded_line)?;
     }
     writer.flush()?;
 
@@ -172,7 +151,11 @@ fn parse_clip_header(bytes: &[u8]) -> Option<((u16, u16, u16), usize)> {
     Some(((format, num_tracks, time_div), 8 + chunk_len))
 }
 
-fn dump_track_events<W: Write>(mut bytes: &[u8], writer: &mut W) -> io::Result<()> {
+fn dump_track_events<W: Write>(
+    mut bytes: &[u8],
+    writer: &mut W,
+    config: &DecoderConfig,
+) -> io::Result<()> {
     while !bytes.is_empty() {
         let mut delta: u32 = 0;
         let mut count = 0;
@@ -205,17 +188,21 @@ fn dump_track_events<W: Write>(mut bytes: &[u8], writer: &mut W) -> io::Result<(
             break;
         }
 
-        write!(writer, "Delta: {:5} | UMP MT: 0x{:X} | ", delta, mt)?;
+        let mut data = [0_u32; 4];
         for i in 0..wc {
-            let w = u32::from_be_bytes([
+            data[i] = u32::from_be_bytes([
                 bytes[i * 4],
                 bytes[i * 4 + 1],
                 bytes[i * 4 + 2],
                 bytes[i * 4 + 3],
             ]);
-            write!(writer, "{:08X} ", w)?;
         }
-        writeln!(writer)?;
+        let ump = Ump { data };
+
+        write!(writer, "Delta: {:5} | ", delta)?;
+        let decoded = decode_ump(&ump, config);
+        writeln!(writer, "{}", decoded)?;
+
         bytes = &bytes[wc * 4..];
     }
     Ok(())

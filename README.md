@@ -67,7 +67,7 @@ This library is a Rust port of an existing C++ MIDI 2.0 library, focusing on saf
 - **Microcontroller Board Support Crates**: Dedicated `#![no_std]` drivers for ESP32, RP2040, STM32, nRF52, and bare-metal Raspberry Pi 3B+.
 
 ### 7. Portable CLI Tool Suite
-- **`el_dump`**: Hex dumper and stream inspector for `.ump` raw binary and `.midiclip` files.
+- **`el_dump`**: Stream analyzer, semantic decoder, and hex inspector for `.ump` raw binary and `.midiclip` files with color-coded packet inspection across MT 0x0 through 0xF (`--verbose`, `--no-color`).
 - **`el_gen`**: Command-line generator for custom UMP messages and synthetic stress streams.
 - **`el_bridge`**: Live bidirectional OS MIDI port routing, translation using `midir`, and native OS virtual MIDI 2.0 endpoints (Linux ALSA Sequencer UMP client, macOS CoreMIDI 2.0, and Windows 11 MIDI Services).
 - **`el_clip_conv`**: Bidirectional converter between Standard MIDI Files (SMF 1.0 `.mid`) and MIDI 2.0 MIDI Clip Files (`.midiclip`, M2-116), supporting MT=0x4 high-resolution up-conversion and down-scaling.
