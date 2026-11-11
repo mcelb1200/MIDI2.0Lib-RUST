@@ -24,6 +24,16 @@ el_ump_t el_ump_create_midi2_cc(uint8_t group, uint8_t channel, uint8_t index,
                                 uint32_t value);
 el_ump_t el_ump_create_pitch_bend(uint8_t group, uint8_t channel,
                                   uint32_t value);
+el_ump_t el_ump_create_midi2_rpn(uint8_t group, uint8_t channel, uint8_t bank,
+                                 uint8_t index, uint32_t value);
+el_ump_t el_ump_create_midi2_nrpn(uint8_t group, uint8_t channel, uint8_t bank,
+                                  uint8_t index, uint32_t value);
+el_ump_t el_ump_create_midi2_relative_rpn(uint8_t group, uint8_t channel,
+                                          uint8_t bank, uint8_t index,
+                                          int32_t value);
+el_ump_t el_ump_create_midi2_relative_nrpn(uint8_t group, uint8_t channel,
+                                           uint8_t bank, uint8_t index,
+                                           int32_t value);
 
 // Stream parser handle
 typedef struct el_stream_parser_t el_stream_parser_t;
