@@ -110,14 +110,50 @@ impl VoiceBuilder {
 
     #[must_use]
     #[inline]
-    pub fn midi2_nrpn(group: u8, channel: u8, bank: u8, index: u8, value: u32) -> Ump {
-        // NRPN Status = 0x02, Bank = Data Byte 1, Index = Data Byte 2
+    pub fn midi2_rpn(group: u8, channel: u8, bank: u8, index: u8, value: u32) -> Ump {
+        // RPN Status = 0x02, Bank = Data Byte 1, Index = Data Byte 2
         let combined = ((group as u32) << 24)
             | ((channel as u32) << 16)
             | ((bank as u32) << 8)
             | (index as u32);
-        let w1 = 0x40020000 | (combined & 0x0F0F7F7F);
+        let w1 = 0x40200000 | (combined & 0x0F0F7F7F);
         Ump::new(w1, value, 0, 0)
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn midi2_nrpn(group: u8, channel: u8, bank: u8, index: u8, value: u32) -> Ump {
+        // NRPN Status = 0x03, Bank = Data Byte 1, Index = Data Byte 2
+        let combined = ((group as u32) << 24)
+            | ((channel as u32) << 16)
+            | ((bank as u32) << 8)
+            | (index as u32);
+        let w1 = 0x40300000 | (combined & 0x0F0F7F7F);
+        Ump::new(w1, value, 0, 0)
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn midi2_relative_rpn(group: u8, channel: u8, bank: u8, index: u8, value: i32) -> Ump {
+        // Relative RPN Status = 0x04, Bank = Data Byte 1, Index = Data Byte 2
+        let combined = ((group as u32) << 24)
+            | ((channel as u32) << 16)
+            | ((bank as u32) << 8)
+            | (index as u32);
+        let w1 = 0x40400000 | (combined & 0x0F0F7F7F);
+        Ump::new(w1, value as u32, 0, 0)
+    }
+
+    #[must_use]
+    #[inline]
+    pub fn midi2_relative_nrpn(group: u8, channel: u8, bank: u8, index: u8, value: i32) -> Ump {
+        // Relative NRPN Status = 0x05, Bank = Data Byte 1, Index = Data Byte 2
+        let combined = ((group as u32) << 24)
+            | ((channel as u32) << 16)
+            | ((bank as u32) << 8)
+            | (index as u32);
+        let w1 = 0x40500000 | (combined & 0x0F0F7F7F);
+        Ump::new(w1, value as u32, 0, 0)
     }
 
     #[must_use]

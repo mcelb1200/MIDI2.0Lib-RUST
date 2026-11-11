@@ -98,6 +98,71 @@ pub extern "C" fn el_ump_create_pitch_bend(group: u8, channel: u8, value: u32) -
     }
 }
 
+/// Creates a MIDI 2.0 Registered Parameter Number (RPN) message (MT=0x4) as a 64-bit UMP.
+#[no_mangle]
+pub extern "C" fn el_ump_create_midi2_rpn(
+    group: u8,
+    channel: u8,
+    bank: u8,
+    index: u8,
+    value: u32,
+) -> el_ump_t {
+    let res = catch_unwind(|| VoiceBuilder::midi2_rpn(group, channel, bank, index, value));
+    match res {
+        Ok(ump) => ump.into(),
+        Err(_) => el_ump_t { data: [0; 4] },
+    }
+}
+
+/// Creates a MIDI 2.0 Non-Registered Parameter Number (NRPN) message (MT=0x4) as a 64-bit UMP.
+#[no_mangle]
+pub extern "C" fn el_ump_create_midi2_nrpn(
+    group: u8,
+    channel: u8,
+    bank: u8,
+    index: u8,
+    value: u32,
+) -> el_ump_t {
+    let res = catch_unwind(|| VoiceBuilder::midi2_nrpn(group, channel, bank, index, value));
+    match res {
+        Ok(ump) => ump.into(),
+        Err(_) => el_ump_t { data: [0; 4] },
+    }
+}
+
+/// Creates a MIDI 2.0 Relative RPN message (MT=0x4) as a 64-bit UMP.
+#[no_mangle]
+pub extern "C" fn el_ump_create_midi2_relative_rpn(
+    group: u8,
+    channel: u8,
+    bank: u8,
+    index: u8,
+    value: i32,
+) -> el_ump_t {
+    let res = catch_unwind(|| VoiceBuilder::midi2_relative_rpn(group, channel, bank, index, value));
+    match res {
+        Ok(ump) => ump.into(),
+        Err(_) => el_ump_t { data: [0; 4] },
+    }
+}
+
+/// Creates a MIDI 2.0 Relative NRPN message (MT=0x4) as a 64-bit UMP.
+#[no_mangle]
+pub extern "C" fn el_ump_create_midi2_relative_nrpn(
+    group: u8,
+    channel: u8,
+    bank: u8,
+    index: u8,
+    value: i32,
+) -> el_ump_t {
+    let res =
+        catch_unwind(|| VoiceBuilder::midi2_relative_nrpn(group, channel, bank, index, value));
+    match res {
+        Ok(ump) => ump.into(),
+        Err(_) => el_ump_t { data: [0; 4] },
+    }
+}
+
 /// Scales a value up to a higher bit depth using MIDI 2.0 bit-duplication scaling.
 #[no_mangle]
 pub extern "C" fn el_scale_up(val: u32, src_bits: u8, dst_bits: u8) -> u32 {
@@ -244,6 +309,22 @@ mod tests {
         let pb = el_ump_create_pitch_bend(3, 4, 0x80000000);
         assert_eq!(pb.data[0], 0x43E40000);
         assert_eq!(pb.data[1], 0x80000000);
+
+        let rpn = el_ump_create_midi2_rpn(1, 2, 0x12, 0x34, 0x55667788);
+        assert_eq!(rpn.data[0], 0x41221234);
+        assert_eq!(rpn.data[1], 0x55667788);
+
+        let nrpn = el_ump_create_midi2_nrpn(2, 3, 0x0A, 0x0B, 0x11223344);
+        assert_eq!(nrpn.data[0], 0x42330A0B);
+        assert_eq!(nrpn.data[1], 0x11223344);
+
+        let rel_rpn = el_ump_create_midi2_relative_rpn(0, 1, 0x01, 0x02, -100);
+        assert_eq!(rel_rpn.data[0], 0x40410102);
+        assert_eq!(rel_rpn.data[1], (-100_i32) as u32);
+
+        let rel_nrpn = el_ump_create_midi2_relative_nrpn(3, 4, 0x05, 0x06, 250);
+        assert_eq!(rel_nrpn.data[0], 0x43540506);
+        assert_eq!(rel_nrpn.data[1], 250_u32);
     }
 
     #[test]

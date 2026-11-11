@@ -139,6 +139,33 @@ mod tests {
     }
 
     #[test]
+    fn test_midi2_rpn_and_nrpn_builders() {
+        let rpn = VoiceBuilder::midi2_rpn(1, 2, 0x12, 0x34, 0x55667788);
+        assert_eq!(rpn.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(rpn.group(), 1);
+        assert_eq!(rpn.data[0], 0x41221234);
+        assert_eq!(rpn.data[1], 0x55667788);
+
+        let nrpn = VoiceBuilder::midi2_nrpn(2, 3, 0x0A, 0x0B, 0x11223344);
+        assert_eq!(nrpn.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(nrpn.group(), 2);
+        assert_eq!(nrpn.data[0], 0x42330A0B);
+        assert_eq!(nrpn.data[1], 0x11223344);
+
+        let rel_rpn = VoiceBuilder::midi2_relative_rpn(0, 1, 0x01, 0x02, -100);
+        assert_eq!(rel_rpn.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(rel_rpn.group(), 0);
+        assert_eq!(rel_rpn.data[0], 0x40410102);
+        assert_eq!(rel_rpn.data[1], (-100_i32) as u32);
+
+        let rel_nrpn = VoiceBuilder::midi2_relative_nrpn(3, 4, 0x05, 0x06, 250);
+        assert_eq!(rel_nrpn.message_type(), MessageType::Midi2ChannelVoice);
+        assert_eq!(rel_nrpn.group(), 3);
+        assert_eq!(rel_nrpn.data[0], 0x43540506);
+        assert_eq!(rel_nrpn.data[1], 250_u32);
+    }
+
+    #[test]
     fn test_input_masking() {
         // Pass out-of-bounds values (e.g., 0xFF where only 7 or 4 bits are expected)
         let ump = VoiceBuilder::midi1_note_on(0xFF, 0xFF, 0xFF, 0xFF);
