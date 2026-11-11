@@ -40,18 +40,22 @@ int main() {
     assert(rpn.data[0] == 0x41221234);
     assert(rpn.data[1] == 0x55667788);
 
-    // MIDI 2.0 NRPN: group 2, channel 3, bank 0x0A, index 0x0B, value 0x11223344
+    // MIDI 2.0 NRPN: group 2, channel 3, bank 0x0A, index 0x0B, value
+    // 0x11223344
     el_ump_t nrpn = el_ump_create_midi2_nrpn(2, 3, 0x0A, 0x0B, 0x11223344);
     assert(nrpn.data[0] == 0x42330A0B);
     assert(nrpn.data[1] == 0x11223344);
 
-    // MIDI 2.0 Relative RPN: group 0, channel 1, bank 0x01, index 0x02, value -100
+    // MIDI 2.0 Relative RPN: group 0, channel 1, bank 0x01, index 0x02, value
+    // -100
     el_ump_t rel_rpn = el_ump_create_midi2_relative_rpn(0, 1, 0x01, 0x02, -100);
     assert(rel_rpn.data[0] == 0x40410102);
     assert(rel_rpn.data[1] == static_cast<uint32_t>(-100));
 
-    // MIDI 2.0 Relative NRPN: group 3, channel 4, bank 0x05, index 0x06, value 250
-    el_ump_t rel_nrpn = el_ump_create_midi2_relative_nrpn(3, 4, 0x05, 0x06, 250);
+    // MIDI 2.0 Relative NRPN: group 3, channel 4, bank 0x05, index 0x06, value
+    // 250
+    el_ump_t rel_nrpn =
+        el_ump_create_midi2_relative_nrpn(3, 4, 0x05, 0x06, 250);
     assert(rel_nrpn.data[0] == 0x43540506);
     assert(rel_nrpn.data[1] == 250);
   }
