@@ -327,4 +327,234 @@ mod unit_tests {
         assert_eq!(events[4].ump.message_type(), MessageType::Midi2ChannelVoice);
         assert_eq!(events[4].ump.data[1], 0x8000_0000);
     }
+
+    #[test]
+    fn test_smf0_to_midiclip_and_back_to_smf_roundtrip() {
+        let raw_smf = create_test_smf0(480);
+        let smf_orig = SmfFile::parse(&raw_smf).expect("parse smf0");
+
+        // Step 1: Convert SMF0 -> MIDI Clip
+        let config = ConverterConfig {
+            group: 0,
+            midi2: false,
+        };
+        let clip_bytes = convert_smf_to_midiclip(&smf_orig, &config).expect("convert to clip");
+
+        // Step 2: Convert MIDI Clip -> SMF
+        let smf_roundtrip =
+            crate::converter::convert_midiclip_to_smf(&clip_bytes).expect("convert back to smf");
+        assert_eq!(smf_roundtrip.header.format, 0);
+        assert_eq!(smf_roundtrip.tracks.len(), 1);
+
+        // Step 3: Serialize to binary SMF bytes and parse again to test to_bytes()
+        let smf_bytes = smf_roundtrip.to_bytes();
+        let smf_reparsed = SmfFile::parse(&smf_bytes).expect("reparse roundtrip smf");
+
+        let track = &smf_reparsed.tracks[0];
+        // Expected events:
+        // - MetaTrackName "TestTrack"
+        // - MetaTempo (500000 us)
+        // - NoteOn 60, vel 100
+        // - NoteOn 64, vel 80 (delta 480)
+        // - NoteOff 60, vel 64 (delta 480)
+        // - NoteOff 64, vel 0
+        // - MetaEndOfTrack
+        assert!(track.len() >= 6);
+
+        match &track[0].kind {
+            crate::smf::SmfEventKind::MetaTrackName { text } => {
+                assert_eq!(text, b"TestTrack");
+            }
+            _ => panic!("Expected MetaTrackName"),
+        }
+
+        match &track[1].kind {
+            crate::smf::SmfEventKind::MetaTempo { us_per_quarter } => {
+                assert_eq!(*us_per_quarter, 500_000);
+            }
+            _ => panic!("Expected MetaTempo"),
+        }
+
+        match &track[2].kind {
+            crate::smf::SmfEventKind::NoteOn {
+                channel,
+                note,
+                velocity,
+            } => {
+                assert_eq!(*channel, 0);
+                assert_eq!(*note, 60);
+                assert_eq!(*velocity, 100);
+            }
+            _ => panic!("Expected NoteOn"),
+        }
+
+        match &track[3].kind {
+            crate::smf::SmfEventKind::NoteOn {
+                channel,
+                note,
+                velocity,
+            } => {
+                assert_eq!(track[3].delta_time, 480);
+                assert_eq!(*channel, 0);
+                assert_eq!(*note, 64);
+                assert_eq!(*velocity, 80);
+            }
+            _ => panic!("Expected NoteOn"),
+        }
+
+        match &track[4].kind {
+            crate::smf::SmfEventKind::NoteOff {
+                channel,
+                note,
+                velocity,
+            } => {
+                assert_eq!(track[4].delta_time, 480);
+                assert_eq!(*channel, 0);
+                assert_eq!(*note, 60);
+                assert_eq!(*velocity, 64);
+            }
+            _ => panic!("Expected NoteOff"),
+        }
+
+        match &track[5].kind {
+            crate::smf::SmfEventKind::NoteOff {
+                channel,
+                note,
+                velocity,
+            } => {
+                assert_eq!(*channel, 0);
+                assert_eq!(*note, 64);
+                assert_eq!(*velocity, 0);
+            }
+            _ => panic!("Expected NoteOff"),
+        }
+    }
+
+    #[test]
+    fn test_smf1_to_midiclip_and_back_to_smf_with_midi2_scaling() {
+        let raw_smf = create_test_smf1(480);
+        let smf_orig = SmfFile::parse(&raw_smf).expect("parse smf1");
+
+        // Convert SMF1 -> MIDI Clip with MIDI 2.0 (MT=0x4)
+        let config = ConverterConfig {
+            group: 0,
+            midi2: true,
+        };
+        let clip_bytes = convert_smf_to_midiclip(&smf_orig, &config).expect("convert to clip");
+
+        // Convert MIDI Clip back to SMF (should downscale MT=0x4 to SMF1)
+        let smf_converted =
+            crate::converter::convert_midiclip_to_smf(&clip_bytes).expect("convert back to smf");
+        assert_eq!(smf_converted.header.format, 1);
+        assert_eq!(smf_converted.tracks.len(), 2);
+
+        let smf_bytes = smf_converted.to_bytes();
+        let smf_reparsed = SmfFile::parse(&smf_bytes).expect("reparse smf");
+
+        // Track 0 (Conductor)
+        let trk0 = &smf_reparsed.tracks[0];
+        match &trk0[0].kind {
+            crate::smf::SmfEventKind::MetaTrackName { text } => {
+                assert_eq!(text, b"Conductor");
+            }
+            _ => panic!("Expected Track Name"),
+        }
+        match &trk0[1].kind {
+            crate::smf::SmfEventKind::MetaTempo { us_per_quarter } => {
+                assert_eq!(*us_per_quarter, 1_000_000);
+            }
+            _ => panic!("Expected MetaTempo"),
+        }
+
+        // Track 1 (Notes)
+        let trk1 = &smf_reparsed.tracks[1];
+        match &trk1[0].kind {
+            crate::smf::SmfEventKind::MetaTrackName { text } => {
+                assert_eq!(text, b"Notes");
+            }
+            _ => panic!("Expected Track Name"),
+        }
+        match &trk1[1].kind {
+            crate::smf::SmfEventKind::NoteOn {
+                channel,
+                note,
+                velocity,
+            } => {
+                assert_eq!(trk1[1].delta_time, 240);
+                assert_eq!(*channel, 0);
+                assert_eq!(*note, 72);
+                // Velocity 110 scaled to 16-bit and scaled back down to 7-bit preserves 110
+                assert_eq!(*velocity, 110);
+            }
+            _ => panic!("Expected NoteOn"),
+        }
+        match &trk1[2].kind {
+            crate::smf::SmfEventKind::NoteOff {
+                channel,
+                note,
+                velocity,
+            } => {
+                assert_eq!(trk1[2].delta_time, 240);
+                assert_eq!(*channel, 0);
+                assert_eq!(*note, 72);
+                assert_eq!(*velocity, 0);
+            }
+            _ => panic!("Expected NoteOff"),
+        }
+    }
+
+    #[test]
+    fn test_midiclip_to_smf_controllers_and_pitchbend() {
+        let mut trk_data = Vec::new();
+        push_vlq(&mut trk_data, 10);
+        trk_data.extend_from_slice(&[0xB0, 11, 95]); // Expression CC 11 = 95
+        push_vlq(&mut trk_data, 10);
+        trk_data.extend_from_slice(&[0xE0, 0x00, 0x40]); // Pitch bend center (8192)
+        push_vlq(&mut trk_data, 0);
+        trk_data.extend_from_slice(&[0xFF, 0x2F, 0x00]);
+
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"MThd");
+        bytes.extend_from_slice(&6_u32.to_be_bytes());
+        bytes.extend_from_slice(&0_u16.to_be_bytes());
+        bytes.extend_from_slice(&1_u16.to_be_bytes());
+        bytes.extend_from_slice(&480_u16.to_be_bytes());
+
+        bytes.extend_from_slice(b"MTrk");
+        bytes.extend_from_slice(&(trk_data.len() as u32).to_be_bytes());
+        bytes.extend_from_slice(&trk_data);
+
+        let smf = SmfFile::parse(&bytes).expect("parse smf");
+        let clip_bytes = convert_smf_to_midiclip(
+            &smf,
+            &ConverterConfig {
+                group: 0,
+                midi2: true,
+            },
+        )
+        .expect("convert to clip");
+
+        let smf_back =
+            crate::converter::convert_midiclip_to_smf(&clip_bytes).expect("convert back");
+        let trk = &smf_back.tracks[0];
+        match &trk[0].kind {
+            crate::smf::SmfEventKind::ControlChange {
+                channel,
+                controller,
+                value,
+            } => {
+                assert_eq!(*channel, 0);
+                assert_eq!(*controller, 11);
+                assert_eq!(*value, 95);
+            }
+            _ => panic!("Expected CC"),
+        }
+        match &trk[1].kind {
+            crate::smf::SmfEventKind::PitchBend { channel, value } => {
+                assert_eq!(*channel, 0);
+                assert_eq!(*value, 8192);
+            }
+            _ => panic!("Expected PitchBend"),
+        }
+    }
 }
