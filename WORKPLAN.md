@@ -27,7 +27,7 @@ When working on any task from this workplan, the agent **must** strictly enforce
 
 | Task ID | Item Name | Category | Scope / Target Package | Priority |
 |---|---|---|---|---|
-| **WP-01** | Standard MIDI File 1.0 (SMF1) to MIDI Clip File (`.midiclip`) Converter Tool (`el_clip_conv`) | Tooling / Interop | `el_clip_conv` | ✅ Completed |
+| **WP-01** | Bidirectional Standard MIDI File 1.0 (SMF1) <-> MIDI Clip File (`.midiclip`) Converter Tool (`el_clip_conv`) | Tooling / Interop | `el_clip_conv` | ✅ Completed |
 | **WP-02** | C/C++ FFI C-ABI Bindings (`el_midi2_c`) | Interoperability | `include/el_midi2.h`, `el_midi2_c/` | High ✅ (Completed) |
 | **WP-03** | Streaming Zero-Allocation Deflate / zlib Decoder for Compressed Property Exchange | Protocol Extension | `src/ci_pe_deflate.rs` (`el_midi2`) | ✅ Complete |
 | **WP-04** | Native OS Virtual Endpoint Transports (Linux ALSA & macOS CoreMIDI / Windows MIDI Services) | Platform Transports | `el_bridge/src/native/` | ✅ Complete |
@@ -38,10 +38,10 @@ When working on any task from this workplan, the agent **must** strictly enforce
 
 ## 4. Detailed Implementation Blueprints for Agents
 
-### 📌 Task WP-01: SMF1 (`.mid`) to MIDI Clip File (`.midiclip` / M2-116) Converter Tool (`el_clip_conv`)
+### 📌 Task WP-01: Bidirectional SMF1 (`.mid`) <-> MIDI Clip File (`.midiclip` / M2-116) Converter Tool (`el_clip_conv`)
 
 #### 4.1 Objective
-Build a standalone CLI tool `el_clip_conv` in the Cargo workspace that parses Standard MIDI Files (SMF Format 0 and Format 1, `.mid`) and translates them into MIDI 2.0 MIDI Clip Files (`.midiclip`, M2-116 standard) using `el_midi2::midiclip::MidiClipBuilder` and `el_core::utils::scale_up`.
+Build a standalone CLI tool `el_clip_conv` in the Cargo workspace that bidirectionally converts between Standard MIDI Files (SMF Format 0 and Format 1, `.mid`) and MIDI 2.0 MIDI Clip Files (`.midiclip`, M2-116 standard) using `el_midi2::midiclip::MidiClipBuilder`, `el_core::utils::scale_up`, `el_core::utils::scale_down`, and `FlexDataReceiver`.
 
 #### 4.2 Specification Context & Mapping
 - **SMF1 Input Format**:
@@ -58,12 +58,13 @@ Build a standalone CLI tool `el_clip_conv` in the Cargo workspace that parses St
 #### 4.3 Proposed CLI Arguments (`el_clip_conv`)
 ```bash
 el_clip_conv --input song.mid --output song.midiclip [--midi2] [--group 0]
+el_clip_conv --input song.midiclip --output song.mid [--to-smf]
 ```
 
 #### 4.4 Test Verification
 - Convert a sample SMF1 file into `.midiclip`.
 - Read output back using `MultiTrackSequencer::from_clip_file`.
-- Verify delta-times, tempo maps, and note values match precisely.
+- Convert `.midiclip` back to `.mid` and verify complete event, tempo, and controller round-trip accuracy.
 
 ---
 

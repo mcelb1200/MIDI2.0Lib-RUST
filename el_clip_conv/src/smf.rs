@@ -82,6 +82,121 @@ pub enum SmfParseError {
 }
 
 impl SmfFile {
+    /// Serializes an `SmfFile` into raw SMF1 binary bytes with `MThd` and `MTrk` chunks.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+
+        // Write MThd chunk
+        bytes.extend_from_slice(b"MThd");
+        bytes.extend_from_slice(&6_u32.to_be_bytes());
+        bytes.extend_from_slice(&self.header.format.to_be_bytes());
+        bytes.extend_from_slice(&(self.tracks.len() as u16).to_be_bytes());
+
+        let div_raw = match self.header.division {
+            SmfDivision::TicksPerQuarterNote(ppqn) => ppqn & 0x7FFF,
+            SmfDivision::Smpte { fps, subframes } => {
+                0x8000 | (((fps as u16) & 0x7F) << 8) | (subframes as u16)
+            }
+        };
+        bytes.extend_from_slice(&div_raw.to_be_bytes());
+
+        // Write each MTrk chunk
+        for track in &self.tracks {
+            let mut trk_data = Vec::new();
+            let mut has_eot = false;
+
+            for ev in track {
+                write_vlq_to_vec(&mut trk_data, ev.delta_time);
+                match &ev.kind {
+                    SmfEventKind::NoteOff {
+                        channel,
+                        note,
+                        velocity,
+                    } => {
+                        trk_data.push(0x80 | (channel & 0x0F));
+                        trk_data.push(note & 0x7F);
+                        trk_data.push(velocity & 0x7F);
+                    }
+                    SmfEventKind::NoteOn {
+                        channel,
+                        note,
+                        velocity,
+                    } => {
+                        trk_data.push(0x90 | (channel & 0x0F));
+                        trk_data.push(note & 0x7F);
+                        trk_data.push(velocity & 0x7F);
+                    }
+                    SmfEventKind::PolyPressure {
+                        channel,
+                        note,
+                        pressure,
+                    } => {
+                        trk_data.push(0xA0 | (channel & 0x0F));
+                        trk_data.push(note & 0x7F);
+                        trk_data.push(pressure & 0x7F);
+                    }
+                    SmfEventKind::ControlChange {
+                        channel,
+                        controller,
+                        value,
+                    } => {
+                        trk_data.push(0xB0 | (channel & 0x0F));
+                        trk_data.push(controller & 0x7F);
+                        trk_data.push(value & 0x7F);
+                    }
+                    SmfEventKind::ProgramChange { channel, program } => {
+                        trk_data.push(0xC0 | (channel & 0x0F));
+                        trk_data.push(program & 0x7F);
+                    }
+                    SmfEventKind::ChannelPressure { channel, pressure } => {
+                        trk_data.push(0xD0 | (channel & 0x0F));
+                        trk_data.push(pressure & 0x7F);
+                    }
+                    SmfEventKind::PitchBend { channel, value } => {
+                        trk_data.push(0xE0 | (channel & 0x0F));
+                        trk_data.push((value & 0x7F) as u8);
+                        trk_data.push(((value >> 7) & 0x7F) as u8);
+                    }
+                    SmfEventKind::MetaTempo { us_per_quarter } => {
+                        trk_data.extend_from_slice(&[0xFF, 0x51, 0x03]);
+                        let bytes3 = us_per_quarter.to_be_bytes();
+                        trk_data.extend_from_slice(&bytes3[1..4]);
+                    }
+                    SmfEventKind::MetaTrackName { text } => {
+                        trk_data.extend_from_slice(&[0xFF, 0x03]);
+                        write_vlq_to_vec(&mut trk_data, text.len() as u32);
+                        trk_data.extend_from_slice(text);
+                    }
+                    SmfEventKind::MetaEndOfTrack => {
+                        trk_data.extend_from_slice(&[0xFF, 0x2F, 0x00]);
+                        has_eot = true;
+                    }
+                    SmfEventKind::MetaOther { meta_type, data } => {
+                        trk_data.push(0xFF);
+                        trk_data.push(*meta_type);
+                        write_vlq_to_vec(&mut trk_data, data.len() as u32);
+                        trk_data.extend_from_slice(data);
+                    }
+                    SmfEventKind::SysEx { data } => {
+                        trk_data.push(0xF0);
+                        write_vlq_to_vec(&mut trk_data, data.len() as u32);
+                        trk_data.extend_from_slice(data);
+                    }
+                }
+            }
+
+            if !has_eot {
+                trk_data.extend_from_slice(&[0x00, 0xFF, 0x2F, 0x00]);
+            }
+
+            bytes.extend_from_slice(b"MTrk");
+            bytes.extend_from_slice(&(trk_data.len() as u32).to_be_bytes());
+            bytes.extend_from_slice(&trk_data);
+        }
+
+        bytes
+    }
+
     /// Parses an SMF1 binary file from a byte slice.
     pub fn parse(bytes: &[u8]) -> Result<Self, SmfParseError> {
         // Parse MThd header
@@ -149,6 +264,25 @@ impl SmfFile {
         }
 
         Ok(SmfFile { header, tracks })
+    }
+}
+
+/// Writes a variable-length quantity (VLQ) integer into `vec`.
+pub fn write_vlq_to_vec(vec: &mut Vec<u8>, mut val: u32) {
+    let mut temp = [0_u8; 4];
+    let mut count = 0;
+    temp[count] = (val & 0x7F) as u8;
+    count += 1;
+    val >>= 7;
+
+    while val > 0 && count < 4 {
+        temp[count] = ((val & 0x7F) as u8) | 0x80;
+        count += 1;
+        val >>= 7;
+    }
+
+    for i in (0..count).rev() {
+        vec.push(temp[i]);
     }
 }
 
